@@ -56,23 +56,22 @@ const Dashboard = () => {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  useEffect(() => {
+    if (!isLoading && userRole) {
+      if (userRole === "manager") {
+        navigate("/managers");
+      } else if (userRole === "builder") {
+        navigate("/builders");
+      }
+    }
+  }, [isLoading, userRole, navigate]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
-  }
-
-  if (!userId) return null;
-
-  // Redirect to role-specific routes
-  if (userRole === "manager") {
-    navigate("/managers");
-    return null;
-  } else if (userRole === "builder") {
-    navigate("/builders");
-    return null;
   }
 
   return null;

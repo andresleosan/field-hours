@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Clock, DollarSign } from "lucide-react";
+import { Building2, Clock, DollarSign, Edit } from "lucide-react";
+import EditProjectDialog from "./EditProjectDialog";
 
 interface ProjectListProps {
   onProjectCreated: () => void;
@@ -14,6 +16,8 @@ interface Project {
   client_name: string;
   status: string;
   created_at: string;
+  description: string | null;
+  address: string | null;
   total_hours?: number;
   total_spent?: number;
 }
@@ -21,6 +25,13 @@ interface Project {
 const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const handleEditProject = (project: Project) => {
+    setSelectedProject(project);
+    setIsEditDialogOpen(true);
+  };
 
   useEffect(() => {
     fetchProjects();
@@ -94,40 +105,58 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
   }
 
   return (
-    <ScrollArea className="h-[400px]">
-      <div className="space-y-4">
-        {projects.map((project) => (
-          <div
-            key={project.id}
-            className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="font-semibold text-lg">{project.name}</h3>
-                <p className="text-sm text-muted-foreground">{project.client_name}</p>
+    <>
+      <ScrollArea className="h-[400px]">
+        <div className="space-y-4">
+          {projects.map((project) => (
+            <div
+              key={project.id}
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-semibold text-lg">{project.name}</h3>
+                  <p className="text-sm text-muted-foreground">{project.client_name}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={project.status === "active" ? "default" : "secondary"}>
+                    {project.status}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleEditProject(project)}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-              <Badge variant={project.status === "active" ? "default" : "secondary"}>
-                {project.status}
-              </Badge>
-            </div>
 
-            <div className="flex gap-6 text-sm">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{project.total_hours || 0}h</span>
-                <span className="text-muted-foreground">logged</span>
-              </div>
+              <div className="flex gap-6 text-sm">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">{project.total_hours || 0}h</span>
+                  <span className="text-muted-foreground">logged</span>
+                </div>
 
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">${project.total_spent?.toFixed(2) || "0.00"}</span>
-                <span className="text-muted-foreground">spent</span>
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">${project.total_spent?.toFixed(2) || "0.00"}</span>
+                  <span className="text-muted-foreground">spent</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
-    </ScrollArea>
+          ))}
+        </div>
+      </ScrollArea>
+
+      <EditProjectDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onProjectUpdated={fetchProjects}
+        project={selectedProject}
+      />
+    </>
   );
 };
 
