@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      invoice_extraction_training: {
+        Row: {
+          created_at: string
+          created_by: string
+          field_name: string
+          field_path: string
+          id: string
+          supplier_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          field_name: string
+          field_path: string
+          id?: string
+          supplier_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          field_name?: string
+          field_path?: string
+          id?: string
+          supplier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_extraction_training_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_items: {
         Row: {
           created_at: string
@@ -63,30 +98,42 @@ export type Database = {
         Row: {
           created_at: string
           date: string
+          extracted_data: Json | null
           id: string
+          image_url: string | null
           invoice_number: string
+          needs_review: boolean | null
           notes: string | null
           project_id: string
+          supplier_id: string | null
           total_amount: number
           uploaded_by: string
         }
         Insert: {
           created_at?: string
           date: string
+          extracted_data?: Json | null
           id?: string
+          image_url?: string | null
           invoice_number: string
+          needs_review?: boolean | null
           notes?: string | null
           project_id: string
+          supplier_id?: string | null
           total_amount: number
           uploaded_by: string
         }
         Update: {
           created_at?: string
           date?: string
+          extracted_data?: Json | null
           id?: string
+          image_url?: string | null
           invoice_number?: string
+          needs_review?: boolean | null
           notes?: string | null
           project_id?: string
+          supplier_id?: string | null
           total_amount?: number
           uploaded_by?: string
         }
@@ -96,6 +143,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
             referencedColumns: ["id"]
           },
         ]
@@ -150,6 +204,7 @@ export type Database = {
       }
       materials: {
         Row: {
+          category: string | null
           cost_per_unit: number
           created_at: string
           id: string
@@ -157,6 +212,7 @@ export type Database = {
           unit: string
         }
         Insert: {
+          category?: string | null
           cost_per_unit?: number
           created_at?: string
           id?: string
@@ -164,6 +220,7 @@ export type Database = {
           unit: string
         }
         Update: {
+          category?: string | null
           cost_per_unit?: number
           created_at?: string
           id?: string
@@ -274,6 +331,27 @@ export type Database = {
           name?: string
           status?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      suppliers: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }

@@ -29,12 +29,35 @@ const ManagerDashboard = ({ userId }: ManagerDashboardProps) => {
     totalMaterials: 0,
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<{ full_name: string; role: string } | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchDashboardStats();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    const { data: profileData } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .single();
+
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", userId)
+      .single();
+
+    if (profileData && roleData) {
+      setUserProfile({
+        full_name: profileData.full_name,
+        role: roleData.role,
+      });
+    }
+  };
 
   const fetchDashboardStats = async () => {
     try {

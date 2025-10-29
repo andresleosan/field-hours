@@ -14,12 +14,14 @@ interface MaterialUsageDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   userId: string;
+  onMaterialsUpdated?: () => void;
 }
 
 interface Material {
   id: string;
   name: string;
   unit: string;
+  category: string | null;
 }
 
 const MaterialUsageDialog = ({ open, onOpenChange, projectId, userId }: MaterialUsageDialogProps) => {
