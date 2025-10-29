@@ -66,11 +66,16 @@ const Dashboard = () => {
 
   if (!userId) return null;
 
-  return userRole === "manager" ? (
-    <ManagerDashboard userId={userId} />
-  ) : (
-    <BuilderDashboard userId={userId} />
-  );
+  // Redirect to role-specific routes
+  if (userRole === "manager") {
+    navigate("/managers");
+    return null;
+  } else if (userRole === "builder") {
+    navigate("/builders");
+    return null;
+  }
+
+  return null;
 };
 
 export default Dashboard;
