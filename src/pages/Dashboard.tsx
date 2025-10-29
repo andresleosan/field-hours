@@ -27,10 +27,16 @@ const Dashboard = () => {
         .from("user_roles")
         .select("role")
         .eq("user_id", session.user.id)
-        .single();
+        .maybeSingle();
 
-      if (error || !roleData) {
+      if (error) {
         console.error("Error fetching role:", error);
+        navigate("/auth");
+        return;
+      }
+
+      if (!roleData) {
+        console.error("No role found for user");
         navigate("/auth");
         return;
       }
