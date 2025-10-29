@@ -223,20 +223,21 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh]">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Material Management</DialogTitle>
           <DialogDescription>Log material usage, create new materials, or review logs</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
             <TabsTrigger value="log">Log Material</TabsTrigger>
             <TabsTrigger value="create">Create New</TabsTrigger>
             <TabsTrigger value="view">View Logs</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="log" className="space-y-4">
+          <ScrollArea className="flex-1 pr-4">
+            <TabsContent value="log" className="space-y-4 mt-4">
             <form onSubmit={handleLogMaterial} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="search">Search Material</Label>
@@ -310,7 +311,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
             </form>
           </TabsContent>
 
-          <TabsContent value="create" className="space-y-4">
+          <TabsContent value="create" className="space-y-4 mt-4">
             <form onSubmit={handleCreateMaterial} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="material_name">Material Name *</Label>
@@ -375,8 +376,8 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
             </form>
           </TabsContent>
 
-          <TabsContent value="view" className="space-y-4">
-            <ScrollArea className="h-[400px]">
+          <TabsContent value="view" className="space-y-4 mt-4">
+            <div className="max-h-[400px] overflow-y-auto">
               {materialLogs.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <Eye className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -413,8 +414,9 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
                   ))}
                 </div>
               )}
-            </ScrollArea>
+            </div>
           </TabsContent>
+          </ScrollArea>
         </Tabs>
       </DialogContent>
     </Dialog>

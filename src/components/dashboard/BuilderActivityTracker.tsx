@@ -64,11 +64,16 @@ const BuilderActivityTracker = () => {
   const fetchAllActivity = async () => {
     setIsLoading(true);
     
-    // Calculate date 10 days ago
+    // Calculate date 30 days ago for data filtering
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoISO = thirtyDaysAgo.toISOString();
+    
+    // Calculate date 10 days ago for hours calculation
     const tenDaysAgo = new Date();
     tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
     
-    // Fetch time entries
+    // Fetch time entries from last 30 days
     const { data: timeData } = await supabase
       .from("time_tracking")
       .select(`
@@ -76,8 +81,8 @@ const BuilderActivityTracker = () => {
         projects (name),
         profiles (full_name)
       `)
-      .order("clock_in", { ascending: false })
-      .limit(50);
+      .gte("clock_in", thirtyDaysAgoISO)
+      .order("clock_in", { ascending: false });
 
     if (timeData) {
       setTimeEntries(timeData as any);
@@ -98,7 +103,7 @@ const BuilderActivityTracker = () => {
       setTotalHoursLast10Days(totalHours);
     }
 
-    // Fetch material logs
+    // Fetch material logs from last 30 days
     const { data: materialData } = await supabase
       .from("material_usage")
       .select(`
@@ -107,12 +112,12 @@ const BuilderActivityTracker = () => {
         projects (name),
         profiles (full_name)
       `)
-      .order("date", { ascending: false })
-      .limit(50);
+      .gte("date", thirtyDaysAgo.toISOString().split('T')[0])
+      .order("date", { ascending: false });
 
     if (materialData) setMaterialLogs(materialData as any);
 
-    // Fetch invoices with all details
+    // Fetch invoices from last 30 days with all details
     const { data: invoiceData } = await supabase
       .from("invoices")
       .select(`
@@ -121,8 +126,8 @@ const BuilderActivityTracker = () => {
         profiles (full_name),
         suppliers (name)
       `)
-      .order("date", { ascending: false })
-      .limit(50);
+      .gte("date", thirtyDaysAgo.toISOString().split('T')[0])
+      .order("date", { ascending: false});
 
     if (invoiceData) setInvoices(invoiceData as any);
 
