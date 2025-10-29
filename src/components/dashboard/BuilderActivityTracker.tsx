@@ -4,8 +4,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Clock, Package, FileText, MapPin } from "lucide-react";
+import { Clock, Package, FileText, MapPin, Download, Calendar } from "lucide-react";
+import { toast } from "sonner";
 
 interface Builder {
   id: string;
@@ -18,6 +20,8 @@ interface TimeEntry {
   clock_in: string;
   clock_out: string | null;
   project_id: string;
+  location_lat: number | null;
+  location_lng: number | null;
   projects: { name: string };
   profiles: Builder;
 }
@@ -39,8 +43,11 @@ interface Invoice {
   total_amount: number;
   date: string;
   needs_review: boolean;
+  image_url: string | null;
+  extracted_data: any;
   projects: { name: string };
   profiles: Builder;
+  suppliers: { name: string } | null;
 }
 
 const BuilderActivityTracker = () => {
@@ -48,6 +55,7 @@ const BuilderActivityTracker = () => {
   const [materialLogs, setMaterialLogs] = useState<MaterialLog[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalHoursLast10Days, setTotalHoursLast10Days] = useState(0);
 
   useEffect(() => {
     fetchAllActivity();
@@ -55,6 +63,10 @@ const BuilderActivityTracker = () => {
 
   const fetchAllActivity = async () => {
     setIsLoading(true);
+    
+    // Calculate date 10 days ago
+    const tenDaysAgo = new Date();
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
     
     // Fetch time entries
     const { data: timeData } = await supabase
@@ -67,7 +79,24 @@ const BuilderActivityTracker = () => {
       .order("clock_in", { ascending: false })
       .limit(50);
 
-    if (timeData) setTimeEntries(timeData as any);
+    if (timeData) {
+      setTimeEntries(timeData as any);
+      
+      // Calculate total hours for last 10 days
+      const recentEntries = timeData.filter(entry => 
+        new Date(entry.clock_in) >= tenDaysAgo && entry.clock_out
+      );
+      
+      const totalHours = recentEntries.reduce((sum, entry) => {
+        if (entry.clock_out) {
+          const diff = new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime();
+          return sum + (diff / 3600000); // Convert to hours
+        }
+        return sum;
+      }, 0);
+      
+      setTotalHoursLast10Days(totalHours);
+    }
 
     // Fetch material logs
     const { data: materialData } = await supabase
@@ -83,13 +112,14 @@ const BuilderActivityTracker = () => {
 
     if (materialData) setMaterialLogs(materialData as any);
 
-    // Fetch invoices
+    // Fetch invoices with all details
     const { data: invoiceData } = await supabase
       .from("invoices")
       .select(`
         *,
         projects (name),
-        profiles (full_name)
+        profiles (full_name),
+        suppliers (name)
       `)
       .order("date", { ascending: false })
       .limit(50);
@@ -97,6 +127,82 @@ const BuilderActivityTracker = () => {
     if (invoiceData) setInvoices(invoiceData as any);
 
     setIsLoading(false);
+  };
+
+  const generateStatement = async (type: 'daily' | 'weekly') => {
+    const now = new Date();
+    const startDate = new Date();
+    
+    if (type === 'daily') {
+      startDate.setHours(0, 0, 0, 0);
+    } else {
+      startDate.setDate(now.getDate() - 7);
+    }
+
+    try {
+      // Fetch data for the period
+      const { data: timeData } = await supabase
+        .from("time_tracking")
+        .select(`*, projects (name), profiles (full_name)`)
+        .gte("clock_in", startDate.toISOString())
+        .order("clock_in", { ascending: false });
+
+      const { data: materialData } = await supabase
+        .from("material_usage")
+        .select(`*, materials (name, unit), projects (name), profiles (full_name)`)
+        .gte("date", startDate.toISOString().split('T')[0])
+        .order("date", { ascending: false });
+
+      const { data: invoiceData } = await supabase
+        .from("invoices")
+        .select(`*, projects (name), profiles (full_name), suppliers (name)`)
+        .gte("date", startDate.toISOString().split('T')[0])
+        .order("date", { ascending: false });
+
+      // Calculate totals
+      const totalHours = timeData?.reduce((sum, entry) => {
+        if (entry.clock_out) {
+          const diff = new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime();
+          return sum + (diff / 3600000);
+        }
+        return sum;
+      }, 0) || 0;
+
+      const totalInvoiceAmount = invoiceData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
+
+      // Generate report text
+      const reportLines = [
+        `${type.toUpperCase()} STATEMENT - ${now.toLocaleDateString()}`,
+        `Period: ${startDate.toLocaleDateString()} - ${now.toLocaleDateString()}`,
+        '',
+        '=== TIME TRACKING ===',
+        `Total Hours: ${totalHours.toFixed(2)}h`,
+        `Number of Entries: ${timeData?.length || 0}`,
+        '',
+        '=== MATERIALS ===',
+        `Total Material Logs: ${materialData?.length || 0}`,
+        ...(materialData?.map(m => `  - ${m.materials.name}: ${m.quantity_used} ${m.materials.unit} (${m.projects.name})`) || []),
+        '',
+        '=== INVOICES ===',
+        `Total Invoice Amount: $${totalInvoiceAmount.toFixed(2)}`,
+        `Number of Invoices: ${invoiceData?.length || 0}`,
+        ...(invoiceData?.map(i => `  - Invoice #${i.invoice_number}: $${i.total_amount} (${i.projects.name})`) || []),
+      ];
+
+      // Download as text file
+      const blob = new Blob([reportLines.join('\n')], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${type}-statement-${now.toISOString().split('T')[0]}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} statement downloaded successfully`);
+    } catch (error) {
+      console.error('Error generating statement:', error);
+      toast.error('Failed to generate statement');
+    }
   };
 
   const calculateDuration = (clockIn: string, clockOut: string | null) => {
@@ -120,8 +226,26 @@ const BuilderActivityTracker = () => {
   return (
     <Card className="col-span-full">
       <CardHeader>
-        <CardTitle>Builder Activity Tracker</CardTitle>
-        <CardDescription>Real-time view of all builder activities across projects</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Builder Activity Tracker</CardTitle>
+            <CardDescription>Real-time view of all builder activities across projects</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={() => generateStatement('daily')} variant="outline" size="sm">
+              <Calendar className="h-4 w-4 mr-2" />
+              Daily Statement
+            </Button>
+            <Button onClick={() => generateStatement('weekly')} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Weekly Statement
+            </Button>
+          </div>
+        </div>
+        <div className="mt-4 p-4 bg-muted rounded-lg">
+          <div className="text-sm font-medium">Total Hours (Last 10 Days)</div>
+          <div className="text-2xl font-bold">{totalHoursLast10Days.toFixed(2)}h</div>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="time" className="w-full">
@@ -161,6 +285,11 @@ const BuilderActivityTracker = () => {
                               <MapPin className="h-3 w-3" />
                               {entry.projects.name}
                             </div>
+                            {entry.location_lat && entry.location_lng && (
+                              <div className="mt-1 text-xs">
+                                📍 Location: {entry.location_lat.toFixed(6)}, {entry.location_lng.toFixed(6)}
+                              </div>
+                            )}
                             <div className="mt-1">
                               {new Date(entry.clock_in).toLocaleString()} →{" "}
                               {entry.clock_out ? new Date(entry.clock_out).toLocaleString() : "In Progress"}
@@ -227,9 +356,17 @@ const BuilderActivityTracker = () => {
                   {invoices.map((invoice) => (
                     <Card key={invoice.id} className="p-4">
                       <div className="flex items-start gap-3">
-                        <Avatar>
-                          <AvatarFallback>{getInitials(invoice.profiles.full_name)}</AvatarFallback>
-                        </Avatar>
+                        {invoice.image_url ? (
+                          <img 
+                            src={invoice.image_url} 
+                            alt="Invoice" 
+                            className="w-16 h-16 object-cover rounded"
+                          />
+                        ) : (
+                          <Avatar>
+                            <AvatarFallback>{getInitials(invoice.profiles.full_name)}</AvatarFallback>
+                          </Avatar>
+                        )}
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <div className="font-medium">{invoice.profiles.full_name}</div>
@@ -242,6 +379,11 @@ const BuilderActivityTracker = () => {
                               <MapPin className="h-3 w-3" />
                               {invoice.projects.name}
                             </div>
+                            {invoice.suppliers && (
+                              <div className="mt-1">
+                                <span className="font-medium">Supplier:</span> {invoice.suppliers.name}
+                              </div>
+                            )}
                             <div className="mt-1">
                               <span className="font-medium">Invoice #:</span> {invoice.invoice_number}
                             </div>
@@ -249,6 +391,12 @@ const BuilderActivityTracker = () => {
                               <span className="font-medium">Amount:</span> ${invoice.total_amount.toFixed(2)}
                             </div>
                             <div className="mt-1">{new Date(invoice.date).toLocaleDateString()}</div>
+                            {invoice.extracted_data && (
+                              <div className="mt-2 text-xs bg-secondary/50 p-2 rounded">
+                                <div className="font-medium">Extracted Data:</div>
+                                <pre className="mt-1 whitespace-pre-wrap">{JSON.stringify(invoice.extracted_data, null, 2)}</pre>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
