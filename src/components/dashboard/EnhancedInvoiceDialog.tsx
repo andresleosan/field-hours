@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, Sparkles } from "lucide-react";
+import { z } from "zod";
 import { Card } from "@/components/ui/card";
 
 interface EnhancedInvoiceDialogProps {
@@ -137,13 +138,29 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.invoice_number || !formData.total_amount) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
-      return;
+    // Validate input with Zod schema
+    const invoiceSchema = z.object({
+      invoice_number: z.string().trim().min(1, "Invoice number is required").max(50, "Invoice number too long"),
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+      total_amount: z.string().refine((val) => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num >= 0 && num <= 9999999.99;
+      }, "Total amount must be a valid positive number"),
+      notes: z.string().max(1000, "Notes too long").optional(),
+      supplier_id: z.string().uuid().optional().or(z.literal("")),
+    });
+
+    try {
+      const validated = invoiceSchema.parse(formData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -158,11 +175,14 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
+        // Use signed URL instead of public URL for secure access
+        const { data: signedUrlData, error: urlError } = await supabase.storage
           .from("invoices")
-          .getPublicUrl(fileName);
+          .createSignedUrl(fileName, 31536000); // 1 year expiry
+
+        if (urlError) throw urlError;
         
-        imageUrl = publicUrl;
+        imageUrl = signedUrlData.signedUrl;
       }
 
       const { error } = await supabase.from("invoices").insert({

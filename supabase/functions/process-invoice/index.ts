@@ -15,10 +15,52 @@ serve(async (req) => {
     const { imageUrl, supplierId } = await req.json();
     const authHeader = req.headers.get("Authorization");
     
+    // Verify user authentication
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - missing auth token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Create client with user JWT for validation
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify user
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check user role (both managers and builders can process invoices)
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    const { data: roleData, error: roleError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id)
+      .single();
+
+    if (roleError || !roleData || !["manager", "builder"].includes(roleData.role)) {
+      console.error("Role check failed:", roleError);
+      return new Response(
+        JSON.stringify({ error: "Forbidden - insufficient permissions" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Invoice processing requested by user ${user.id} with role ${roleData.role}`);
 
     // Get training data for supplier if provided
     let trainingData = null;

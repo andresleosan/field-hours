@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { z } from "zod";
 
 interface MaterialUsageDialogProps {
   open: boolean;
@@ -57,13 +58,27 @@ const MaterialUsageDialog = ({ open, onOpenChange, projectId, userId }: Material
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.material_id || !formData.quantity_used) {
-      toast({
-        title: "Missing information",
-        description: "Please select a material and enter quantity",
-        variant: "destructive",
-      });
-      return;
+    // Validate usage input
+    const usageSchema = z.object({
+      material_id: z.string().uuid("Please select a material"),
+      quantity_used: z.string().refine((val) => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num > 0 && num <= 999999;
+      }, "Quantity must be a positive number"),
+      notes: z.string().max(500, "Notes too long").optional().or(z.literal("")),
+    });
+
+    try {
+      usageSchema.parse(formData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);

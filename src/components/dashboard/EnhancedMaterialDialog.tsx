@@ -10,6 +10,7 @@ import { Loader2, Plus, Search, Trash2, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { z } from "zod";
 
 interface EnhancedMaterialDialogProps {
   open: boolean;
@@ -108,13 +109,27 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
   const handleLogMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!logFormData.material_id || !logFormData.quantity_used) {
-      toast({
-        title: "Missing information",
-        description: "Please select a material and enter quantity",
-        variant: "destructive",
-      });
-      return;
+    // Validate usage input
+    const usageSchema = z.object({
+      material_id: z.string().uuid("Please select a material"),
+      quantity_used: z.string().refine((val) => {
+        const num = parseFloat(val);
+        return !isNaN(num) && num > 0 && num <= 999999;
+      }, "Quantity must be a positive number"),
+      notes: z.string().max(500, "Notes too long").optional().or(z.literal("")),
+    });
+
+    try {
+      usageSchema.parse(logFormData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -156,13 +171,29 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
   const handleCreateMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!createFormData.name || !createFormData.unit) {
-      toast({
-        title: "Missing information",
-        description: "Please fill in material name and unit",
-        variant: "destructive",
-      });
-      return;
+    // Validate material creation input
+    const materialSchema = z.object({
+      name: z.string().trim().min(1, "Name is required").max(100, "Name too long"),
+      category: z.string().trim().max(50, "Category too long").optional().or(z.literal("")),
+      unit: z.string().trim().min(1, "Unit is required").max(20, "Unit too long"),
+      cost_per_unit: z.string().refine((val) => {
+        if (!val) return true; // Optional field
+        const num = parseFloat(val);
+        return !isNaN(num) && num >= 0 && num <= 999999.99;
+      }, "Cost must be a valid positive number"),
+    });
+
+    try {
+      materialSchema.parse(createFormData);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Validation Error",
+          description: error.errors[0].message,
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
