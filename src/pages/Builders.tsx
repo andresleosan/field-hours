@@ -4,11 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, MapPin, Package, FileText, Loader2 } from "lucide-react";
+import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TimeTrackingCard from "@/components/dashboard/TimeTrackingCard";
 import EnhancedMaterialDialog from "@/components/dashboard/EnhancedMaterialDialog";
 import EnhancedInvoiceDialog from "@/components/dashboard/EnhancedInvoiceDialog";
+import DailyReportDialog from "@/components/dashboard/DailyReportDialog";
+import ChangeProjectDialog from "@/components/dashboard/ChangeProjectDialog";
 
 interface Project {
   id: string;
@@ -26,6 +28,8 @@ const Builders = () => {
   const [currentTimeEntry, setCurrentTimeEntry] = useState<any>(null);
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isDailyReportDialogOpen, setIsDailyReportDialogOpen] = useState(false);
+  const [isChangeProjectDialogOpen, setIsChangeProjectDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -205,6 +209,13 @@ const Builders = () => {
     setSelectedProjectId(newProjectId);
   };
 
+  const handleProjectChanged = async () => {
+    // Refresh the clock-in status after project change
+    if (userId) {
+      await checkClockInStatus(userId);
+    }
+  };
+
   const handleSignOut = async () => {
     if (isClockedIn) {
       toast({
@@ -315,6 +326,31 @@ const Builders = () => {
               <CardDescription>Upload a new invoice</CardDescription>
             </CardHeader>
           </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsDailyReportDialogOpen(true)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileImage className="h-5 w-5 text-accent" />
+                Add Day Report
+              </CardTitle>
+              <CardDescription>Submit photos and work description</CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card 
+            className={`transition-shadow ${isClockedIn ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-50'}`}
+            onClick={() => isClockedIn && setIsChangeProjectDialogOpen(true)}
+          >
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Repeat className="h-5 w-5 text-primary" />
+                Change Project
+              </CardTitle>
+              <CardDescription>
+                {isClockedIn ? "Switch to another project" : "Clock in first"}
+              </CardDescription>
+            </CardHeader>
+          </Card>
         </div>
       </main>
 
@@ -333,6 +369,23 @@ const Builders = () => {
             onOpenChange={setIsInvoiceDialogOpen}
             projectId={selectedProjectId}
             userId={userId}
+          />
+
+          <DailyReportDialog
+            open={isDailyReportDialogOpen}
+            onOpenChange={setIsDailyReportDialogOpen}
+            projectId={selectedProjectId}
+            userId={userId}
+          />
+
+          <ChangeProjectDialog
+            open={isChangeProjectDialogOpen}
+            onOpenChange={setIsChangeProjectDialogOpen}
+            currentProjectId={selectedProjectId}
+            projects={projects}
+            userId={userId}
+            currentTimeEntry={currentTimeEntry}
+            onProjectChanged={handleProjectChanged}
           />
         </>
       )}

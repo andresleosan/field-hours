@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_report_photos: {
+        Row: {
+          created_at: string
+          id: string
+          photo_url: string
+          report_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photo_url: string
+          report_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photo_url?: string
+          report_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_report_photos_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "daily_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_reports: {
+        Row: {
+          created_at: string
+          date: string
+          description: string
+          id: string
+          project_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          description: string
+          id?: string
+          project_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          description?: string
+          id?: string
+          project_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       invoice_extraction_training: {
         Row: {
           created_at: string
