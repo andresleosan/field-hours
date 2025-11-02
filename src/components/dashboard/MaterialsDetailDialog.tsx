@@ -40,6 +40,10 @@ const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProp
   const fetchMaterialUsage = async () => {
     setIsLoading(true);
     try {
+      // Get material usage from last 60 days
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      
       const { data, error } = await supabase
         .from("material_usage")
         .select(`
@@ -47,6 +51,7 @@ const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProp
           materials(name, unit, category),
           projects(name)
         `)
+        .gte("date", sixtyDaysAgo.toISOString().split('T')[0])
         .order("date", { ascending: false });
 
       if (error) {

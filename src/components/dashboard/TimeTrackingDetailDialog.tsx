@@ -46,6 +46,10 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
   const fetchTimeData = async () => {
     setIsLoading(true);
     try {
+      // Get data from last 30 days
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
       const { data, error } = await supabase
         .from("time_tracking")
         .select(`
@@ -53,6 +57,7 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
           projects(name)
         `)
         .not("clock_out", "is", null)
+        .gte("clock_in", thirtyDaysAgo.toISOString())
         .order("clock_in", { ascending: false });
 
       if (error) {
@@ -76,49 +81,43 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
       const profilesMap = new Map(profilesData?.map(p => [p.id, p.full_name]) || []);
 
-      // Get the current week (Thursday to Wednesday)
-      const now = new Date();
-      const currentDay = now.getDay();
-      // Calculate days until last Thursday (0 = Sunday, 4 = Thursday)
-      const daysToThursday = (currentDay + 3) % 7;
-      const lastThursday = new Date(now);
-      lastThursday.setDate(now.getDate() - daysToThursday);
-      lastThursday.setHours(0, 0, 0, 0);
+      // Group entries by date
+      const dateGroups = new Map<string, TimeEntry[]>();
+      
+      data.forEach(entry => {
+        const entryWithProfile = {
+          ...entry,
+          profiles: { full_name: profilesMap.get(entry.user_id) || "Unknown" }
+        };
+        const dateKey = new Date(entry.clock_in).toLocaleDateString();
+        if (!dateGroups.has(dateKey)) {
+          dateGroups.set(dateKey, []);
+        }
+        dateGroups.get(dateKey)!.push(entryWithProfile);
+      });
 
-      const weekDays = ['Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday'];
-      const weekDataArray: DayData[] = [];
+      // Convert to array and calculate totals
+      const weekDataArray: DayData[] = Array.from(dateGroups.entries())
+        .map(([dateStr, entries]) => {
+          const date = new Date(entries[0].clock_in);
+          const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+          
+          const totalHours = entries.reduce((sum, entry) => {
+            if (entry.clock_out) {
+              const hours = (new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime()) / (1000 * 60 * 60);
+              return sum + hours;
+            }
+            return sum;
+          }, 0);
 
-      for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(lastThursday);
-        dayDate.setDate(lastThursday.getDate() + i);
-        const dayEnd = new Date(dayDate);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        const dayEntries = data
-          .filter(entry => {
-            const entryDate = new Date(entry.clock_in);
-            return entryDate >= dayDate && entryDate <= dayEnd;
-          })
-          .map(entry => ({
-            ...entry,
-            profiles: { full_name: profilesMap.get(entry.user_id) || "Unknown" }
-          }));
-
-        const totalHours = dayEntries.reduce((sum, entry) => {
-          if (entry.clock_out) {
-            const hours = (new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime()) / (1000 * 60 * 60);
-            return sum + hours;
-          }
-          return sum;
-        }, 0);
-
-        weekDataArray.push({
-          day: weekDays[i],
-          date: dayDate.toLocaleDateString(),
-          totalHours,
-          entries: dayEntries,
-        });
-      }
+          return {
+            day: `${dayName} ${dateStr}`,
+            date: dateStr,
+            totalHours,
+            entries,
+          };
+        })
+        .sort((a, b) => new Date(b.entries[0].clock_in).getTime() - new Date(a.entries[0].clock_in).getTime());
 
       setWeekData(weekDataArray);
       if (weekDataArray.length > 0) {

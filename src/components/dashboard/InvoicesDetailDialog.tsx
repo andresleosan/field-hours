@@ -46,6 +46,10 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
   const fetchInvoices = async () => {
     setIsLoading(true);
     try {
+      // Get invoices from last 60 days
+      const sixtyDaysAgo = new Date();
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      
       const { data, error } = await supabase
         .from("invoices")
         .select(`
@@ -53,6 +57,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
           projects(name),
           suppliers(name)
         `)
+        .gte("date", sixtyDaysAgo.toISOString().split('T')[0])
         .order("date", { ascending: false });
 
       if (error) {
