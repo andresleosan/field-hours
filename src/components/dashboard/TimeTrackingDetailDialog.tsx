@@ -45,15 +45,28 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
   const fetchTimeData = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("time_tracking")
-      .select(`
-        *,
-        projects(name)
-      `)
-      .order("clock_in", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("time_tracking")
+        .select(`
+          *,
+          projects(name)
+        `)
+        .not("clock_out", "is", null)
+        .order("clock_in", { ascending: false });
 
-    if (!error && data) {
+      if (error) {
+        console.error("Error fetching time data:", error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setWeekData([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Fetch all unique user profiles
       const userIds = [...new Set(data.map(entry => entry.user_id))];
       const { data: profilesData } = await supabase
@@ -111,6 +124,8 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
       if (weekDataArray.length > 0) {
         setSelectedDay(weekDataArray[0].day);
       }
+    } catch (err) {
+      console.error("Error in fetchTimeData:", err);
     }
     setIsLoading(false);
   };

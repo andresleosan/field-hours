@@ -45,16 +45,28 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
 
   const fetchInvoices = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("invoices")
-      .select(`
-        *,
-        projects(name),
-        suppliers(name)
-      `)
-      .order("date", { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          projects(name),
+          suppliers(name)
+        `)
+        .order("date", { ascending: false });
 
-    if (!error && data) {
+      if (error) {
+        console.error("Error fetching invoices:", error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setProjectsData([]);
+        setIsLoading(false);
+        return;
+      }
+
       // Fetch all unique uploader profiles
       const uploaderIds = [...new Set(data.map(inv => inv.uploaded_by))];
       const { data: profilesData } = await supabase
@@ -66,7 +78,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
 
       // Group by project
       const grouped = data.reduce((acc, invoice) => {
-        const projectName = invoice.projects.name;
+        const projectName = invoice.projects?.name || "Unknown Project";
         if (!acc[projectName]) {
           acc[projectName] = {
             projectName,
@@ -78,11 +90,13 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
           ...invoice,
           profiles: { full_name: profilesMap.get(invoice.uploaded_by) || "Unknown" }
         });
-        acc[projectName].totalAmount += Number(invoice.total_amount);
+        acc[projectName].totalAmount += Number(invoice.total_amount || 0);
         return acc;
       }, {} as Record<string, ProjectInvoiceData>);
 
       setProjectsData(Object.values(grouped));
+    } catch (err) {
+      console.error("Error in fetchInvoices:", err);
     }
     setIsLoading(false);
   };

@@ -1,22 +1,25 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface Material {
+interface MaterialUsage {
   id: string;
-  name: string;
-  unit: string;
-  category: string | null;
-  cost_per_unit: number;
-  created_at: string;
+  date: string;
+  quantity_used: number;
+  notes: string | null;
+  materials: { name: string; unit: string; category: string | null };
+  profiles: { full_name: string };
+  projects: { name: string };
+}
+
+interface ProjectMaterialData {
+  projectName: string;
+  usageLogs: MaterialUsage[];
+  totalItems: number;
 }
 
 interface MaterialsDetailDialogProps {
@@ -25,93 +28,78 @@ interface MaterialsDetailDialogProps {
 }
 
 const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProps) => {
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const [projectsData, setProjectsData] = useState<ProjectMaterialData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", unit: "", category: "", cost_per_unit: "" });
-  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
-      fetchMaterials();
+      fetchMaterialUsage();
     }
   }, [open]);
 
-  const fetchMaterials = async () => {
+  const fetchMaterialUsage = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
-      .from("materials")
-      .select("*")
-      .order("name");
+    try {
+      const { data, error } = await supabase
+        .from("material_usage")
+        .select(`
+          *,
+          materials(name, unit, category),
+          projects(name)
+        `)
+        .order("date", { ascending: false });
 
-    if (!error && data) {
-      setMaterials(data);
+      if (error) {
+        console.error("Error fetching material usage:", error);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        setProjectsData([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch all unique user profiles
+      const userIds = [...new Set(data.map(usage => usage.used_by))];
+      const { data: profilesData } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+
+      const profilesMap = new Map(profilesData?.map(p => [p.id, p.full_name]) || []);
+
+      // Group by project
+      const grouped = data.reduce((acc, usage) => {
+        const projectName = usage.projects?.name || "Unknown Project";
+        if (!acc[projectName]) {
+          acc[projectName] = {
+            projectName,
+            usageLogs: [],
+            totalItems: 0,
+          };
+        }
+        acc[projectName].usageLogs.push({
+          ...usage,
+          profiles: { full_name: profilesMap.get(usage.used_by) || "Unknown" }
+        } as MaterialUsage);
+        acc[projectName].totalItems += 1;
+        return acc;
+      }, {} as Record<string, ProjectMaterialData>);
+
+      setProjectsData(Object.values(grouped));
+    } catch (err) {
+      console.error("Error in fetchMaterialUsage:", err);
     }
     setIsLoading(false);
   };
 
-  const handleEdit = (material: Material) => {
-    setEditingId(material.id);
-    setEditForm({
-      name: material.name,
-      unit: material.unit,
-      category: material.category || "",
-      cost_per_unit: material.cost_per_unit.toString(),
-    });
-  };
-
-  const handleSave = async (id: string) => {
-    const { error } = await supabase
-      .from("materials")
-      .update({
-        name: editForm.name,
-        unit: editForm.unit,
-        category: editForm.category,
-        cost_per_unit: parseFloat(editForm.cost_per_unit),
-      })
-      .eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update material",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Updated",
-        description: "Material updated successfully",
-      });
-      setEditingId(null);
-      fetchMaterials();
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this material?")) return;
-
-    const { error } = await supabase.from("materials").delete().eq("id", id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete material",
-        variant: "destructive",
-      });
-    } else {
-      toast({
-        title: "Deleted",
-        description: "Material deleted successfully",
-      });
-      fetchMaterials();
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh]">
+      <DialogContent className="max-w-7xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle>Materials Inventory</DialogTitle>
+          <DialogTitle>Material Usage Logs</DialogTitle>
         </DialogHeader>
 
         <ScrollArea className="h-[600px]">
@@ -119,85 +107,51 @@ const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProp
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
             </div>
+          ) : projectsData.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No material usage logs found
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Cost per Unit</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {materials.map((material) => (
-                  <TableRow key={material.id}>
-                    {editingId === material.id ? (
-                      <>
-                        <TableCell>
-                          <Input
-                            value={editForm.name}
-                            onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={editForm.category}
-                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={editForm.unit}
-                            onChange={(e) => setEditForm({ ...editForm, unit: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editForm.cost_per_unit}
-                            onChange={(e) => setEditForm({ ...editForm, cost_per_unit: e.target.value })}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" onClick={() => handleSave(material.id)}>
-                              Save
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
-                              Cancel
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </>
-                    ) : (
-                      <>
-                        <TableCell className="font-medium">{material.name}</TableCell>
-                        <TableCell>{material.category || "-"}</TableCell>
-                        <TableCell>{material.unit}</TableCell>
-                        <TableCell>${material.cost_per_unit.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="ghost" onClick={() => handleEdit(material)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(material.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </>
-                    )}
-                  </TableRow>
+            <Tabs defaultValue={projectsData[0]?.projectName || "all"}>
+              <TabsList className="grid grid-cols-auto">
+                {projectsData.map((project) => (
+                  <TabsTrigger key={project.projectName} value={project.projectName}>
+                    {project.projectName} ({project.totalItems} logs)
+                  </TabsTrigger>
                 ))}
-              </TableBody>
-            </Table>
+              </TabsList>
+
+              {projectsData.map((project) => (
+                <TabsContent key={project.projectName} value={project.projectName}>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Material</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Quantity Used</TableHead>
+                        <TableHead>Used By</TableHead>
+                        <TableHead>Notes</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {project.usageLogs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="font-medium">{log.materials?.name || "—"}</TableCell>
+                          <TableCell>{log.materials?.category || "—"}</TableCell>
+                          <TableCell>
+                            {Number(log.quantity_used).toFixed(2)} {log.materials?.unit || ""}
+                          </TableCell>
+                          <TableCell>{log.profiles?.full_name || "Unknown"}</TableCell>
+                          <TableCell>{log.notes || "—"}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TabsContent>
+              ))}
+            </Tabs>
           )}
         </ScrollArea>
       </DialogContent>
