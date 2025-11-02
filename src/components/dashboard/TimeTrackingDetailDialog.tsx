@@ -60,7 +60,7 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
       // Group by project
       const grouped = data.reduce((acc, entry) => {
-        const projectName = entry.projects.name;
+        const projectName = entry.projects?.name || "Unknown Project";
         if (!acc[projectName]) {
           acc[projectName] = {
             projectName,
