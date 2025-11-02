@@ -17,6 +17,7 @@ interface EnhancedMaterialDialogProps {
   onOpenChange: (open: boolean) => void;
   projectId: string;
   userId: string;
+  userRole?: string;
 }
 
 interface Material {
@@ -36,7 +37,7 @@ interface MaterialUsageLog {
   materials: Material;
 }
 
-const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: EnhancedMaterialDialogProps) => {
+const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRole }: EnhancedMaterialDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -285,9 +286,13 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
                 </div>
               </div>
 
-              {searchTerm && (
-                <ScrollArea className="h-[200px] border rounded-md p-2">
-                  {filteredMaterials.map((material) => (
+              <ScrollArea className="h-[200px] border rounded-md p-2">
+                {filteredMaterials.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    <p>No materials found</p>
+                  </div>
+                ) : (
+                  filteredMaterials.map((material) => (
                     <Card
                       key={material.id}
                       className={`p-3 mb-2 cursor-pointer hover:bg-accent ${
@@ -300,9 +305,9 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
                         {material.category && `${material.category} • `}Unit: {material.unit}
                       </div>
                     </Card>
-                  ))}
-                </ScrollArea>
-              )}
+                  ))
+                )}
+              </ScrollArea>
 
               <div className="space-y-2">
                 <Label htmlFor="quantity">Quantity Used *</Label>
@@ -367,19 +372,19 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit *</Label>
-                  <Input
-                    id="unit"
-                    value={createFormData.unit}
-                    onChange={(e) => setCreateFormData({ ...createFormData, unit: e.target.value })}
-                    placeholder="e.g., pcs, ft, lbs"
-                    disabled={isLoading}
-                    required
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">Unit *</Label>
+                <Input
+                  id="unit"
+                  value={createFormData.unit}
+                  onChange={(e) => setCreateFormData({ ...createFormData, unit: e.target.value })}
+                  placeholder="e.g., pcs, ft, lbs"
+                  disabled={isLoading}
+                  required
+                />
+              </div>
 
+              {userRole === 'manager' && (
                 <div className="space-y-2">
                   <Label htmlFor="cost_per_unit">Cost per Unit ($)</Label>
                   <Input
@@ -392,7 +397,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId }: Enhan
                     disabled={isLoading}
                   />
                 </div>
-              </div>
+              )}
 
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>

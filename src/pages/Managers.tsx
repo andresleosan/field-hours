@@ -10,6 +10,9 @@ import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
 import BuilderActivityTracker from "@/components/dashboard/BuilderActivityTracker";
 import SupplierManagement from "@/components/dashboard/SupplierManagement";
+import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
+import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
+import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
 
 interface DashboardStats {
   totalProjects: number;
@@ -30,6 +33,9 @@ const Managers = () => {
     totalMaterials: 0,
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
+  const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
+  const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -165,7 +171,7 @@ const Managers = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
@@ -176,7 +182,7 @@ const Managers = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsTimeTrackingOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
@@ -187,7 +193,7 @@ const Managers = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsInvoicesOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -198,7 +204,7 @@ const Managers = () => {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialsOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Materials</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
@@ -267,6 +273,21 @@ const Managers = () => {
         open={isCreateProjectOpen}
         onOpenChange={setIsCreateProjectOpen}
         onProjectCreated={fetchDashboardStats}
+      />
+      
+      <MaterialsDetailDialog
+        open={isMaterialsOpen}
+        onOpenChange={setIsMaterialsOpen}
+      />
+      
+      <TimeTrackingDetailDialog
+        open={isTimeTrackingOpen}
+        onOpenChange={setIsTimeTrackingOpen}
+      />
+      
+      <InvoicesDetailDialog
+        open={isInvoicesOpen}
+        onOpenChange={setIsInvoicesOpen}
       />
     </div>
   );

@@ -325,6 +325,7 @@ const Builders = () => {
             onOpenChange={setIsMaterialDialogOpen}
             projectId={selectedProjectId}
             userId={userId}
+            userRole={userProfile?.role}
           />
 
           <EnhancedInvoiceDialog
