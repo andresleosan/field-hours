@@ -217,11 +217,156 @@ export type Database = {
           },
         ]
       }
+      job_completion_photos: {
+        Row: {
+          completion_id: string
+          created_at: string
+          id: string
+          photo_url: string
+        }
+        Insert: {
+          completion_id: string
+          created_at?: string
+          id?: string
+          photo_url: string
+        }
+        Update: {
+          completion_id?: string
+          created_at?: string
+          id?: string
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_completion_photos_completion_id_fkey"
+            columns: ["completion_id"]
+            isOneToOne: false
+            referencedRelation: "job_completions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_completions: {
+        Row: {
+          completed_at: string
+          completed_by: string
+          id: string
+          job_id: string
+          notes: string | null
+        }
+        Insert: {
+          completed_at?: string
+          completed_by: string
+          id?: string
+          job_id: string
+          notes?: string | null
+        }
+        Update: {
+          completed_at?: string
+          completed_by?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_completions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_materials: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          material_usage_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          material_usage_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          material_usage_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_materials_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_materials_material_usage_id_fkey"
+            columns: ["material_usage_id"]
+            isOneToOne: false
+            referencedRelation: "material_usage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      jobs: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          project_id: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          project_id: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          project_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_usage: {
         Row: {
           created_at: string
           date: string
           id: string
+          job_id: string | null
           material_id: string
           notes: string | null
           project_id: string
@@ -232,6 +377,7 @@ export type Database = {
           created_at?: string
           date: string
           id?: string
+          job_id?: string | null
           material_id: string
           notes?: string | null
           project_id: string
@@ -242,6 +388,7 @@ export type Database = {
           created_at?: string
           date?: string
           id?: string
+          job_id?: string | null
           material_id?: string
           notes?: string | null
           project_id?: string
@@ -249,6 +396,13 @@ export type Database = {
           used_by?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "material_usage_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "material_usage_material_id_fkey"
             columns: ["material_id"]
