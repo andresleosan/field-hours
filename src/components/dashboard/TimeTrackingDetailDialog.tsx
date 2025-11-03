@@ -135,9 +135,22 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
     return `${hours.toFixed(2)} hrs`;
   };
 
-  const formatLocation = (lat: number | null, lng: number | null) => {
-    if (!lat || !lng) return "No location";
-    return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+  const LocationLink = ({ lat, lng }: { lat: number | null; lng: number | null }) => {
+    if (!lat || !lng) return <span className="text-muted-foreground">No location</span>;
+    
+    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    
+    return (
+      <a
+        href={mapsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1 text-primary hover:underline"
+      >
+        <MapPin className="h-3 w-3" />
+        View Map
+      </a>
+    );
   };
 
   const selectedDayData = weekData.find(d => d.day === selectedDay);
@@ -230,20 +243,14 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
                                     <TableCell>{entry.projects?.name || "Unknown"}</TableCell>
                                     <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
                                     <TableCell className="text-xs">
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="h-3 w-3" />
-                                        {formatLocation(entry.location_lat, entry.location_lng)}
-                                      </div>
+                                      <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
                                     </TableCell>
                                     <TableCell>
                                       {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
                                     </TableCell>
                                     <TableCell className="text-xs">
                                       {entry.clock_out ? (
-                                        <div className="flex items-center gap-1">
-                                          <MapPin className="h-3 w-3" />
-                                          {formatLocation(entry.location_lat, entry.location_lng)}
-                                        </div>
+                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
                                       ) : "—"}
                                     </TableCell>
                                     <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
@@ -298,20 +305,14 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
                                       <TableCell>{entry.profiles.full_name}</TableCell>
                                       <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
                                       <TableCell className="text-xs">
-                                        <div className="flex items-center gap-1">
-                                          <MapPin className="h-3 w-3" />
-                                          {formatLocation(entry.location_lat, entry.location_lng)}
-                                        </div>
+                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
                                       </TableCell>
                                       <TableCell>
                                         {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
                                       </TableCell>
                                       <TableCell className="text-xs">
                                         {entry.clock_out ? (
-                                          <div className="flex items-center gap-1">
-                                            <MapPin className="h-3 w-3" />
-                                            {formatLocation(entry.location_lat, entry.location_lng)}
-                                          </div>
+                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
                                         ) : "—"}
                                       </TableCell>
                                       <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
