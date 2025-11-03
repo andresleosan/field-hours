@@ -102,7 +102,7 @@ const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh]">
+      <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
         <DialogHeader>
           <DialogTitle>Material Usage Logs</DialogTitle>
         </DialogHeader>
@@ -118,42 +118,46 @@ const MaterialsDetailDialog = ({ open, onOpenChange }: MaterialsDetailDialogProp
             </div>
           ) : (
             <Tabs defaultValue={projectsData[0]?.projectName || "all"}>
-              <TabsList className="grid grid-cols-auto">
-                {projectsData.map((project) => (
-                  <TabsTrigger key={project.projectName} value={project.projectName}>
-                    {project.projectName} ({project.totalItems} logs)
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <TabsList className="inline-flex mb-4">
+                  {projectsData.map((project) => (
+                    <TabsTrigger key={project.projectName} value={project.projectName} className="text-xs sm:text-sm">
+                      {project.projectName} ({project.totalItems} logs)
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </ScrollArea>
 
               {projectsData.map((project) => (
                 <TabsContent key={project.projectName} value={project.projectName}>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Material</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Quantity Used</TableHead>
-                        <TableHead>Used By</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {project.usageLogs.map((log) => (
-                        <TableRow key={log.id}>
-                          <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
-                          <TableCell className="font-medium">{log.materials?.name || "—"}</TableCell>
-                          <TableCell>{log.materials?.category || "—"}</TableCell>
-                          <TableCell>
-                            {Number(log.quantity_used).toFixed(2)} {log.materials?.unit || ""}
-                          </TableCell>
-                          <TableCell>{log.profiles?.full_name || "Unknown"}</TableCell>
-                          <TableCell>{log.notes || "—"}</TableCell>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[100px]">Date</TableHead>
+                          <TableHead className="min-w-[120px]">Material</TableHead>
+                          <TableHead className="min-w-[100px]">Category</TableHead>
+                          <TableHead className="min-w-[120px]">Quantity Used</TableHead>
+                          <TableHead className="min-w-[100px]">Used By</TableHead>
+                          <TableHead className="min-w-[120px]">Notes</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {project.usageLogs.map((log) => (
+                          <TableRow key={log.id}>
+                            <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
+                            <TableCell className="font-medium">{log.materials?.name || "—"}</TableCell>
+                            <TableCell>{log.materials?.category || "—"}</TableCell>
+                            <TableCell>
+                              {Number(log.quantity_used).toFixed(2)} {log.materials?.unit || ""}
+                            </TableCell>
+                            <TableCell>{log.profiles?.full_name || "Unknown"}</TableCell>
+                            <TableCell>{log.notes || "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
                 </TabsContent>
               ))}
             </Tabs>

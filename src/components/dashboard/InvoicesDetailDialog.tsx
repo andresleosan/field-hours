@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink } from "lucide-react";
+import { Loader2, ExternalLink, Download } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 
 interface Invoice {
   id: string;
@@ -36,6 +37,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
   const [projectsData, setProjectsData] = useState<ProjectInvoiceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
@@ -118,10 +120,40 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
     }
   };
 
+  const handleDownloadImage = async (imageUrl: string, invoiceNumber: string) => {
+    try {
+      const url = await getSignedUrl(imageUrl);
+      if (!url) return;
+
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `invoice-${invoiceNumber}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      toast({
+        title: "Download started",
+        description: "Invoice image is being downloaded",
+      });
+    } catch (error) {
+      console.error("Error downloading image:", error);
+      toast({
+        title: "Download failed",
+        description: "Failed to download invoice image",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-7xl max-h-[90vh]">
+        <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
           <DialogHeader>
             <DialogTitle>Invoices Details</DialogTitle>
           </DialogHeader>
@@ -133,54 +165,67 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
               </div>
             ) : (
               <Tabs defaultValue={projectsData[0]?.projectName || "all"}>
-                <TabsList className="grid grid-cols-auto">
-                  {projectsData.map((project) => (
-                    <TabsTrigger key={project.projectName} value={project.projectName}>
-                      {project.projectName} (${project.totalAmount.toFixed(2)})
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+                <ScrollArea className="w-full whitespace-nowrap">
+                  <TabsList className="inline-flex mb-4">
+                    {projectsData.map((project) => (
+                      <TabsTrigger key={project.projectName} value={project.projectName} className="text-xs sm:text-sm">
+                        {project.projectName} (${project.totalAmount.toFixed(2)})
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </ScrollArea>
 
                 {projectsData.map((project) => (
                   <TabsContent key={project.projectName} value={project.projectName}>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Invoice #</TableHead>
-                          <TableHead>Supplier</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Uploaded By</TableHead>
-                          <TableHead>Notes</TableHead>
-                          <TableHead>Image</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {project.invoices.map((invoice) => (
-                          <TableRow key={invoice.id}>
-                            <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                            <TableCell>{invoice.suppliers?.name || "—"}</TableCell>
-                            <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="font-semibold">
-                              ${Number(invoice.total_amount).toFixed(2)}
-                            </TableCell>
-                            <TableCell>{invoice.profiles.full_name}</TableCell>
-                            <TableCell>{invoice.notes || "—"}</TableCell>
-                            <TableCell>
-                              {invoice.image_url && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleViewImage(invoice.image_url!)}
-                                >
-                                  <ExternalLink className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </TableCell>
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="min-w-[100px]">Invoice #</TableHead>
+                            <TableHead className="min-w-[100px]">Supplier</TableHead>
+                            <TableHead className="min-w-[100px]">Date</TableHead>
+                            <TableHead className="min-w-[80px]">Amount</TableHead>
+                            <TableHead className="min-w-[100px]">Uploaded By</TableHead>
+                            <TableHead className="min-w-[120px]">Notes</TableHead>
+                            <TableHead className="min-w-[100px]">Actions</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                        </TableHeader>
+                        <TableBody>
+                          {project.invoices.map((invoice) => (
+                            <TableRow key={invoice.id}>
+                              <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                              <TableCell>{invoice.suppliers?.name || "—"}</TableCell>
+                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
+                              <TableCell className="font-semibold">
+                                ${Number(invoice.total_amount).toFixed(2)}
+                              </TableCell>
+                              <TableCell>{invoice.profiles.full_name}</TableCell>
+                              <TableCell>{invoice.notes || "—"}</TableCell>
+                              <TableCell>
+                                {invoice.image_url && (
+                                  <div className="flex gap-1">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleViewImage(invoice.image_url!)}
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDownloadImage(invoice.image_url!, invoice.invoice_number)}
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </TabsContent>
                 ))}
               </Tabs>
@@ -191,11 +236,13 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
 
       {selectedImage && (
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl w-[95vw]">
             <DialogHeader>
               <DialogTitle>Invoice Image</DialogTitle>
             </DialogHeader>
-            <img src={selectedImage} alt="Invoice" className="w-full h-auto" />
+            <ScrollArea className="max-h-[70vh]">
+              <img src={selectedImage} alt="Invoice" className="w-full h-auto" />
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       )}

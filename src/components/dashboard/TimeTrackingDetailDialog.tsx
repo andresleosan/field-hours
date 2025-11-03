@@ -138,7 +138,7 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
   const LocationLink = ({ lat, lng }: { lat: number | null; lng: number | null }) => {
     if (!lat || !lng) return <span className="text-muted-foreground">No location</span>;
     
-    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    const mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
     
     return (
       <a
@@ -181,7 +181,7 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh]">
+      <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
         <DialogHeader>
           <DialogTitle>Time Tracking Details</DialogTitle>
         </DialogHeader>
@@ -193,21 +193,23 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
         ) : (
           <div className="space-y-4">
             {/* Day buttons */}
-            <div className="flex gap-2 flex-wrap">
-              {weekData.map((day) => (
-                <Button
-                  key={day.day}
-                  variant={selectedDay === day.day ? "default" : "outline"}
-                  onClick={() => setSelectedDay(day.day)}
-                  className="flex-1 min-w-[120px]"
-                >
-                  <div className="text-center">
-                    <div className="font-semibold">{day.day}</div>
-                    <div className="text-xs">{day.totalHours.toFixed(1)}h</div>
-                  </div>
-                </Button>
-              ))}
-            </div>
+            <ScrollArea className="w-full whitespace-nowrap">
+              <div className="flex gap-2 pb-4">
+                {weekData.map((day) => (
+                  <Button
+                    key={day.day}
+                    variant={selectedDay === day.day ? "default" : "outline"}
+                    onClick={() => setSelectedDay(day.day)}
+                    className="min-w-[120px] flex-shrink-0"
+                  >
+                    <div className="text-center">
+                      <div className="font-semibold text-xs sm:text-sm">{day.day}</div>
+                      <div className="text-xs">{day.totalHours.toFixed(1)}h</div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </ScrollArea>
 
             <ScrollArea className="h-[600px]">
               {selectedDayData && (
@@ -225,40 +227,44 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
                               <span>{builder}</span>
                               <span>{data.totalHours.toFixed(2)} hrs</span>
                             </div>
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Project</TableHead>
-                                  <TableHead>Clock In</TableHead>
-                                  <TableHead>Location (In)</TableHead>
-                                  <TableHead>Clock Out</TableHead>
-                                  <TableHead>Location (Out)</TableHead>
-                                  <TableHead>Duration</TableHead>
-                                  <TableHead>Notes</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {data.entries.map((entry) => (
-                                  <TableRow key={entry.id}>
-                                    <TableCell>{entry.projects?.name || "Unknown"}</TableCell>
-                                    <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
-                                    <TableCell className="text-xs">
-                                      <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                    </TableCell>
-                                    <TableCell>
-                                      {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
-                                    </TableCell>
-                                    <TableCell className="text-xs">
-                                      {entry.clock_out ? (
-                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                      ) : "—"}
-                                    </TableCell>
-                                    <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
-                                    <TableCell>{entry.notes || "—"}</TableCell>
+                            <div className="overflow-x-auto">
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="min-w-[100px]">Project</TableHead>
+                                    <TableHead className="min-w-[100px]">Clock In</TableHead>
+                                    <TableHead className="min-w-[100px]">Location (In)</TableHead>
+                                    <TableHead className="min-w-[100px]">Clock Out</TableHead>
+                                    <TableHead className="min-w-[100px]">Location (Out)</TableHead>
+                                    <TableHead className="min-w-[80px]">Duration</TableHead>
+                                    <TableHead className="min-w-[120px]">Notes</TableHead>
                                   </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
+                                </TableHeader>
+                                <TableBody>
+                                  {data.entries.map((entry) => (
+                                    <TableRow key={entry.id}>
+                                      <TableCell>
+                                        {entry.notes?.startsWith("TRAVEL:") ? "Travel" : (entry.projects?.name || "Unknown")}
+                                      </TableCell>
+                                      <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
+                                      <TableCell className="text-xs">
+                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                      </TableCell>
+                                      <TableCell>
+                                        {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
+                                      </TableCell>
+                                      <TableCell className="text-xs">
+                                        {entry.clock_out ? (
+                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                        ) : "—"}
+                                      </TableCell>
+                                      <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
+                                      <TableCell>{entry.notes || "—"}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -284,43 +290,45 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
                           return (
                             <div key={project} className="space-y-2">
                               <div className="flex justify-between items-center font-semibold">
-                                <span>{project}</span>
+                                <span>{entries[0]?.notes?.startsWith("TRAVEL:") ? "Travel" : project}</span>
                                 <span>{projectTotal.toFixed(2)} hrs</span>
                               </div>
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Builder</TableHead>
-                                    <TableHead>Clock In</TableHead>
-                                    <TableHead>Location (In)</TableHead>
-                                    <TableHead>Clock Out</TableHead>
-                                    <TableHead>Location (Out)</TableHead>
-                                    <TableHead>Duration</TableHead>
-                                    <TableHead>Notes</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {entries.map((entry) => (
-                                    <TableRow key={entry.id}>
-                                      <TableCell>{entry.profiles.full_name}</TableCell>
-                                      <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
-                                      <TableCell className="text-xs">
-                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                      </TableCell>
-                                      <TableCell>
-                                        {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
-                                      </TableCell>
-                                      <TableCell className="text-xs">
-                                        {entry.clock_out ? (
-                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                        ) : "—"}
-                                      </TableCell>
-                                      <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
-                                      <TableCell>{entry.notes || "—"}</TableCell>
+                              <div className="overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="min-w-[100px]">Builder</TableHead>
+                                      <TableHead className="min-w-[100px]">Clock In</TableHead>
+                                      <TableHead className="min-w-[100px]">Location (In)</TableHead>
+                                      <TableHead className="min-w-[100px]">Clock Out</TableHead>
+                                      <TableHead className="min-w-[100px]">Location (Out)</TableHead>
+                                      <TableHead className="min-w-[80px]">Duration</TableHead>
+                                      <TableHead className="min-w-[120px]">Notes</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {entries.map((entry) => (
+                                      <TableRow key={entry.id}>
+                                        <TableCell>{entry.profiles.full_name}</TableCell>
+                                        <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
+                                        <TableCell className="text-xs">
+                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                        </TableCell>
+                                        <TableCell>
+                                          {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-xs">
+                                          {entry.clock_out ? (
+                                            <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                          ) : "—"}
+                                        </TableCell>
+                                        <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
+                                        <TableCell>{entry.notes || "—"}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
                             </div>
                           );
                         })}

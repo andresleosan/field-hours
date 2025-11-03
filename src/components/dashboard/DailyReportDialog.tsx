@@ -125,7 +125,7 @@ const DailyReportDialog = ({ open, onOpenChange, projectId, userId }: DailyRepor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] w-[95vw] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Daily Report</DialogTitle>
         </DialogHeader>
@@ -166,7 +166,7 @@ const DailyReportDialog = ({ open, onOpenChange, projectId, userId }: DailyRepor
               />
 
               {photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {photos.map((photo, index) => (
                     <div key={index} className="relative group">
                       <div className="aspect-square rounded-lg bg-muted flex items-center justify-center overflow-hidden">
