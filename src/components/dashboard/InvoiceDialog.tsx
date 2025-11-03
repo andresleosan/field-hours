@@ -106,7 +106,7 @@ const InvoiceDialog = ({ open, onOpenChange, projectId, userId }: InvoiceDialogP
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="total_amount">Total Amount ($) *</Label>
+            <Label htmlFor="total_amount">Total Amount (£) *</Label>
             <Input
               id="total_amount"
               type="number"

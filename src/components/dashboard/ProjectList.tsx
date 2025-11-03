@@ -141,7 +141,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
 
                 <div className="flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  <span className="font-medium">${project.total_spent?.toFixed(2) || "0.00"}</span>
+                  <span className="font-medium">£{project.total_spent?.toFixed(2) || "0.00"}</span>
                   <span className="text-muted-foreground">spent</span>
                 </div>
               </div>

@@ -171,7 +171,7 @@ const ManagerDashboard = ({ userId }: ManagerDashboardProps) => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</div>
+              <div className="text-2xl font-bold text-primary">£{stats.totalSpent.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">from invoices</p>
             </CardContent>
           </Card>

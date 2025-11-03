@@ -169,7 +169,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                   <TabsList className="inline-flex mb-4">
                     {projectsData.map((project) => (
                       <TabsTrigger key={project.projectName} value={project.projectName} className="text-xs sm:text-sm">
-                        {project.projectName} (${project.totalAmount.toFixed(2)})
+                        {project.projectName} (£{project.totalAmount.toFixed(2)})
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -197,7 +197,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                               <TableCell>{invoice.suppliers?.name || "—"}</TableCell>
                               <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
                               <TableCell className="font-semibold">
-                                ${Number(invoice.total_amount).toFixed(2)}
+                                £{Number(invoice.total_amount).toFixed(2)}
                               </TableCell>
                               <TableCell>{invoice.profiles.full_name}</TableCell>
                               <TableCell>{invoice.notes || "—"}</TableCell>

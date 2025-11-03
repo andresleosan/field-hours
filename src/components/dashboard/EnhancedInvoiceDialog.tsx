@@ -114,7 +114,7 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
         total_amount: extracted.total_amount?.toString() || formData.total_amount,
         notes: extracted.line_items 
           ? `Extracted items:\n${extracted.line_items.map((item: any) => 
-              `- ${item.description}: ${item.quantity} x $${item.unit_price}`
+              `- ${item.description}: ${item.quantity} x £${item.unit_price}`
             ).join('\n')}`
           : formData.notes,
       });
@@ -171,18 +171,15 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
         const fileName = `${Date.now()}-${selectedImage.name}`;
         const { error: uploadError } = await supabase.storage
           .from("invoices")
-          .upload(fileName, selectedImage);
+          .upload(fileName, selectedImage, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
         if (uploadError) throw uploadError;
 
-        // Use signed URL instead of public URL for secure access
-        const { data: signedUrlData, error: urlError } = await supabase.storage
-          .from("invoices")
-          .createSignedUrl(fileName, 31536000); // 1 year expiry
-
-        if (urlError) throw urlError;
-        
-        imageUrl = signedUrlData.signedUrl;
+        // Store the file path (not signed URL) so we can generate signed URLs later
+        imageUrl = fileName;
       }
 
       const { error } = await supabase.from("invoices").insert({
@@ -326,7 +323,7 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="total_amount">Total Amount ($) *</Label>
+            <Label htmlFor="total_amount">Total Amount (£) *</Label>
             <Input
               id="total_amount"
               type="number"

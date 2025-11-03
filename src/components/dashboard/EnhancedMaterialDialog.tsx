@@ -386,7 +386,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
 
               {userRole === 'manager' && (
                 <div className="space-y-2">
-                  <Label htmlFor="cost_per_unit">Cost per Unit ($)</Label>
+                  <Label htmlFor="cost_per_unit">Cost per Unit (£)</Label>
                   <Input
                     id="cost_per_unit"
                     type="number"

@@ -189,9 +189,9 @@ const BuilderActivityTracker = () => {
         ...(materialData?.map(m => `  - ${m.materials.name}: ${m.quantity_used} ${m.materials.unit} (${m.projects.name})`) || []),
         '',
         '=== INVOICES ===',
-        `Total Invoice Amount: $${totalInvoiceAmount.toFixed(2)}`,
+        `Total Invoice Amount: £${totalInvoiceAmount.toFixed(2)}`,
         `Number of Invoices: ${invoiceData?.length || 0}`,
-        ...(invoiceData?.map(i => `  - Invoice #${i.invoice_number}: $${i.total_amount} (${i.projects.name})`) || []),
+        ...(invoiceData?.map(i => `  - Invoice #${i.invoice_number}: £${i.total_amount} (${i.projects.name})`) || []),
       ];
 
       // Download as text file
@@ -393,7 +393,7 @@ const BuilderActivityTracker = () => {
                               <span className="font-medium">Invoice #:</span> {invoice.invoice_number}
                             </div>
                             <div className="mt-1">
-                              <span className="font-medium">Amount:</span> ${invoice.total_amount.toFixed(2)}
+                              <span className="font-medium">Amount:</span> £{invoice.total_amount.toFixed(2)}
                             </div>
                             <div className="mt-1">{new Date(invoice.date).toLocaleDateString()}</div>
                             {invoice.extracted_data && (
