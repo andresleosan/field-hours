@@ -111,7 +111,8 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card"
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card cursor-pointer"
+              onClick={() => window.location.href = `/project/${project.id}`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
@@ -125,7 +126,10 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => handleEditProject(project)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleEditProject(project);
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>

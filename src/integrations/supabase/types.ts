@@ -217,6 +217,38 @@ export type Database = {
           },
         ]
       }
+      job_collaborators: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          job_completion_id: string
+          user_id: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          id?: string
+          job_completion_id: string
+          user_id: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          job_completion_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_collaborators_job_completion_id_fkey"
+            columns: ["job_completion_id"]
+            isOneToOne: false
+            referencedRelation: "job_completions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_completion_photos: {
         Row: {
           completion_id: string
@@ -310,6 +342,80 @@ export type Database = {
             columns: ["material_usage_id"]
             isOneToOne: false
             referencedRelation: "material_usage"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_photos: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          photo_url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          photo_url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_photos_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_time_tracking: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          job_id: string
+          project_id: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          job_id: string
+          project_id: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          job_id?: string
+          project_id?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_time_tracking_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_time_tracking_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
