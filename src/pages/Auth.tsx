@@ -17,6 +17,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<"manager" | "builder">("builder");
+  const [managerPassword, setManagerPassword] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -36,6 +37,16 @@ const Auth = () => {
       toast({
         title: "Missing information",
         description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Verify manager password if manager role is selected
+    if (role === "manager" && managerPassword !== "okmckay") {
+      toast({
+        title: "Invalid Manager Password",
+        description: "Please enter the correct manager password or sign up as a builder",
         variant: "destructive",
       });
       return;
@@ -231,6 +242,20 @@ const Auth = () => {
                     </SelectContent>
                   </Select>
                 </div>
+                {role === "manager" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="manager-password">Manager Password *</Label>
+                    <Input
+                      id="manager-password"
+                      type="password"
+                      placeholder="Enter manager password"
+                      value={managerPassword}
+                      onChange={(e) => setManagerPassword(e.target.value)}
+                      disabled={isLoading}
+                      required
+                    />
+                  </div>
+                )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create Account

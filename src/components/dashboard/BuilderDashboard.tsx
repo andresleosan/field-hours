@@ -208,21 +208,20 @@ const BuilderDashboard = ({ userId }: BuilderDashboardProps) => {
   };
 
   const handleSignOut = async () => {
-    if (isClockedIn) {
+    try {
+      await supabase.auth.signOut();
       toast({
-        title: "Clock out first",
-        description: "Please clock out before signing out",
+        title: "Signed out",
+        description: "Successfully signed out",
+      });
+      navigate("/auth");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out",
         variant: "destructive",
       });
-      return;
     }
-
-    await supabase.auth.signOut();
-    toast({
-      title: "Signed out",
-      description: "Successfully signed out",
-    });
-    navigate("/auth");
   };
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
