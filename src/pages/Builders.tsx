@@ -306,6 +306,24 @@ const Builders = () => {
           onClockOut={handleClockOut}
         />
 
+        {selectedProjectId && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                Jobs To Do
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => navigate(`/project/${selectedProjectId}`)}
+                >
+                  View All Jobs
+                </Button>
+              </CardTitle>
+              <CardDescription>View and manage project jobs</CardDescription>
+            </CardHeader>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsMaterialDialogOpen(true)}>
             <CardHeader>

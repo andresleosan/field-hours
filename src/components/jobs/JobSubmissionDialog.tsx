@@ -44,15 +44,40 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
-      const result: any = await supabase
+      // Cast to any to avoid TS deep instantiation error
+      const sb = supabase as any;
+
+      // Fetch material usage without join
+      const usageResult = await sb
         .from("material_usage")
-        .select("id, quantity_used, material_id, materials(name, unit, cost_per_unit)")
+        .select("id, quantity_used, material_id")
         .eq("user_id", userData.user.id)
         .eq("project_id", projectId)
         .is("job_id", null);
 
-      if (result.error) throw result.error;
-      setLoggedMaterials(result.data || []);
+      if (usageResult.error) throw usageResult.error;
+
+      if (!usageResult.data || usageResult.data.length === 0) {
+        setLoggedMaterials([]);
+        return;
+      }
+
+      // Fetch material details separately
+      const materialIds = usageResult.data.map((u: any) => u.material_id);
+      const materialsResult = await sb
+        .from("materials")
+        .select("id, name, unit, cost_per_unit")
+        .in("id", materialIds);
+
+      if (materialsResult.error) throw materialsResult.error;
+
+      // Combine the data
+      const combined = usageResult.data.map((usage: any) => ({
+        ...usage,
+        materials: materialsResult.data?.find((m: any) => m.id === usage.material_id)
+      }));
+
+      setLoggedMaterials(combined);
     } catch (error: any) {
       console.error("Error fetching materials:", error);
     }
