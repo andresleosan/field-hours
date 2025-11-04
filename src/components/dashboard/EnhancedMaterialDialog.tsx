@@ -255,7 +255,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col">
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Material Management</DialogTitle>
           <DialogDescription>Log material usage, create new materials, or review logs</DialogDescription>
@@ -268,7 +268,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
             <TabsTrigger value="view">View Logs</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="flex-1 pr-4">
+          <ScrollArea className="flex-1 pr-4 pb-24">
             <TabsContent value="log" className="space-y-4 mt-4">
             <form onSubmit={handleLogMaterial} className="space-y-4">
               <div className="space-y-2">
