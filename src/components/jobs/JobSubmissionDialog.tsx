@@ -224,23 +224,43 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .update({ job_id: jobId })
           .eq("id", material.id);
 
-        await supabase
+        // Check if job_material link already exists
+        const { data: existingLink } = await supabase
           .from("job_materials")
-          .insert({
-            job_id: jobId,
-            material_usage_id: material.id,
-          });
+          .select("id")
+          .eq("job_id", jobId)
+          .eq("material_usage_id", material.id)
+          .maybeSingle();
+
+        if (!existingLink) {
+          await supabase
+            .from("job_materials")
+            .insert({
+              job_id: jobId,
+              material_usage_id: material.id,
+            });
+        }
       }
 
       // Add collaborators
       for (const builderId of selectedBuilders) {
-        await supabase
+        // Check if collaborator already exists
+        const { data: existingCollab } = await supabase
           .from("job_collaborators")
-          .insert({
-            job_completion_id: completion.id,
-            user_id: builderId,
-            added_by: userData.user.id,
-          });
+          .select("id")
+          .eq("job_completion_id", completion.id)
+          .eq("user_id", builderId)
+          .maybeSingle();
+
+        if (!existingCollab) {
+          await supabase
+            .from("job_collaborators")
+            .insert({
+              job_completion_id: completion.id,
+              user_id: builderId,
+              added_by: userData.user.id,
+            });
+        }
       }
 
       // Update job status

@@ -172,23 +172,55 @@ const Builders = () => {
   };
 
   const handleClockOut = async () => {
-    if (!currentTimeEntry) return;
+    if (!currentTimeEntry || !userId) return;
 
     try {
+      const clockOutTime = new Date().toISOString();
+      const clockInTime = currentTimeEntry.clock_in;
+
+      // Update time tracking
       const { error } = await supabase
         .from("time_tracking")
         .update({
-          clock_out: new Date().toISOString(),
+          clock_out: clockOutTime,
         })
         .eq("id", currentTimeEntry.id);
 
       if (error) throw error;
 
+      // Cast to any to avoid TS deep instantiation error
+      const sb = supabase as any;
+
+      // Fetch materials logged during this shift
+      const { data: materials } = await sb
+        .from("material_usage")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("project_id", currentTimeEntry.project_id)
+        .gte("created_at", clockInTime)
+        .lte("created_at", clockOutTime);
+
+      // Fetch invoices uploaded during this shift
+      const { data: invoices } = await sb
+        .from("invoices")
+        .select("id")
+        .eq("uploaded_by", userId)
+        .eq("project_id", currentTimeEntry.project_id)
+        .gte("created_at", clockInTime)
+        .lte("created_at", clockOutTime);
+
+      const materialCount = materials?.length || 0;
+      const invoiceCount = invoices?.length || 0;
+
       setIsClockedIn(false);
       setCurrentTimeEntry(null);
+
+      // Calculate hours worked
+      const hoursWorked = ((new Date(clockOutTime).getTime() - new Date(clockInTime).getTime()) / (1000 * 60 * 60)).toFixed(2);
+
       toast({
         title: "Clocked Out",
-        description: "Your time has been recorded",
+        description: `Shift recorded: ${hoursWorked}h worked, ${materialCount} materials logged, ${invoiceCount} invoices submitted`,
       });
     } catch (error: any) {
       toast({
