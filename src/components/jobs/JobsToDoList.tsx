@@ -79,50 +79,62 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-base">Jobs To Do</CardTitle>
-        <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}`)}>
-          View All Jobs
-        </Button>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 className="h-5 w-5 animate-spin" />
-          </div>
-        ) : jobs.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No jobs yet</p>
-        ) : (
-          <ul className="space-y-3">
-            {jobs.slice(0, 6).map((job) => (
-              <li key={job.id}>
-                <button
-                  type="button"
-                  className="w-full text-left border rounded-md p-3 hover:bg-muted/50 transition"
-                  onClick={() => {
-                    setSelectedJobId(job.id);
-                    setSubmitOpen(true);
-                  }}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{job.title}</div>
-                      {job.description && (
-                        <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-1">
-                        Assigned by manager
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Jobs To Do</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}`)}>
+            View All Jobs
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No jobs yet</p>
+          ) : (
+            <ul className="space-y-3">
+              {jobs.slice(0, 6).map((job) => (
+                <li key={job.id}>
+                  <button
+                    type="button"
+                    className="w-full text-left border rounded-md p-3 hover:bg-muted/50 transition"
+                    onClick={() => {
+                      setSelectedJobId(job.id);
+                      setSubmitOpen(true);
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{job.title}</div>
+                        {job.description && (
+                          <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Assigned by manager
+                        </div>
                       </div>
+                      {getStatusBadge(job.status)}
                     </div>
-                    {getStatusBadge(job.status)}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </CardContent>
-    </Card>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+      
+      {selectedJobId && (
+        <JobSubmissionDialog
+          open={submitOpen}
+          onOpenChange={setSubmitOpen}
+          jobId={selectedJobId}
+          projectId={projectId}
+          onSubmitted={fetchJobs}
+        />
+      )}
+    </>
   );
 }
