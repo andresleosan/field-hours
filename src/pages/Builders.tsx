@@ -11,6 +11,7 @@ import EnhancedMaterialDialog from "@/components/dashboard/EnhancedMaterialDialo
 import EnhancedInvoiceDialog from "@/components/dashboard/EnhancedInvoiceDialog";
 import DailyReportDialog from "@/components/dashboard/DailyReportDialog";
 import ChangeProjectDialog from "@/components/dashboard/ChangeProjectDialog";
+import JobsToDoList from "@/components/jobs/JobsToDoList";
 
 interface Project {
   id: string;
@@ -307,21 +308,7 @@ const Builders = () => {
         />
 
         {selectedProjectId && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                Jobs To Do
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => navigate(`/project/${selectedProjectId}`)}
-                >
-                  View All Jobs
-                </Button>
-              </CardTitle>
-              <CardDescription>View and manage project jobs</CardDescription>
-            </CardHeader>
-          </Card>
+          <JobsToDoList projectId={selectedProjectId} />
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
