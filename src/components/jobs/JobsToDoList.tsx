@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Loader2, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
-
+import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
 interface JobsToDoListProps {
   projectId: string;
 }
@@ -22,8 +22,9 @@ interface JobItem {
 export default function JobsToDoList({ projectId }: JobsToDoListProps) {
   const [jobs, setJobs] = useState<JobItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const navigate = useNavigate();
-
   const fetchJobs = async () => {
     setLoading(true);
     const { data, error } = await supabase
@@ -95,19 +96,28 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
         ) : (
           <ul className="space-y-3">
             {jobs.slice(0, 6).map((job) => (
-              <li key={job.id} className="border rounded-md p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-medium truncate">{job.title}</div>
-                    {job.description && (
-                      <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
-                    )}
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Assigned by manager
+              <li key={job.id}>
+                <button
+                  type="button"
+                  className="w-full text-left border rounded-md p-3 hover:bg-muted/50 transition"
+                  onClick={() => {
+                    setSelectedJobId(job.id);
+                    setSubmitOpen(true);
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{job.title}</div>
+                      {job.description && (
+                        <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Assigned by manager
+                      </div>
                     </div>
+                    {getStatusBadge(job.status)}
                   </div>
-                  {getStatusBadge(job.status)}
-                </div>
+                </button>
               </li>
             ))}
           </ul>

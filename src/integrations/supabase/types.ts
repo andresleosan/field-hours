@@ -285,6 +285,7 @@ export type Database = {
           id: string
           job_id: string
           notes: string | null
+          voice_note_url: string | null
         }
         Insert: {
           completed_at?: string
@@ -292,6 +293,7 @@ export type Database = {
           id?: string
           job_id: string
           notes?: string | null
+          voice_note_url?: string | null
         }
         Update: {
           completed_at?: string
@@ -299,6 +301,7 @@ export type Database = {
           id?: string
           job_id?: string
           notes?: string | null
+          voice_note_url?: string | null
         }
         Relationships: [
           {
@@ -428,6 +431,8 @@ export type Database = {
           created_by: string
           description: string | null
           id: string
+          manager_feedback: string | null
+          manager_voice_note_url: string | null
           project_id: string
           status: string
           title: string
@@ -440,6 +445,8 @@ export type Database = {
           created_by: string
           description?: string | null
           id?: string
+          manager_feedback?: string | null
+          manager_voice_note_url?: string | null
           project_id: string
           status?: string
           title: string
@@ -452,6 +459,8 @@ export type Database = {
           created_by?: string
           description?: string | null
           id?: string
+          manager_feedback?: string | null
+          manager_voice_note_url?: string | null
           project_id?: string
           status?: string
           title?: string
