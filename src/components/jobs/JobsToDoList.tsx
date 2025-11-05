@@ -103,7 +103,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
                       <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
                     )}
                     <div className="text-xs text-muted-foreground mt-1">
-                      By {job.profiles?.full_name || 'Manager'}
+                      Assigned by manager
                     </div>
                   </div>
                   {getStatusBadge(job.status)}
