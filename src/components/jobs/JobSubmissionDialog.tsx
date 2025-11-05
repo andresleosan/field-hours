@@ -162,18 +162,41 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .eq("id", activeTracking.id);
       }
 
-      // Create job completion
-      const { data: completion, error: completionError } = await supabase
+      // Check if completion already exists
+      const { data: existingCompletion } = await supabase
         .from("job_completions")
-        .insert({
-          job_id: jobId,
-          completed_by: userData.user.id,
-          notes,
-        })
-        .select()
-        .single();
+        .select("*")
+        .eq("job_id", jobId)
+        .eq("completed_by", userData.user.id)
+        .maybeSingle();
 
-      if (completionError) throw completionError;
+      let completion;
+      if (existingCompletion) {
+        // Update existing completion
+        const { data: updatedCompletion, error: updateError } = await supabase
+          .from("job_completions")
+          .update({ notes })
+          .eq("id", existingCompletion.id)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        completion = updatedCompletion;
+      } else {
+        // Create new job completion
+        const { data: newCompletion, error: completionError } = await supabase
+          .from("job_completions")
+          .insert({
+            job_id: jobId,
+            completed_by: userData.user.id,
+            notes,
+          })
+          .select()
+          .single();
+
+        if (completionError) throw completionError;
+        completion = newCompletion;
+      }
 
       // Upload photos
       for (const photo of photos) {
