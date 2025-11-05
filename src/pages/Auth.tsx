@@ -17,7 +17,6 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<"manager" | "builder">("builder");
-  const [managerPassword, setManagerPassword] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -42,14 +41,22 @@ const Auth = () => {
       return;
     }
 
-    // Verify manager password if manager role is selected
-    if (role === "manager" && managerPassword !== "okmckay") {
-      toast({
-        title: "Invalid Manager Password",
-        description: "Please enter the correct manager password or sign up as a builder",
-        variant: "destructive",
-      });
-      return;
+    // Validate invitation for manager role
+    if (role === "manager") {
+      const { data: isValid, error: validationError } = await supabase.rpc(
+        "validate_invitation",
+        { user_email: email, user_role: role }
+      );
+
+      if (validationError || !isValid) {
+        toast({
+          title: "Invalid or Expired Invitation",
+          description: "Manager signup requires a valid invitation. Please contact an existing manager to receive one.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
     }
 
     setIsLoading(true);
@@ -238,22 +245,16 @@ const Auth = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="builder">Builder</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="manager">Manager (Requires Invitation)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {role === "manager" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="manager-password">Manager Password *</Label>
-                    <Input
-                      id="manager-password"
-                      type="password"
-                      placeholder="Enter manager password"
-                      value={managerPassword}
-                      onChange={(e) => setManagerPassword(e.target.value)}
-                      disabled={isLoading}
-                      required
-                    />
+                  <div className="rounded-md border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3">
+                    <p className="text-sm text-amber-900 dark:text-amber-100">
+                      <strong>Note:</strong> Manager signup requires a valid invitation from an existing manager. 
+                      If you don't have an invitation, please sign up as a Builder or contact your administrator.
+                    </p>
                   </div>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading}>
