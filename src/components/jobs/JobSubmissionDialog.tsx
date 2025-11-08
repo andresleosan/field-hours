@@ -51,7 +51,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       const usageResult = await sb
         .from("material_usage")
         .select("id, quantity_used, material_id")
-        .eq("user_id", userData.user.id)
+        .eq("used_by", userData.user.id)
         .eq("project_id", projectId)
         .is("job_id", null);
 
@@ -178,7 +178,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .update({ notes })
           .eq("id", existingCompletion.id)
           .select()
-          .single();
+          .maybeSingle();
         
         if (updateError) throw updateError;
         completion = updatedCompletion;
@@ -192,7 +192,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
             notes,
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (completionError) throw completionError;
         completion = newCompletion;
