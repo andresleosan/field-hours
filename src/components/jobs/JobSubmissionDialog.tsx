@@ -153,7 +153,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         .eq("job_id", jobId)
         .eq("user_id", userData.user.id)
         .is("ended_at", null)
-        .single();
+        .maybeSingle();
 
       if (activeTracking) {
         await supabase
