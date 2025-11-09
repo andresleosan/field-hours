@@ -20,6 +20,8 @@ interface Project {
   address: string | null;
   total_hours?: number;
   total_spent?: number;
+  active_jobs?: number;
+  job_status_counts?: { approved: number; waiting_review: number; needs_correction: number };
 }
 
 const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
@@ -60,7 +62,9 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
           if (timeData) {
             totalHours = timeData.reduce((acc, record) => {
               if (record.clock_out) {
-                const hours = (new Date(record.clock_out).getTime() - new Date(record.clock_in).getTime()) / (1000 * 60 * 60);
+                const hours =
+                  (new Date(record.clock_out).getTime() - new Date(record.clock_in).getTime()) /
+                  (1000 * 60 * 60);
                 return acc + hours;
               }
               return acc;
@@ -75,10 +79,26 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
 
           const totalSpent = invoiceData?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
 
+          // Get job status counts
+          const { data: jobsData } = await supabase
+            .from("jobs")
+            .select("status")
+            .eq("project_id", project.id);
+
+          const counts = { approved: 0, waiting_review: 0, needs_correction: 0 };
+          (jobsData || []).forEach((j: { status: string }) => {
+            if (j.status === "approved") counts.approved++;
+            if (j.status === "waiting_review") counts.waiting_review++;
+            if (j.status === "needs_correction") counts.needs_correction++;
+          });
+          const activeJobs = (jobsData || []).filter((j: { status: string }) => j.status !== "completed").length;
+
           return {
             ...project,
             total_hours: Math.round(totalHours),
             total_spent: totalSpent,
+            active_jobs: activeJobs,
+            job_status_counts: counts,
           };
         })
       );
@@ -136,7 +156,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                 </div>
               </div>
 
-              <div className="flex gap-6 text-sm">
+              <div className="flex flex-wrap gap-6 text-sm">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{project.total_hours || 0}h</span>
@@ -148,6 +168,13 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                   <span className="font-medium">£{project.total_spent?.toFixed(2) || "0.00"}</span>
                   <span className="text-muted-foreground">spent</span>
                 </div>
+              </div>
+
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="secondary">Active jobs: {project.active_jobs || 0}</Badge>
+                <Badge variant="outline">To Do: {project.job_status_counts?.approved || 0}</Badge>
+                <Badge variant="outline">Waiting Review: {project.job_status_counts?.waiting_review || 0}</Badge>
+                <Badge variant="outline">Needs Correction: {project.job_status_counts?.needs_correction || 0}</Badge>
               </div>
             </div>
           ))}
