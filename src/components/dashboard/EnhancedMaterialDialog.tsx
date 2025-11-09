@@ -9,7 +9,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Plus, Search, Trash2, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { z } from "zod";
 
 interface EnhancedMaterialDialogProps {
@@ -255,165 +254,168 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Material Management</DialogTitle>
-          <DialogDescription>Log material usage, create new materials, or review logs</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-[700px] h-[85vh] max-h-[85vh] flex flex-col p-0">
+        <div className="px-6 pt-6 flex-shrink-0">
+          <DialogHeader>
+            <DialogTitle>Material Management</DialogTitle>
+            <DialogDescription>Log material usage, create new materials, or review logs</DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="log">Log Material</TabsTrigger>
-            <TabsTrigger value="create">Create New</TabsTrigger>
-            <TabsTrigger value="view">View Logs</TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <div className="px-6 flex-shrink-0">
+            <TabsList className="grid w-full grid-cols-3 mt-4">
+              <TabsTrigger value="log">Log Material</TabsTrigger>
+              <TabsTrigger value="create">Create New</TabsTrigger>
+              <TabsTrigger value="view">View Logs</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <ScrollArea className="flex-1 pr-4 pb-24">
-            <TabsContent value="log" className="space-y-4 mt-4">
-            <form onSubmit={handleLogMaterial} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="search">Search Material</Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="search"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Type to search materials..."
-                    className="pl-10"
-                    disabled={isLoading}
-                  />
-                </div>
-              </div>
-
-              <ScrollArea className="h-[200px] border rounded-md p-2">
-                {filteredMaterials.length === 0 ? (
-                  <div className="text-center text-muted-foreground py-8">
-                    <p>No materials found</p>
-                  </div>
-                ) : (
-                  filteredMaterials.map((material) => (
-                    <Card
-                      key={material.id}
-                      className={`p-3 mb-2 cursor-pointer hover:bg-accent ${
-                        logFormData.material_id === material.id ? "bg-accent" : ""
-                      }`}
-                      onClick={() => setLogFormData({ ...logFormData, material_id: material.id })}
-                    >
-                      <div className="font-medium">{material.name}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {material.category && `${material.category} • `}Unit: {material.unit}
-                      </div>
-                    </Card>
-                  ))
-                )}
-              </ScrollArea>
-
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantity Used *</Label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  step="0.01"
-                  value={logFormData.quantity_used}
-                  onChange={(e) => setLogFormData({ ...logFormData, quantity_used: e.target.value })}
-                  placeholder="0.00"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={logFormData.notes}
-                  onChange={(e) => setLogFormData({ ...logFormData, notes: e.target.value })}
-                  placeholder="Optional notes..."
-                  disabled={isLoading}
-                  rows={2}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading || !logFormData.material_id}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Log Material
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
-
-          <TabsContent value="create" className="space-y-4 mt-4">
-            <form onSubmit={handleCreateMaterial} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="material_name">Material Name *</Label>
-                <Input
-                  id="material_name"
-                  value={createFormData.name}
-                  onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
-                  placeholder="e.g., 2x4 Lumber"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Input
-                  id="category"
-                  value={createFormData.category}
-                  onChange={(e) => setCreateFormData({ ...createFormData, category: e.target.value })}
-                  placeholder="e.g., Wood, Hardware, Concrete"
-                  disabled={isLoading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="unit">Unit *</Label>
-                <Input
-                  id="unit"
-                  value={createFormData.unit}
-                  onChange={(e) => setCreateFormData({ ...createFormData, unit: e.target.value })}
-                  placeholder="e.g., pcs, ft, lbs"
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-
-              {userRole === 'manager' && (
+          <div className="flex-1 overflow-y-auto px-6 pb-6">
+            <TabsContent value="log" className="space-y-4 mt-4 m-0">
+              <form onSubmit={handleLogMaterial} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="cost_per_unit">Cost per Unit (£)</Label>
+                  <Label htmlFor="search">Search Material</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="search"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Type to search materials..."
+                      className="pl-10"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="h-[180px] border rounded-md overflow-y-auto p-2">
+                  {filteredMaterials.length === 0 ? (
+                    <div className="text-center text-muted-foreground py-8">
+                      <p>No materials found</p>
+                    </div>
+                  ) : (
+                    filteredMaterials.map((material) => (
+                      <Card
+                        key={material.id}
+                        className={`p-3 mb-2 cursor-pointer hover:bg-accent ${
+                          logFormData.material_id === material.id ? "bg-accent" : ""
+                        }`}
+                        onClick={() => setLogFormData({ ...logFormData, material_id: material.id })}
+                      >
+                        <div className="font-medium">{material.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {material.category && `${material.category} • `}Unit: {material.unit}
+                        </div>
+                      </Card>
+                    ))
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="quantity">Quantity Used *</Label>
                   <Input
-                    id="cost_per_unit"
+                    id="quantity"
                     type="number"
                     step="0.01"
-                    value={createFormData.cost_per_unit}
-                    onChange={(e) => setCreateFormData({ ...createFormData, cost_per_unit: e.target.value })}
+                    value={logFormData.quantity_used}
+                    onChange={(e) => setLogFormData({ ...logFormData, quantity_used: e.target.value })}
                     placeholder="0.00"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={logFormData.notes}
+                    onChange={(e) => setLogFormData({ ...logFormData, notes: e.target.value })}
+                    placeholder="Optional notes..."
+                    disabled={isLoading}
+                    rows={2}
+                  />
+                </div>
+
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading || !logFormData.material_id}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Log Material
+                  </Button>
+                </DialogFooter>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="create" className="space-y-4 mt-4 m-0">
+              <form onSubmit={handleCreateMaterial} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="material_name">Material Name *</Label>
+                  <Input
+                    id="material_name"
+                    value={createFormData.name}
+                    onChange={(e) => setCreateFormData({ ...createFormData, name: e.target.value })}
+                    placeholder="e.g., 2x4 Lumber"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    value={createFormData.category}
+                    onChange={(e) => setCreateFormData({ ...createFormData, category: e.target.value })}
+                    placeholder="e.g., Wood, Hardware, Concrete"
                     disabled={isLoading}
                   />
                 </div>
-              )}
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Material
-                </Button>
-              </DialogFooter>
-            </form>
-          </TabsContent>
+                <div className="space-y-2">
+                  <Label htmlFor="unit">Unit *</Label>
+                  <Input
+                    id="unit"
+                    value={createFormData.unit}
+                    onChange={(e) => setCreateFormData({ ...createFormData, unit: e.target.value })}
+                    placeholder="e.g., pcs, ft, lbs"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
 
-          <TabsContent value="view" className="space-y-4 mt-4">
-            <div className="max-h-[400px] overflow-y-auto">
+                {userRole === 'manager' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="cost_per_unit">Cost per Unit (£)</Label>
+                    <Input
+                      id="cost_per_unit"
+                      type="number"
+                      step="0.01"
+                      value={createFormData.cost_per_unit}
+                      onChange={(e) => setCreateFormData({ ...createFormData, cost_per_unit: e.target.value })}
+                      placeholder="0.00"
+                      disabled={isLoading}
+                    />
+                  </div>
+                )}
+
+                <DialogFooter className="pt-4">
+                  <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Material
+                  </Button>
+                </DialogFooter>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="view" className="space-y-4 mt-4 m-0 pb-6">
               {materialLogs.length === 0 ? (
                 <div className="text-center text-muted-foreground py-8">
                   <Eye className="h-12 w-12 mx-auto mb-2 opacity-50" />
@@ -450,9 +452,8 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
                   ))}
                 </div>
               )}
-            </div>
-          </TabsContent>
-          </ScrollArea>
+            </TabsContent>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>
