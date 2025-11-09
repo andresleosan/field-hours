@@ -27,9 +27,8 @@ export const ManagerJobsList = () => {
           projects(name),
           profiles:created_by(full_name)
         `)
-        .in("status", ["approved", "waiting_review", "needs_correction"])
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .neq("status", "completed")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setJobs(data || []);
