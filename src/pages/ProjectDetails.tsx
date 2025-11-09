@@ -3,12 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
-import { JobReviewDialog } from "@/components/jobs/JobReviewDialog";
 
 export default function ProjectDetails() {
   const { projectId } = useParams();
@@ -20,12 +21,27 @@ export default function ProjectDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [selectedJobForSubmission, setSelectedJobForSubmission] = useState<string | null>(null);
-  const [selectedJobForReview, setSelectedJobForReview] = useState<string | null>(null);
-  const [activeJobTracking, setActiveJobTracking] = useState<{ [key: string]: boolean }>({});
+  const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
+  const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
     checkAuth();
     fetchProjectData();
+    
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('job-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs', filter: `project_id=eq.${projectId}` }, () => {
+        fetchJobs();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_time_tracking' }, () => {
+        fetchJobs();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [projectId]);
 
   const checkAuth = async () => {
@@ -80,8 +96,26 @@ export default function ProjectDetails() {
         .from("jobs")
         .select(`
           *,
-          job_completions(count),
-          profiles:created_by(full_name)
+          profiles:created_by(full_name),
+          job_completions(
+            *,
+            profiles(full_name),
+            job_completion_photos(*),
+            job_collaborators(
+              user_id,
+              profiles(full_name)
+            )
+          ),
+          job_materials(
+            material_usage(
+              *,
+              materials(*)
+            )
+          ),
+          job_time_tracking(
+            *,
+            profiles(full_name)
+          )
         `)
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
@@ -89,21 +123,42 @@ export default function ProjectDetails() {
       if (error) throw error;
       setJobs(data || []);
 
-      // Check for active job tracking
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        const { data: trackingData } = await supabase
+      // Fetch active workers for each job
+      const workersMap: { [key: string]: any[] } = {};
+      for (const job of data || []) {
+        const { data: activeTracking } = await supabase
           .from("job_time_tracking")
-          .select("job_id")
-          .eq("user_id", userData.user.id)
+          .select("*, profiles(full_name)")
+          .eq("job_id", job.id)
           .is("ended_at", null);
-
-        const tracking: { [key: string]: boolean } = {};
-        trackingData?.forEach(t => {
-          tracking[t.job_id] = true;
-        });
-        setActiveJobTracking(tracking);
+        
+        if (activeTracking && activeTracking.length > 0) {
+          workersMap[job.id] = activeTracking;
+        }
       }
+      setActiveWorkers(workersMap);
+
+      // Generate signed URLs for photos
+      const urlsMap: { [key: string]: string[] } = {};
+      for (const job of data || []) {
+        const photos = job.job_completions?.[0]?.job_completion_photos || [];
+        const urls: string[] = [];
+        
+        for (const photo of photos) {
+          const { data: signedData } = await supabase.storage
+            .from("job-completion-photos")
+            .createSignedUrl(photo.photo_url, 3600);
+          
+          if (signedData?.signedUrl) {
+            urls.push(signedData.signedUrl);
+          }
+        }
+        
+        if (urls.length > 0) {
+          urlsMap[job.id] = urls;
+        }
+      }
+      setPhotoUrls(urlsMap);
     } catch (error: any) {
       console.error("Error fetching jobs:", error);
     }
@@ -124,15 +179,83 @@ export default function ProjectDetails() {
 
       if (error) throw error;
 
-      setActiveJobTracking(prev => ({ ...prev, [jobId]: true }));
       toast({
         title: "Time tracking started",
         description: "Your time is now being tracked for this job",
       });
+      
+      fetchJobs();
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Failed to start tracking",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleJobStatusChange = async (jobId: string, status: "completed" | "needs_correction") => {
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ status })
+        .eq("id", jobId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: status === "completed" ? "Job marked as complete" : "Job needs correction",
+      });
+      
+      fetchJobs();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update job status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const calculateTotalTime = (timeTracking: any[]) => {
+    return timeTracking.reduce((total: number, track: any) => {
+      if (track.ended_at) {
+        const minutes = Math.round(
+          (new Date(track.ended_at).getTime() - new Date(track.started_at).getTime()) / 60000
+        );
+        return total + minutes;
+      }
+      return total;
+    }, 0);
+  };
+
+  const formatTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  const downloadPhoto = async (photoPath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("job-completion-photos")
+        .download(photoPath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = photoPath.split("/").pop() || "photo.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to download photo",
         variant: "destructive",
       });
     }
@@ -199,7 +322,7 @@ export default function ProjectDetails() {
         )}
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         {jobs.length === 0 ? (
           <Card>
             <CardContent className="flex items-center justify-center py-12">
@@ -215,72 +338,237 @@ export default function ProjectDetails() {
             </CardContent>
           </Card>
         ) : (
-          jobs.map((job) => (
-            <Card key={job.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="mb-2">{job.title}</CardTitle>
-                    {job.description && (
-                      <p className="text-sm text-muted-foreground">{job.description}</p>
-                    )}
-                    <div className="mt-2 text-xs text-muted-foreground">
-                      Created by {job.profiles?.full_name || "Unknown"}
+          jobs.map((job) => {
+            const completion = job.job_completions?.[0];
+            const totalTime = calculateTotalTime(job.job_time_tracking || []);
+            const workers = activeWorkers[job.id] || [];
+            const materials = job.job_materials || [];
+            const photos = photoUrls[job.id] || [];
+
+            return (
+              <Card key={job.id} className="overflow-hidden">
+                <CardHeader className="bg-muted/30">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <CardTitle className="text-xl">{job.title}</CardTitle>
+                        {getStatusBadge(job.status)}
+                      </div>
+                      {job.description && (
+                        <CardDescription className="text-sm">{job.description}</CardDescription>
+                      )}
+                      <div className="mt-3 text-xs text-muted-foreground">
+                        Created by {job.profiles?.full_name || "Unknown"}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2 items-end">
-                    {getStatusBadge(job.status)}
-                    {activeJobTracking[job.id] && (
-                      <Badge variant="outline" className="animate-pulse">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Tracking Time
-                      </Badge>
+                </CardHeader>
+                <CardContent className="pt-6">
+                  <div className="grid gap-6">
+                    {/* Quick Stats Row */}
+                    <div className="grid grid-cols-3 gap-4">
+                      {/* Currently Working */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Users className="h-4 w-4 text-primary" />
+                            Currently Working
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {workers.length > 0 ? (
+                            <div className="space-y-2">
+                              {workers.map((worker: any) => (
+                                <Badge key={worker.id} variant="secondary" className="animate-pulse">
+                                  {worker.profiles?.full_name}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">No one working</p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Time Worked */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            Time Worked
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">
+                            {totalTime > 0 ? formatTime(totalTime) : "0h 0m"}
+                          </div>
+                          {job.job_time_tracking && job.job_time_tracking.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {job.job_time_tracking.length} session(s)
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+
+                      {/* Materials */}
+                      <Card>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm flex items-center gap-2">
+                            <Package className="h-4 w-4 text-primary" />
+                            Materials Used
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="text-2xl font-bold">{materials.length}</div>
+                          {materials.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              £{materials.reduce((sum: number, m: any) => {
+                                const usage = m.material_usage;
+                                const material = usage?.materials;
+                                return sum + (usage?.quantity_used * material?.cost_per_unit || 0);
+                              }, 0).toFixed(2)} total
+                            </p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    {/* Submission Details for Waiting Review and Completed */}
+                    {(job.status === "waiting_review" || job.status === "completed") && completion && (
+                      <>
+                        <Separator />
+                        <div className="space-y-4">
+                          <h3 className="font-semibold text-lg">Submission Details</h3>
+                          
+                          {/* Submitted by & Collaborators */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline">
+                              Submitted by {completion.profiles?.full_name}
+                            </Badge>
+                            {completion.job_collaborators?.length > 0 && (
+                              <>
+                                <span className="text-sm text-muted-foreground">with</span>
+                                {completion.job_collaborators.map((collab: any) => (
+                                  <Badge key={collab.user_id} variant="secondary">
+                                    {collab.profiles?.full_name}
+                                  </Badge>
+                                ))}
+                              </>
+                            )}
+                          </div>
+
+                          {/* Builder Notes */}
+                          {completion.notes && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Builder Notes:</p>
+                              <p className="text-sm bg-muted p-4 rounded-lg">{completion.notes}</p>
+                            </div>
+                          )}
+
+                          {/* Photos */}
+                          {photos.length > 0 && (
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">Photos ({photos.length})</p>
+                              <ScrollArea className="w-full">
+                                <div className="flex gap-4 pb-4">
+                                  {photos.map((url, index) => (
+                                    <div key={index} className="relative group shrink-0">
+                                      <img
+                                        src={url}
+                                        alt={`Job completion ${index + 1}`}
+                                        className="h-48 w-48 object-cover rounded-lg border-2 border-border"
+                                      />
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => {
+                                          const photo = completion.job_completion_photos[index];
+                                          if (photo) downloadPhoto(photo.photo_url);
+                                        }}
+                                      >
+                                        <Download className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          )}
+
+                          {/* Materials Details */}
+                          {materials.length > 0 && (
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">Materials Breakdown</p>
+                              <div className="border rounded-lg divide-y">
+                                {materials.map((jm: any) => {
+                                  const usage = jm.material_usage;
+                                  const material = usage?.materials;
+                                  return (
+                                    <div key={jm.id} className="p-3 flex justify-between items-center">
+                                      <div>
+                                        <div className="font-medium text-sm">{material?.name}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {usage?.quantity_used} {material?.unit}
+                                        </div>
+                                      </div>
+                                      <div className="font-semibold text-sm">
+                                        £{(usage?.quantity_used * material?.cost_per_unit).toFixed(2)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </>
                     )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  {userRole === "builder" && job.status === "approved" && (
-                    <>
-                      {!activeJobTracking[job.id] && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startJobTracking(job.id)}
-                        >
-                          <PlayCircle className="h-4 w-4 mr-2" />
-                          Start Working
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4 border-t">
+                      {userRole === "builder" && job.status === "approved" && (
+                        <>
+                          {!workers.some(w => w.user_id === userRole) && (
+                            <Button
+                              variant="outline"
+                              onClick={() => startJobTracking(job.id)}
+                            >
+                              <PlayCircle className="h-4 w-4 mr-2" />
+                              Start Working
+                            </Button>
+                          )}
+                          <Button onClick={() => setSelectedJobForSubmission(job.id)}>
+                            Submit for Review
+                          </Button>
+                        </>
+                      )}
+                      {userRole === "builder" && job.status === "needs_correction" && (
+                        <Button onClick={() => setSelectedJobForSubmission(job.id)}>
+                          Resubmit Job
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        onClick={() => setSelectedJobForSubmission(job.id)}
-                      >
-                        Submit for Review
-                      </Button>
-                    </>
-                  )}
-                  {userRole === "builder" && job.status === "needs_correction" && (
-                    <Button
-                      size="sm"
-                      onClick={() => setSelectedJobForSubmission(job.id)}
-                    >
-                      Resubmit Job
-                    </Button>
-                  )}
-                  {userRole === "manager" && job.status === "waiting_review" && (
-                    <Button
-                      size="sm"
-                      onClick={() => setSelectedJobForReview(job.id)}
-                    >
-                      Review Submission
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                      {userRole === "manager" && job.status === "waiting_review" && (
+                        <>
+                          <Button
+                            variant="destructive"
+                            onClick={() => handleJobStatusChange(job.id, "needs_correction")}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Needs Correction
+                          </Button>
+                          <Button onClick={() => handleJobStatusChange(job.id, "completed")}>
+                            <CheckCircle2 className="h-4 w-4 mr-2" />
+                            Job Done
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
 
@@ -300,15 +588,6 @@ export default function ProjectDetails() {
           jobId={selectedJobForSubmission}
           projectId={projectId!}
           onSubmitted={fetchJobs}
-        />
-      )}
-
-      {selectedJobForReview && (
-        <JobReviewDialog
-          open={!!selectedJobForReview}
-          onOpenChange={(open) => !open && setSelectedJobForReview(null)}
-          jobId={selectedJobForReview}
-          onReviewed={fetchJobs}
         />
       )}
     </div>
