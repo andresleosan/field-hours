@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ interface Project {
 }
 
 const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -132,7 +134,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
             <div
               key={project.id}
               className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card cursor-pointer"
-              onClick={() => window.location.href = `/project/${project.id}`}
+              onClick={() => navigate(`/project/${project.id}`)}
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
