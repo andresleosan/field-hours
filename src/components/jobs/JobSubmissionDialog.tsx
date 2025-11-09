@@ -261,11 +261,13 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         }
       }
 
-      // Update job status
-      await supabase
+      // Update job status to pending (waiting for manager review)
+      const { error: statusError } = await supabase
         .from("jobs")
-        .update({ status: "waiting_review" })
+        .update({ status: "pending" })
         .eq("id", jobId);
+
+      if (statusError) throw statusError;
 
       toast({
         title: "Success",

@@ -340,6 +340,7 @@ export default function ProjectDetails() {
     const statusConfig = {
       approved: { label: "To Do", variant: "secondary" as const, icon: AlertCircle },
       in_progress: { label: "In Progress", variant: "default" as const, icon: PlayCircle },
+      pending: { label: "Waiting for Review", variant: "outline" as const, icon: Clock },
       waiting_review: { label: "Waiting for Review", variant: "outline" as const, icon: Clock },
       needs_correction: { label: "Needs Correction", variant: "destructive" as const, icon: AlertCircle },
       completed: { label: "Job Done", variant: "default" as const, icon: CheckCircle2 },
@@ -509,7 +510,7 @@ export default function ProjectDetails() {
                     </div>
 
                     {/* Submission Details for Waiting Review and Completed */}
-                    {(job.status === "waiting_review" || job.status === "completed") && completion && (
+                    {(job.status === "pending" || job.status === "waiting_review" || job.status === "completed") && completion && (
                       <>
                         <Separator />
                         <div className="space-y-4">
@@ -623,7 +624,7 @@ export default function ProjectDetails() {
                           Resubmit Job
                         </Button>
                       )}
-                      {userRole === "manager" && job.status === "waiting_review" && (
+                      {userRole === "manager" && (job.status === "pending" || job.status === "waiting_review") && (
                         <>
                           <Button
                             variant="destructive"
