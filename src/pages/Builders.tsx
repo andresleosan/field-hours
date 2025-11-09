@@ -12,7 +12,7 @@ import EnhancedInvoiceDialog from "@/components/dashboard/EnhancedInvoiceDialog"
 import DailyReportDialog from "@/components/dashboard/DailyReportDialog";
 import ChangeProjectDialog from "@/components/dashboard/ChangeProjectDialog";
 import JobsToDoList from "@/components/jobs/JobsToDoList";
-
+import SelectJobDialog from "@/components/jobs/SelectJobDialog";
 interface Project {
   id: string;
   name: string;
@@ -31,6 +31,7 @@ const Builders = () => {
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isDailyReportDialogOpen, setIsDailyReportDialogOpen] = useState(false);
   const [isChangeProjectDialogOpen, setIsChangeProjectDialogOpen] = useState(false);
+  const [isSelectJobOpen, setIsSelectJobOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -129,16 +130,9 @@ const Builders = () => {
     });
   };
 
-  const handleClockIn = async () => {
-    if (!selectedProjectId || !userId) {
-      toast({
-        title: "Select a project",
-        description: "Please select a project before clocking in",
-        variant: "destructive",
-      });
-      return;
-    }
-
+  // After the user selects a job, perform clock-in + start job timer
+  const confirmClockInWithJob = async (jobId: string) => {
+    if (!selectedProjectId || !userId) return;
     try {
       const location = await getLocation();
 
@@ -156,6 +150,16 @@ const Builders = () => {
 
       if (error) throw error;
 
+      // Start job-level time tracking
+      const { error: jtError } = await supabase
+        .from("job_time_tracking")
+        .insert({
+          job_id: jobId,
+          user_id: userId,
+          project_id: selectedProjectId,
+        });
+      if (jtError) throw jtError;
+
       setIsClockedIn(true);
       setCurrentTimeEntry(data);
       toast({
@@ -171,6 +175,20 @@ const Builders = () => {
     }
   };
 
+  const handleClockIn = async () => {
+    if (!selectedProjectId || !userId) {
+      toast({
+        title: "Select a project",
+        description: "Please select a project before clocking in",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Open job selection dialog; actual inserts occur after selection
+    setIsSelectJobOpen(true);
+  };
+
   const handleClockOut = async () => {
     if (!currentTimeEntry || !userId) return;
 
@@ -178,7 +196,7 @@ const Builders = () => {
       const clockOutTime = new Date().toISOString();
       const clockInTime = currentTimeEntry.clock_in;
 
-      // Update time tracking
+      // Update time tracking (project-level)
       const { error } = await supabase
         .from("time_tracking")
         .update({
@@ -187,6 +205,13 @@ const Builders = () => {
         .eq("id", currentTimeEntry.id);
 
       if (error) throw error;
+
+      // Also stop any active job time tracking for this user
+      await supabase
+        .from("job_time_tracking")
+        .update({ ended_at: clockOutTime })
+        .eq("user_id", userId)
+        .is("ended_at", null);
 
       // Cast to any to avoid TS deep instantiation error
       const sb = supabase as any;
@@ -342,6 +367,13 @@ const Builders = () => {
         {selectedProjectId && (
           <JobsToDoList projectId={selectedProjectId} />
         )}
+
+        <SelectJobDialog
+          open={isSelectJobOpen}
+          onOpenChange={setIsSelectJobOpen}
+          projectId={selectedProjectId}
+          onConfirm={confirmClockInWithJob}
+        />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsMaterialDialogOpen(true)}>
