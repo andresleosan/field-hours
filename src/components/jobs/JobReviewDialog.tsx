@@ -16,6 +16,7 @@ interface JobReviewDialogProps {
 export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobReviewDialogProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [jobData, setJobData] = useState<any>(null);
+  const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string }>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -52,6 +53,22 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
 
       if (jobError) throw jobError;
       setJobData(job);
+
+      // Generate signed URLs for photos
+      const photos = job.job_completions?.[0]?.job_completion_photos || [];
+      const urls: { [key: string]: string } = {};
+      
+      for (const photo of photos) {
+        const { data: signedData } = await supabase.storage
+          .from("job-completion-photos")
+          .createSignedUrl(photo.photo_url, 3600); // 1 hour expiry
+        
+        if (signedData?.signedUrl) {
+          urls[photo.id] = signedData.signedUrl;
+        }
+      }
+      
+      setPhotoUrls(urls);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -223,11 +240,17 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
                   <div className="grid grid-cols-3 gap-4">
                     {completion.job_completion_photos.map((photo: any) => (
                       <div key={photo.id} className="relative group">
-                        <img
-                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-completion-photos/${photo.photo_url}`}
-                          alt="Job completion"
-                          className="w-full aspect-square object-cover rounded-lg"
-                        />
+                        {photoUrls[photo.id] ? (
+                          <img
+                            src={photoUrls[photo.id]}
+                            alt="Job completion"
+                            className="w-full aspect-square object-cover rounded-lg"
+                          />
+                        ) : (
+                          <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
+                            <Loader2 className="h-6 w-6 animate-spin" />
+                          </div>
+                        )}
                         <Button
                           variant="secondary"
                           size="sm"

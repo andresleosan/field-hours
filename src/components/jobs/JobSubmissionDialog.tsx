@@ -181,6 +181,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .maybeSingle();
         
         if (updateError) throw updateError;
+        if (!updatedCompletion) throw new Error("Failed to update job completion");
         completion = updatedCompletion;
       } else {
         // Create new job completion
@@ -195,6 +196,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .maybeSingle();
 
         if (completionError) throw completionError;
+        if (!newCompletion) throw new Error("Failed to create job completion");
         completion = newCompletion;
       }
 
