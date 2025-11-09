@@ -173,16 +173,13 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       let completion;
       if (existingCompletion) {
         // Update existing completion
-        const { data: updatedCompletion, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from("job_completions")
           .update({ notes })
-          .eq("id", existingCompletion.id)
-          .select()
-          .maybeSingle();
+          .eq("id", existingCompletion.id);
         
         if (updateError) throw updateError;
-        if (!updatedCompletion) throw new Error("Failed to update job completion");
-        completion = updatedCompletion;
+        completion = existingCompletion;
       } else {
         // Create new job completion
         const { data: newCompletion, error: completionError } = await supabase
@@ -193,10 +190,9 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
             notes,
           })
           .select()
-          .maybeSingle();
+          .single();
 
         if (completionError) throw completionError;
-        if (!newCompletion) throw new Error("Failed to create job completion");
         completion = newCompletion;
       }
 

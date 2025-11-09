@@ -13,6 +13,7 @@ import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
+import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
 
 interface DashboardStats {
   totalProjects: number;
@@ -216,12 +217,25 @@ const Managers = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+        <Tabs defaultValue="jobs" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="jobs">Jobs To Do</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="activity">Builder Activity</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="jobs">
+            <Card>
+              <CardHeader>
+                <CardTitle>Jobs To Do List</CardTitle>
+                <CardDescription>All active jobs across all projects</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ManagerJobsList />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="projects">
             <Card>
