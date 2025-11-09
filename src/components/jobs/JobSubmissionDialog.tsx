@@ -47,7 +47,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       // Cast to any to avoid TS deep instantiation error
       const sb = supabase as any;
 
-      // Fetch material usage without join
+      // Fetch unassigned material usage for this project by the current user
       const usageResult = await sb
         .from("material_usage")
         .select("id, quantity_used, material_id")
@@ -57,22 +57,36 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
 
       if (usageResult.error) throw usageResult.error;
 
-      if (!usageResult.data || usageResult.data.length === 0) {
+      const allUsage = usageResult.data || [];
+      if (allUsage.length === 0) {
         setLoggedMaterials([]);
         return;
       }
 
-      // Fetch material details separately
-      const materialIds = usageResult.data.map((u: any) => u.material_id);
+      // Exclude material_usage entries already linked via job_materials
+      const usageIds = allUsage.map((u: any) => u.id);
+      const linksResult = await sb
+        .from("job_materials")
+        .select("material_usage_id")
+        .in("material_usage_id", usageIds);
+      if (linksResult.error) throw linksResult.error;
+
+      const linkedSet = new Set((linksResult.data || []).map((l: any) => l.material_usage_id));
+      const unlinkedUsage = allUsage.filter((u: any) => !linkedSet.has(u.id));
+      if (unlinkedUsage.length === 0) {
+        setLoggedMaterials([]);
+        return;
+      }
+
+      // Fetch material details only for the unlinked usage
+      const materialIds = unlinkedUsage.map((u: any) => u.material_id);
       const materialsResult = await sb
         .from("materials")
         .select("id, name, unit, cost_per_unit")
         .in("id", materialIds);
-
       if (materialsResult.error) throw materialsResult.error;
 
-      // Combine the data
-      const combined = usageResult.data.map((usage: any) => ({
+      const combined = unlinkedUsage.map((usage: any) => ({
         ...usage,
         materials: materialsResult.data?.find((m: any) => m.id === usage.material_id)
       }));
@@ -215,28 +229,25 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         if (photoError) throw photoError;
       }
 
-      // Link logged materials to this job
+      // Link logged materials to this job (via job_materials). We do not update material_usage directly due to RLS.
       for (const material of loggedMaterials) {
-        await supabase
-          .from("material_usage")
-          .update({ job_id: jobId })
-          .eq("id", material.id);
-
         // Check if job_material link already exists
-        const { data: existingLink } = await supabase
+        const { data: existingLink, error: linkCheckError } = await supabase
           .from("job_materials")
           .select("id")
           .eq("job_id", jobId)
           .eq("material_usage_id", material.id)
           .maybeSingle();
+        if (linkCheckError) throw linkCheckError;
 
         if (!existingLink) {
-          await supabase
+          const { error: insertLinkError } = await supabase
             .from("job_materials")
             .insert({
               job_id: jobId,
               material_usage_id: material.id,
             });
+          if (insertLinkError) throw insertLinkError;
         }
       }
 
