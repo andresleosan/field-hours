@@ -1,0 +1,25 @@
+-- Ensure realtime sends full row data for updates on job-related tables
+DO $$
+BEGIN
+  BEGIN
+    EXECUTE 'ALTER TABLE public.jobs REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.job_completions REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.job_completion_photos REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.job_time_tracking REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.job_materials REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.material_usage REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+  BEGIN
+    EXECUTE 'ALTER TABLE public.job_collaborators REPLICA IDENTITY FULL';
+  EXCEPTION WHEN others THEN NULL; END;
+END $$;

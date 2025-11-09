@@ -90,7 +90,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
           const counts = { approved: 0, waiting_review: 0, needs_correction: 0 };
           (jobsData || []).forEach((j: { status: string }) => {
             if (j.status === "approved") counts.approved++;
-            if (j.status === "waiting_review") counts.waiting_review++;
+            if (j.status === "waiting_review" || j.status === "pending") counts.waiting_review++;
             if (j.status === "needs_correction") counts.needs_correction++;
           });
           const activeJobs = (jobsData || []).filter((j: { status: string }) => j.status !== "completed").length;

@@ -42,6 +42,7 @@ export const ManagerJobsList = () => {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       approved: { label: "To Do", variant: "secondary" as const, icon: AlertCircle },
+      pending: { label: "Waiting Review", variant: "outline" as const, icon: Clock },
       waiting_review: { label: "Waiting Review", variant: "outline" as const, icon: Clock },
       needs_correction: { label: "Needs Correction", variant: "destructive" as const, icon: AlertCircle },
       completed: { label: "Completed", variant: "default" as const, icon: CheckCircle2 },
@@ -102,7 +103,7 @@ export const ManagerJobsList = () => {
                   >
                     View Project
                   </Button>
-                  {job.status === "waiting_review" && (
+                  {(job.status === "waiting_review" || job.status === "pending") && (
                     <Button
                       size="sm"
                       onClick={() => setSelectedJobForReview(job.id)}

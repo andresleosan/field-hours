@@ -261,13 +261,11 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         }
       }
 
-      // Update job status to pending (waiting for manager review)
-      const { error: statusError } = await supabase
-        .from("jobs")
-        .update({ status: "pending" })
-        .eq("id", jobId);
+      // Status is set to "waiting_review" by a DB trigger after a completion is inserted/updated.
+      // No direct status update here due to RLS on jobs.
 
-      if (statusError) throw statusError;
+      // Clear local materials list; they've been linked to the job
+      setLoggedMaterials([]);
 
       toast({
         title: "Success",
