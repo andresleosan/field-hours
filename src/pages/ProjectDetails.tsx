@@ -31,12 +31,13 @@ export default function ProjectDetails() {
     // Set up realtime subscription
     const channel = supabase
       .channel('job-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs', filter: `project_id=eq.${projectId}` }, () => {
-        fetchJobs();
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_time_tracking' }, () => {
-        fetchJobs();
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs', filter: `project_id=eq.${projectId}` }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_time_tracking' }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_materials' }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'material_usage' }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_completions' }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_completion_photos' }, () => fetchJobs())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'job_collaborators' }, () => fetchJobs())
       .subscribe();
 
     return () => {
@@ -92,72 +93,146 @@ export default function ProjectDetails() {
 
   const fetchJobs = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch base jobs for this project
+      const { data: jobsData, error: jobsError } = await supabase
         .from("jobs")
-        .select(`
-          *,
-          profiles:created_by(full_name),
-          job_completions(
-            *,
-            profiles(full_name),
-            job_completion_photos(*),
-            job_collaborators(
-              user_id,
-              profiles(full_name)
-            )
-          ),
-          job_materials(
-            material_usage(
-              *,
-              materials(*)
-            )
-          ),
-          job_time_tracking(
-            *,
-            profiles(full_name)
-          )
-        `)
+        .select("*")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      setJobs(data || []);
+      if (jobsError) throw jobsError;
 
-      // Fetch active workers for each job
+      const enrichedJobs: any[] = [];
       const workersMap: { [key: string]: any[] } = {};
-      for (const job of data || []) {
+      const urlsMap: { [key: string]: string[] } = {};
+
+      for (const job of jobsData || []) {
+        const jobCopy: any = { ...job };
+
+        // Creator profile
+        const { data: creator } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .eq("id", job.created_by)
+          .maybeSingle();
+        jobCopy.profiles = creator ? { full_name: creator.full_name } : null;
+
+        // Time tracking entries
+        const { data: tt } = await supabase
+          .from("job_time_tracking")
+          .select("*")
+          .eq("job_id", job.id);
+        jobCopy.job_time_tracking = tt || [];
+
+        // Active workers (ended_at IS NULL) + names
         const { data: activeTracking } = await supabase
           .from("job_time_tracking")
-          .select("*, profiles(full_name)")
+          .select("id, user_id")
           .eq("job_id", job.id)
           .is("ended_at", null);
-        
         if (activeTracking && activeTracking.length > 0) {
-          workersMap[job.id] = activeTracking;
+          const userIds = activeTracking.map((t: any) => t.user_id);
+          const { data: profs } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+          const merged = (activeTracking || []).map((t: any) => ({
+            ...t,
+            profiles: profs?.find((p: any) => p.id === t.user_id),
+          }));
+          workersMap[job.id] = merged;
         }
-      }
-      setActiveWorkers(workersMap);
 
-      // Generate signed URLs for photos
-      const urlsMap: { [key: string]: string[] } = {};
-      for (const job of data || []) {
-        const photos = job.job_completions?.[0]?.job_completion_photos || [];
-        const urls: string[] = [];
-        
-        for (const photo of photos) {
-          const { data: signedData } = await supabase.storage
-            .from("job-completion-photos")
-            .createSignedUrl(photo.photo_url, 3600);
-          
-          if (signedData?.signedUrl) {
-            urls.push(signedData.signedUrl);
+        // Materials used on this job
+        const { data: jm } = await supabase
+          .from("job_materials")
+          .select("id, material_usage_id")
+          .eq("job_id", job.id);
+        const jmDetailed: any[] = [];
+        for (const link of jm || []) {
+          const { data: mu } = await supabase
+            .from("material_usage")
+            .select("*")
+            .eq("id", link.material_usage_id)
+            .maybeSingle();
+          let material: any = null;
+          if (mu?.material_id) {
+            const { data: mat } = await supabase
+              .from("materials")
+              .select("*")
+              .eq("id", mu.material_id)
+              .maybeSingle();
+            material = mat || null;
+          }
+          jmDetailed.push({ id: link.id, material_usage: { ...mu, materials: material } });
+        }
+        jobCopy.job_materials = jmDetailed;
+
+        // Job completions (most recent first) with photos and collaborators
+        const { data: completions } = await supabase
+          .from("job_completions")
+          .select("*")
+          .eq("job_id", job.id)
+          .order("completed_at", { ascending: false });
+        const compsDetailed: any[] = [];
+        for (const comp of completions || []) {
+          const { data: photos } = await supabase
+            .from("job_completion_photos")
+            .select("*")
+            .eq("completion_id", comp.id);
+
+          const { data: collabs } = await supabase
+            .from("job_collaborators")
+            .select("*")
+            .eq("job_completion_id", comp.id);
+
+          const { data: submitter } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .eq("id", comp.completed_by)
+            .maybeSingle();
+
+          let collabWithProfiles: any[] = [];
+          if (collabs && collabs.length > 0) {
+            const collabIds = collabs.map((c: any) => c.user_id);
+            const { data: collabProfs } = await supabase
+              .from("profiles")
+              .select("id, full_name")
+              .in("id", collabIds);
+            collabWithProfiles = (collabs || []).map((c: any) => ({
+              ...c,
+              profiles: collabProfs?.find((p: any) => p.id === c.user_id),
+            }));
+          }
+
+          const compDetail = {
+            ...comp,
+            job_completion_photos: photos || [],
+            job_collaborators: collabWithProfiles,
+            profiles: submitter ? { full_name: submitter.full_name } : null,
+          };
+          compsDetailed.push(compDetail);
+
+          // Prepare signed URLs for the first completion's photos
+          if (!urlsMap[job.id] && (photos?.length || 0) > 0) {
+            const urls: string[] = [];
+            for (const photo of photos || []) {
+              const { data: signedData } = await supabase
+                .storage
+                .from("job-completion-photos")
+                .createSignedUrl(photo.photo_url, 3600);
+              if (signedData?.signedUrl) urls.push(signedData.signedUrl);
+            }
+            if (urls.length > 0) urlsMap[job.id] = urls;
           }
         }
-        
-        if (urls.length > 0) {
-          urlsMap[job.id] = urls;
-        }
+        jobCopy.job_completions = compsDetailed;
+
+        enrichedJobs.push(jobCopy);
       }
+
+      setJobs(enrichedJobs);
+      setActiveWorkers(workersMap);
       setPhotoUrls(urlsMap);
     } catch (error: any) {
       console.error("Error fetching jobs:", error);
@@ -350,9 +425,8 @@ export default function ProjectDetails() {
                 <CardHeader className="bg-muted/30">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="mb-2">
                         <CardTitle className="text-xl">{job.title}</CardTitle>
-                        {getStatusBadge(job.status)}
                       </div>
                       {job.description && (
                         <CardDescription className="text-sm">{job.description}</CardDescription>
@@ -361,6 +435,7 @@ export default function ProjectDetails() {
                         Created by {job.profiles?.full_name || "Unknown"}
                       </div>
                     </div>
+                    <div className="pt-1">{getStatusBadge(job.status)}</div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6">
