@@ -340,8 +340,8 @@ export default function ProjectDetails() {
     const statusConfig = {
       approved: { label: "To Do", variant: "secondary" as const, icon: AlertCircle },
       in_progress: { label: "In Progress", variant: "default" as const, icon: PlayCircle },
-      pending: { label: "Waiting for Review", variant: "outline" as const, icon: Clock },
-      waiting_review: { label: "Waiting for Review", variant: "outline" as const, icon: Clock },
+      pending: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
+      waiting_review: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
       needs_correction: { label: "Needs Correction", variant: "destructive" as const, icon: AlertCircle },
       completed: { label: "Job Done", variant: "default" as const, icon: CheckCircle2 },
     };
