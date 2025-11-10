@@ -31,7 +31,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
       .from("jobs")
       .select("id, title, description, status, created_at, created_by")
       .eq("project_id", projectId)
-      .in("status", ["approved", "needs_correction"]) // To-do items for builders
+      .in("status", ["approved", "needs_correction", "waiting_review"]) // Include waiting review so badge updates in list
       .order("created_at", { ascending: false });
 
     if (!error) setJobs((data || []) as JobItem[]);
