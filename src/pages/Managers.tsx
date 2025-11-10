@@ -13,7 +13,7 @@ import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
-// Removed ManagerJobsList import as Jobs tab is being removed
+import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
 
 interface DashboardStats {
   totalProjects: number;
@@ -241,6 +241,17 @@ const Managers = () => {
               </CardHeader>
               <CardContent>
                 <ProjectList onProjectCreated={fetchDashboardStats} />
+                <div className="mt-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Jobs Awaiting Review</CardTitle>
+                      <CardDescription>Review submissions from builders in real time</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ManagerJobsList />
+                    </CardContent>
+                  </Card>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

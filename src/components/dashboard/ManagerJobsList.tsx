@@ -15,6 +15,24 @@ export const ManagerJobsList = () => {
 
   useEffect(() => {
     fetchJobs();
+
+    const channel = supabase
+      .channel('manager-jobs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
+        () => fetchJobs()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'job_completions' },
+        () => fetchJobs()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchJobs = async () => {

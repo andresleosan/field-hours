@@ -39,6 +39,20 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
 
   useEffect(() => {
     fetchProjects();
+
+    // Realtime: refresh projects when any job changes
+    const channel = supabase
+      .channel('project-list-jobs')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'jobs' },
+        () => fetchProjects()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [onProjectCreated]);
 
   const fetchProjects = async () => {
