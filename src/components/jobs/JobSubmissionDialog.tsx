@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -305,6 +305,9 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Submit Job for Review</DialogTitle>
+            <DialogDescription>
+              Upload at least one photo and optional notes. Managers will review your submission in real time.
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
@@ -336,8 +339,11 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
                   className="hidden"
                   onChange={handleFileSelect}
                 />
-              </div>
-              {photos.length > 0 && (
+               </div>
+               {photos.length === 0 && (
+                 <p className="text-xs text-muted-foreground">At least one photo is required to submit.</p>
+               )}
+               {photos.length > 0 && (
                 <div className="grid grid-cols-4 gap-2 mt-2">
                   {photos.map((photo, index) => (
                     <div key={index} className="relative aspect-square">
@@ -412,7 +418,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || photos.length === 0}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Submit for Review
               </Button>
