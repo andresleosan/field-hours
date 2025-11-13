@@ -66,7 +66,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
     const map: Record<string, { label: string; variant: any; icon: any }> = {
       approved: { label: 'To Do', variant: 'secondary', icon: AlertCircle },
       needs_correction: { label: 'Needs Correction', variant: 'destructive', icon: AlertCircle },
-      waiting_review: { label: 'Waiting Review', variant: 'warning', icon: Clock },
+      waiting_review: { label: 'Waiting for Review', variant: 'warning', icon: Clock },
       completed: { label: 'Done', variant: 'default', icon: CheckCircle2 },
     };
     const cfg = map[status] || map.approved;

@@ -189,7 +189,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <Badge variant="secondary">Active jobs: {project.active_jobs || 0}</Badge>
                 <Badge variant="outline">To Do: {project.job_status_counts?.approved || 0}</Badge>
-                <Badge variant="outline">Waiting Review: {project.job_status_counts?.waiting_review || 0}</Badge>
+                <Badge variant="outline">Waiting for Review: {project.job_status_counts?.waiting_review || 0}</Badge>
                 <Badge variant="outline">Needs Correction: {project.job_status_counts?.needs_correction || 0}</Badge>
               </div>
             </div>
