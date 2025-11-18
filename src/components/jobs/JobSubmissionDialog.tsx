@@ -176,39 +176,32 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
           .eq("id", activeTracking.id);
       }
 
-      // Check if completion already exists
-      const { data: existingCompletion } = await supabase
+      // Get the latest submission number for this job
+      const { data: existingCompletions } = await supabase
         .from("job_completions")
-        .select("*")
+        .select("submission_number")
         .eq("job_id", jobId)
-        .eq("completed_by", userData.user.id)
-        .maybeSingle();
+        .order("submission_number", { ascending: false })
+        .limit(1);
 
-      let completion;
-      if (existingCompletion) {
-        // Update existing completion
-        const { error: updateError } = await supabase
-          .from("job_completions")
-          .update({ notes })
-          .eq("id", existingCompletion.id);
-        
-        if (updateError) throw updateError;
-        completion = existingCompletion;
-      } else {
-        // Create new job completion
-        const { data: newCompletion, error: completionError } = await supabase
-          .from("job_completions")
-          .insert({
-            job_id: jobId,
-            completed_by: userData.user.id,
-            notes,
-          })
-          .select()
-          .single();
+      const nextSubmissionNumber = existingCompletions && existingCompletions.length > 0 
+        ? (existingCompletions[0].submission_number || 0) + 1 
+        : 1;
 
-        if (completionError) throw completionError;
-        completion = newCompletion;
-      }
+      // Always create a NEW job completion (preserves history)
+      const { data: newCompletion, error: completionError } = await supabase
+        .from("job_completions")
+        .insert({
+          job_id: jobId,
+          completed_by: userData.user.id,
+          notes,
+          submission_number: nextSubmissionNumber,
+        })
+        .select()
+        .single();
+
+      if (completionError) throw completionError;
+      const completion = newCompletion;
 
       // Upload photos
       for (const photo of photos) {
