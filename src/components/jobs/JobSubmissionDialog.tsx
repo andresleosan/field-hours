@@ -146,16 +146,18 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (photos.length === 0) {
       toast({
-        title: "Error",
-        description: "Please upload at least one photo",
+        title: "Photos Required",
+        description: "Please upload at least one photo before submitting for review",
         variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
+    console.log("Starting job submission for job:", jobId);
     try {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not authenticated");
@@ -271,6 +273,8 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       // Clear local materials list; they've been linked to the job
       setLoggedMaterials([]);
 
+      console.log("Job submission successful!");
+      
       toast({
         title: "Success",
         description: "Job submitted for review",
@@ -282,6 +286,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       onSubmitted();
       onOpenChange(false);
     } catch (error: any) {
+      console.error("Job submission error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to submit job",
