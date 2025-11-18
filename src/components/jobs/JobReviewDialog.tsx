@@ -52,13 +52,23 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
         .single();
 
       if (jobError) throw jobError;
+      
+      // Sort completions by date (newest first)
+      if (job.job_completions) {
+        job.job_completions.sort((a: any, b: any) => 
+          new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
+        );
+      }
+      
       setJobData(job);
 
-      // Generate signed URLs for photos
-      const photos = job.job_completions?.[0]?.job_completion_photos || [];
+      // Generate signed URLs for ALL photos from ALL submissions
+      const allPhotos = job.job_completions?.flatMap((comp: any) => 
+        comp.job_completion_photos || []
+      ) || [];
       const urls: { [key: string]: string } = {};
       
-      for (const photo of photos) {
+      for (const photo of allPhotos) {
         const { data: signedData } = await supabase.storage
           .from("job-completion-photos")
           .createSignedUrl(photo.photo_url, 3600); // 1 hour expiry
@@ -180,14 +190,14 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
 
   if (!jobData) return null;
 
-  const completion = jobData.job_completions?.[0];
+  const completions = jobData.job_completions || [];
   const totalTime = calculateTotalTime();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Review Job Submission</DialogTitle>
+          <DialogTitle>Review Job Submissions ({completions.length})</DialogTitle>
         </DialogHeader>
         <div className="space-y-6">
           <div>
@@ -197,102 +207,116 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
             )}
           </div>
 
-          {completion && (
-            <>
-              <div className="flex items-center gap-4">
-                <Badge variant="outline">
-                  Submitted by {completion.profiles?.full_name}
-                </Badge>
-                {totalTime > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-4 w-4" />
-                    {formatTime(totalTime)} worked
+          {totalTime > 0 && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              Total Time: {formatTime(totalTime)}
+            </div>
+          )}
+
+          {completions.length > 0 ? (
+            completions.map((completion: any, index: number) => (
+              <div key={completion.id} className="border rounded-lg p-4 space-y-4 bg-card">
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div className="flex items-center gap-4">
+                    <Badge variant="default">
+                      Submission #{completion.submission_number || index + 1}
+                    </Badge>
+                    <Badge variant="outline">
+                      {completion.profiles?.full_name}
+                    </Badge>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {new Date(completion.completed_at).toLocaleDateString()} at{' '}
+                    {new Date(completion.completed_at).toLocaleTimeString()}
+                  </span>
+                </div>
+
+                {completion.notes && (
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Notes</Label>
+                    <p className="text-sm bg-muted p-3 rounded-md">{completion.notes}</p>
+                  </div>
+                )}
+
+                {completion.job_collaborators?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="font-semibold flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      Collaborators
+                    </Label>
+                    <div className="flex flex-wrap gap-2">
+                      {completion.job_collaborators.map((collab: any) => (
+                        <Badge key={collab.user_id} variant="secondary">
+                          {collab.profiles?.full_name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {completion.job_completion_photos?.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="font-semibold">Photos ({completion.job_completion_photos.length})</Label>
+                    <div className="grid grid-cols-3 gap-4">
+                      {completion.job_completion_photos.map((photo: any) => (
+                        <div key={photo.id} className="relative group">
+                          {photoUrls[photo.id] ? (
+                            <img
+                              src={photoUrls[photo.id]}
+                              alt="Job completion"
+                              className="w-full aspect-square object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
+                              <Loader2 className="h-6 w-6 animate-spin" />
+                            </div>
+                          )}
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => downloadPhoto(photo.photo_url)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
+            ))
+          ) : (
+            <p className="text-muted-foreground">No submissions yet</p>
+          )}
 
-              {completion.notes && (
-                <div className="space-y-2">
-                  <Label className="font-semibold">Builder Notes</Label>
-                  <p className="text-sm bg-muted p-3 rounded-md">{completion.notes}</p>
-                </div>
-              )}
-
-              {completion.job_collaborators?.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="font-semibold flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    Collaborators
-                  </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {completion.job_collaborators.map((collab: any) => (
-                      <Badge key={collab.user_id} variant="secondary">
-                        {collab.profiles?.full_name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {completion.job_completion_photos?.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="font-semibold">Photos ({completion.job_completion_photos.length})</Label>
-                  <div className="grid grid-cols-3 gap-4">
-                    {completion.job_completion_photos.map((photo: any) => (
-                      <div key={photo.id} className="relative group">
-                        {photoUrls[photo.id] ? (
-                          <img
-                            src={photoUrls[photo.id]}
-                            alt="Job completion"
-                            className="w-full aspect-square object-cover rounded-lg"
-                          />
-                        ) : (
-                          <div className="w-full aspect-square bg-muted rounded-lg flex items-center justify-center">
-                            <Loader2 className="h-6 w-6 animate-spin" />
-                          </div>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => downloadPhoto(photo.photo_url)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {jobData.job_materials?.length > 0 && (
-                <div className="space-y-2">
-                  <Label className="font-semibold flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Materials Used
-                  </Label>
-                  <div className="border rounded-md divide-y">
-                    {jobData.job_materials.map((jm: any) => {
-                      const usage = jm.material_usage;
-                      const material = usage?.materials;
-                      return (
-                        <div key={jm.id} className="p-3 flex justify-between items-center">
-                          <div>
-                            <div className="font-medium">{material?.name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {usage?.quantity_used} {material?.unit}
-                            </div>
-                          </div>
-                          <div className="font-semibold">
-                            £{(usage?.quantity_used * material?.cost_per_unit).toFixed(2)}
-                          </div>
+          {jobData.job_materials?.length > 0 && (
+            <div className="space-y-2">
+              <Label className="font-semibold flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Materials Used
+              </Label>
+              <div className="border rounded-md divide-y">
+                {jobData.job_materials.map((jm: any) => {
+                  const usage = jm.material_usage;
+                  const material = usage?.materials;
+                  return (
+                    <div key={jm.id} className="p-3 flex justify-between items-center">
+                      <div>
+                        <div className="font-medium">{material?.name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {usage?.quantity_used} {material?.unit}
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
+                      </div>
+                      <div className="font-semibold">
+                        £{(usage?.quantity_used * material?.cost_per_unit).toFixed(2)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-4 border-t">

@@ -285,6 +285,7 @@ export type Database = {
           id: string
           job_id: string
           notes: string | null
+          submission_number: number | null
           voice_note_url: string | null
         }
         Insert: {
@@ -293,6 +294,7 @@ export type Database = {
           id?: string
           job_id: string
           notes?: string | null
+          submission_number?: number | null
           voice_note_url?: string | null
         }
         Update: {
@@ -301,6 +303,7 @@ export type Database = {
           id?: string
           job_id?: string
           notes?: string | null
+          submission_number?: number | null
           voice_note_url?: string | null
         }
         Relationships: [
