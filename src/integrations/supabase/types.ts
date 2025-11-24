@@ -824,6 +824,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_completion_owner: {
+        Args: { _completion_id: string; _user_id: string }
+        Returns: boolean
+      }
       validate_invitation: {
         Args: {
           user_email: string
