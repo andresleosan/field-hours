@@ -216,17 +216,17 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
 
           {completions.length > 0 ? (
             completions.map((completion: any, index: number) => (
-              <div key={completion.id} className="border rounded-lg p-4 space-y-4 bg-card">
-                <div className="flex items-center justify-between border-b pb-3">
+              <div key={completion.id} className="border-2 rounded-lg p-4 space-y-4 bg-card shadow-sm">
+                <div className="flex items-center justify-between border-b-2 pb-3">
                   <div className="flex items-center gap-4">
-                    <Badge variant="default">
+                    <Badge variant="default" className="text-base px-3 py-1">
                       Submission #{completion.submission_number || index + 1}
                     </Badge>
-                    <Badge variant="outline">
+                    <Badge variant="outline" className="text-sm">
                       {completion.profiles?.full_name}
                     </Badge>
                   </div>
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-muted-foreground font-medium">
                     {new Date(completion.completed_at).toLocaleDateString()} at{' '}
                     {new Date(completion.completed_at).toLocaleTimeString()}
                   </span>
