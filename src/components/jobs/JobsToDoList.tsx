@@ -17,6 +17,7 @@ interface JobItem {
   status: string;
   created_at: string;
   created_by: string;
+  job_photos?: Array<{ id: string; photo_url: string }>;
 }
 
 export default function JobsToDoList({ projectId }: JobsToDoListProps) {
@@ -29,7 +30,15 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
     setLoading(true);
     const { data, error } = await supabase
       .from("jobs")
-      .select("id, title, description, status, created_at, created_by")
+      .select(`
+        id, 
+        title, 
+        description, 
+        status, 
+        created_at, 
+        created_by,
+        job_photos(id, photo_url)
+      `)
       .eq("project_id", projectId)
       .in("status", ["approved", "needs_correction", "waiting_review"]) // Include waiting review so badge updates in list
       .order("created_at", { ascending: false });
@@ -107,7 +116,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
                     }}
                   >
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <div className="font-medium truncate">{job.title}</div>
                         {job.description && (
                           <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
@@ -115,6 +124,23 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
                         <div className="text-xs text-muted-foreground mt-1">
                           Assigned by manager
                         </div>
+                        {job.job_photos && job.job_photos.length > 0 && (
+                          <div className="flex gap-1 mt-2 overflow-x-auto">
+                            {job.job_photos.slice(0, 3).map((photo) => (
+                              <img
+                                key={photo.id}
+                                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-photos/${photo.photo_url}`}
+                                alt="Job reference"
+                                className="h-12 w-12 object-cover rounded border"
+                              />
+                            ))}
+                            {job.job_photos.length > 3 && (
+                              <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center text-xs">
+                                +{job.job_photos.length - 3}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                       {getStatusBadge(job.status)}
                     </div>

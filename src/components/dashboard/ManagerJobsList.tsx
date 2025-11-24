@@ -43,7 +43,8 @@ export const ManagerJobsList = () => {
         .select(`
           *,
           projects(name),
-          profiles:created_by(full_name)
+          profiles:created_by(full_name),
+          job_photos(id, photo_url)
         `)
         .neq("status", "completed")
         .order("created_at", { ascending: false });
@@ -112,6 +113,23 @@ export const ManagerJobsList = () => {
                     <span>Project: {job.projects?.name}</span>
                     <span>Created by: {job.profiles?.full_name}</span>
                   </div>
+                  {job.job_photos && job.job_photos.length > 0 && (
+                    <div className="flex gap-2 mt-3 overflow-x-auto">
+                      {job.job_photos.slice(0, 4).map((photo: any) => (
+                        <img
+                          key={photo.id}
+                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-photos/${photo.photo_url}`}
+                          alt="Job reference"
+                          className="h-16 w-16 object-cover rounded border"
+                        />
+                      ))}
+                      {job.job_photos.length > 4 && (
+                        <div className="h-16 w-16 rounded border bg-muted flex items-center justify-center text-sm">
+                          +{job.job_photos.length - 4}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <Button
