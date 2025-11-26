@@ -40,10 +40,15 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
         job_photos(id, photo_url)
       `)
       .eq("project_id", projectId)
-      .in("status", ["approved", "needs_correction", "waiting_review"]) // Include waiting review so badge updates in list
+      .in("status", ["approved", "needs_correction", "waiting_review"])
       .order("created_at", { ascending: false });
 
-    if (!error) setJobs((data || []) as JobItem[]);
+    if (error) {
+      console.error("Error fetching jobs:", error);
+      setJobs([]);
+    } else {
+      setJobs((data || []) as JobItem[]);
+    }
     setLoading(false);
   };
 

@@ -43,7 +43,6 @@ export const ManagerJobsList = () => {
         .select(`
           *,
           projects(name),
-          profiles:created_by(full_name),
           job_photos(id, photo_url)
         `)
         .neq("status", "completed")
@@ -111,7 +110,6 @@ export const ManagerJobsList = () => {
                   )}
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Project: {job.projects?.name}</span>
-                    <span>Created by: {job.profiles?.full_name}</span>
                   </div>
                   {job.job_photos && job.job_photos.length > 0 && (
                     <div className="flex gap-2 mt-3 overflow-x-auto">
