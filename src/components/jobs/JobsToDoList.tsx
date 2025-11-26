@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Clock, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Clock, AlertCircle, CheckCircle2, Image } from "lucide-react";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
+import { ManagerReferencePhotosDialog } from "@/components/jobs/ManagerReferencePhotosDialog";
 interface JobsToDoListProps {
   projectId: string;
 }
@@ -25,6 +26,8 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
   const [loading, setLoading] = useState(true);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const [photosDialogOpen, setPhotosDialogOpen] = useState(false);
+  const [selectedJobForPhotos, setSelectedJobForPhotos] = useState<JobItem | null>(null);
   const navigate = useNavigate();
   const fetchJobs = async () => {
     setLoading(true);
@@ -112,44 +115,63 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
             <ul className="space-y-3">
               {jobs.slice(0, 6).map((job) => (
                 <li key={job.id}>
-                  <button
-                    type="button"
-                    className="w-full text-left border rounded-md p-3 hover:bg-muted/50 transition"
-                    onClick={() => {
-                      setSelectedJobId(job.id);
-                      setSubmitOpen(true);
-                    }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{job.title}</div>
-                        {job.description && (
-                          <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
-                        )}
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Assigned by manager
-                        </div>
-                        {job.job_photos && job.job_photos.length > 0 && (
-                          <div className="flex gap-1 mt-2 overflow-x-auto">
-                            {job.job_photos.slice(0, 3).map((photo) => (
-                              <img
-                                key={photo.id}
-                                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-photos/${photo.photo_url}`}
-                                alt="Job reference"
-                                className="h-12 w-12 object-cover rounded border"
-                              />
-                            ))}
-                            {job.job_photos.length > 3 && (
-                              <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center text-xs">
-                                +{job.job_photos.length - 3}
-                              </div>
-                            )}
+                  <div className="border rounded-md overflow-hidden">
+                    <button
+                      type="button"
+                      className="w-full text-left p-3 hover:bg-muted/50 transition"
+                      onClick={() => {
+                        setSelectedJobId(job.id);
+                        setSubmitOpen(true);
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{job.title}</div>
+                          {job.description && (
+                            <div className="text-sm text-muted-foreground line-clamp-2">{job.description}</div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Assigned by manager
                           </div>
-                        )}
+                          {job.job_photos && job.job_photos.length > 0 && (
+                            <div className="flex gap-1 mt-2 overflow-x-auto">
+                              {job.job_photos.slice(0, 3).map((photo) => (
+                                <img
+                                  key={photo.id}
+                                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-photos/${photo.photo_url}`}
+                                  alt="Job reference"
+                                  className="h-12 w-12 object-cover rounded border"
+                                />
+                              ))}
+                              {job.job_photos.length > 3 && (
+                                <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center text-xs">
+                                  +{job.job_photos.length - 3}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        {getStatusBadge(job.status)}
                       </div>
-                      {getStatusBadge(job.status)}
-                    </div>
-                  </button>
+                    </button>
+                    {job.job_photos && job.job_photos.length > 0 && (
+                      <div className="border-t px-3 py-2 bg-muted/30">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedJobForPhotos(job);
+                            setPhotosDialogOpen(true);
+                          }}
+                        >
+                          <Image className="mr-2 h-4 w-4" />
+                          View Reference Photos ({job.job_photos.length})
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -164,6 +186,15 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
           jobId={selectedJobId}
           projectId={projectId}
           onSubmitted={fetchJobs}
+        />
+      )}
+
+      {selectedJobForPhotos && (
+        <ManagerReferencePhotosDialog
+          open={photosDialogOpen}
+          onOpenChange={setPhotosDialogOpen}
+          jobTitle={selectedJobForPhotos.title}
+          photos={selectedJobForPhotos.job_photos || []}
         />
       )}
     </>
