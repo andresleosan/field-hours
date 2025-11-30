@@ -284,12 +284,31 @@ const Builders = () => {
       return;
     }
 
-    await supabase.auth.signOut();
-    toast({
-      title: "Signed out",
-      description: "Successfully signed out",
-    });
-    navigate("/auth");
+    try {
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        toast({
+          title: "Error signing out",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Signed out",
+        description: "Successfully signed out",
+      });
+      
+      navigate("/auth");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
