@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Clock, DollarSign, Edit } from "lucide-react";
+import { Building2, Clock, DollarSign, Edit, Loader2 } from "lucide-react";
 import EditProjectDialog from "./EditProjectDialog";
 
 interface ProjectListProps {
@@ -31,6 +31,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [navigatingToProject, setNavigatingToProject] = useState<string | null>(null);
 
   const handleEditProject = (project: Project) => {
     setSelectedProject(project);
@@ -147,9 +148,22 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
           {projects.map((project) => (
             <div
               key={project.id}
-              className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card cursor-pointer"
-              onClick={() => navigate(`/project/${project.id}`)}
+              className="p-4 border rounded-lg hover:shadow-md transition-shadow bg-card cursor-pointer relative"
+              onClick={() => {
+                if (!navigatingToProject) {
+                  setNavigatingToProject(project.id);
+                  navigate(`/project/${project.id}`);
+                }
+              }}
             >
+              {navigatingToProject === project.id && (
+                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg z-10">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm font-medium">Loading project...</span>
+                  </div>
+                </div>
+              )}
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <h3 className="font-semibold text-lg">{project.name}</h3>
