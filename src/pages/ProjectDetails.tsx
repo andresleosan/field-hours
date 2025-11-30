@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
+import { ManagerFeedbackDialog } from "@/components/jobs/ManagerFeedbackDialog";
 
 export default function ProjectDetails() {
   const { projectId } = useParams();
@@ -21,8 +22,10 @@ export default function ProjectDetails() {
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [selectedJobForSubmission, setSelectedJobForSubmission] = useState<string | null>(null);
+  const [selectedJobForFeedback, setSelectedJobForFeedback] = useState<string | null>(null);
   const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
   const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
+  const [managerFeedbackPhotos, setManagerFeedbackPhotos] = useState<{ [key: string]: string[] }>();
 
   useEffect(() => {
     checkAuth();
@@ -228,6 +231,18 @@ export default function ProjectDetails() {
         }
         jobCopy.job_completions = compsDetailed;
 
+        // Fetch manager feedback photos from job_photos table
+        const { data: managerPhotos } = await supabase
+          .from("job_photos")
+          .select("*")
+          .eq("job_id", job.id);
+        
+        if (managerPhotos && managerPhotos.length > 0) {
+          jobCopy.job_photos = managerPhotos;
+        } else {
+          jobCopy.job_photos = [];
+        }
+
         enrichedJobs.push(jobCopy);
       }
 
@@ -270,6 +285,12 @@ export default function ProjectDetails() {
   };
 
   const handleJobStatusChange = async (jobId: string, status: "completed" | "needs_correction") => {
+    // If needs correction, open the feedback dialog instead
+    if (status === "needs_correction") {
+      setSelectedJobForFeedback(jobId);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("jobs")
@@ -601,6 +622,55 @@ export default function ProjectDetails() {
                       </>
                     )}
 
+                    {/* Manager Feedback Section for Needs Correction */}
+                    {job.status === "needs_correction" && (job.manager_feedback || (job.job_photos && job.job_photos.length > 0)) && (
+                      <>
+                        <Separator />
+                        <div className="space-y-4 bg-destructive/5 p-4 rounded-lg border-2 border-destructive/20">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5 text-destructive" />
+                            <h3 className="font-semibold text-lg text-destructive">Corrections Required</h3>
+                          </div>
+                          
+                          {/* Manager Feedback Notes */}
+                          {job.manager_feedback && (
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Manager Feedback:</p>
+                              <p className="text-sm bg-background p-4 rounded-lg border">{job.manager_feedback}</p>
+                            </div>
+                          )}
+
+                          {/* Manager Reference Photos */}
+                          {job.job_photos && job.job_photos.length > 0 && (
+                            <div className="space-y-3">
+                              <p className="text-sm font-medium">Reference Photos ({job.job_photos.length})</p>
+                              <ScrollArea className="w-full">
+                                <div className="flex gap-4 pb-4">
+                                  {job.job_photos.map((photo: any, index: number) => (
+                                    <div key={photo.id} className="relative group shrink-0">
+                                      <img
+                                        src={photo.photo_url}
+                                        alt={`Manager reference ${index + 1}`}
+                                        className="h-48 w-48 object-cover rounded-lg border-2 border-destructive"
+                                      />
+                                      <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => downloadPhoto(photo.photo_url)}
+                                      >
+                                        <Download className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </ScrollArea>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+
                     {/* Action Buttons */}
                     <div className="flex gap-2 pt-4 border-t">
                       {userRole === "builder" && job.status === "approved" && (
@@ -663,6 +733,15 @@ export default function ProjectDetails() {
           onOpenChange={(open) => !open && setSelectedJobForSubmission(null)}
           jobId={selectedJobForSubmission}
           projectId={projectId!}
+          onSubmitted={fetchJobs}
+        />
+      )}
+
+      {selectedJobForFeedback && (
+        <ManagerFeedbackDialog
+          open={!!selectedJobForFeedback}
+          onOpenChange={(open) => !open && setSelectedJobForFeedback(null)}
+          jobId={selectedJobForFeedback}
           onSubmitted={fetchJobs}
         />
       )}
