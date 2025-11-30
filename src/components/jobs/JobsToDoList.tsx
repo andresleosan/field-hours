@@ -28,6 +28,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [photosDialogOpen, setPhotosDialogOpen] = useState(false);
   const [selectedJobForPhotos, setSelectedJobForPhotos] = useState<JobItem | null>(null);
+  const [navigating, setNavigating] = useState(false);
   const navigate = useNavigate();
   const fetchJobs = async () => {
     setLoading(true);
@@ -100,8 +101,23 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Jobs To Do</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/project/${projectId}`)}>
-            View All Jobs
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={navigating}
+            onClick={() => {
+              setNavigating(true);
+              navigate(`/project/${projectId}`);
+            }}
+          >
+            {navigating ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading...
+              </>
+            ) : (
+              "View All Jobs"
+            )}
           </Button>
         </CardHeader>
         <CardContent>
