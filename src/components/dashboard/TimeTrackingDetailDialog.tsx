@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, MapPin } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -181,9 +181,9 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
-        <DialogHeader>
-          <DialogTitle>Time Tracking Details</DialogTitle>
+      <DialogContent className="max-w-7xl max-h-[95vh] w-[98vw] sm:w-[95vw] p-3 sm:p-6 flex flex-col">
+        <DialogHeader className="flex-shrink-0">
+          <DialogTitle className="text-base sm:text-lg">Time Tracking Details</DialogTitle>
         </DialogHeader>
 
         {isLoading ? (
@@ -191,80 +191,84 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
             <Loader2 className="h-8 w-8 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col flex-1 min-h-0 gap-3">
             {/* Day buttons */}
-            <ScrollArea className="w-full whitespace-nowrap">
-              <div className="flex gap-2 pb-4">
+            <ScrollArea className="w-full flex-shrink-0">
+              <div className="flex gap-2 pb-2">
                 {weekData.map((day) => (
                   <Button
                     key={day.day}
                     variant={selectedDay === day.day ? "default" : "outline"}
                     onClick={() => setSelectedDay(day.day)}
-                    className="min-w-[120px] flex-shrink-0"
+                    size="sm"
+                    className="min-w-[100px] sm:min-w-[120px] flex-shrink-0 h-auto py-2"
                   >
                     <div className="text-center">
-                      <div className="font-semibold text-xs sm:text-sm">{day.day}</div>
-                      <div className="text-xs">{day.totalHours.toFixed(1)}h</div>
+                      <div className="font-semibold text-[10px] sm:text-xs">{day.day}</div>
+                      <div className="text-[10px] sm:text-xs">{day.totalHours.toFixed(1)}h</div>
                     </div>
                   </Button>
                 ))}
               </div>
             </ScrollArea>
 
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="flex-1 min-h-0">
               {selectedDayData && (
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* By Builder Section */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Hours by Builder</CardTitle>
+                    <CardHeader className="py-3 px-3 sm:px-6">
+                      <CardTitle className="text-sm sm:text-base">Hours by Builder</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6 pb-3">
                       <div className="space-y-4">
                         {Object.entries(builderData || {}).map(([builder, data]) => (
                           <div key={builder} className="space-y-2">
-                            <div className="flex justify-between items-center font-semibold">
-                              <span>{builder}</span>
-                              <span>{data.totalHours.toFixed(2)} hrs</span>
+                            <div className="flex justify-between items-center font-semibold text-xs sm:text-sm">
+                              <span className="truncate mr-2">{builder}</span>
+                              <span className="flex-shrink-0">{data.totalHours.toFixed(2)} hrs</span>
                             </div>
-                            <div className="overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="min-w-[100px]">Project</TableHead>
-                                    <TableHead className="min-w-[100px]">Clock In</TableHead>
-                                    <TableHead className="min-w-[100px]">Location (In)</TableHead>
-                                    <TableHead className="min-w-[100px]">Clock Out</TableHead>
-                                    <TableHead className="min-w-[100px]">Location (Out)</TableHead>
-                                    <TableHead className="min-w-[80px]">Duration</TableHead>
-                                    <TableHead className="min-w-[120px]">Notes</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {data.entries.map((entry) => (
-                                    <TableRow key={entry.id}>
-                                      <TableCell>
-                                        {entry.notes?.startsWith("TRAVEL:") ? "Travel" : (entry.projects?.name || "Unknown")}
-                                      </TableCell>
-                                      <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
-                                      <TableCell className="text-xs">
-                                        <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                      </TableCell>
-                                      <TableCell>
-                                        {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
-                                      </TableCell>
-                                      <TableCell className="text-xs">
-                                        {entry.clock_out ? (
-                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                        ) : "—"}
-                                      </TableCell>
-                                      <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
-                                      <TableCell>{entry.notes || "—"}</TableCell>
+                            <ScrollArea className="w-full">
+                              <div className="min-w-[500px]">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Project</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">In</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Loc</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Out</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Loc</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Dur</TableHead>
+                                      <TableHead className="text-[10px] sm:text-xs py-2 px-2">Notes</TableHead>
                                     </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {data.entries.map((entry) => (
+                                      <TableRow key={entry.id}>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2">
+                                          {entry.notes?.startsWith("TRAVEL:") ? "Travel" : (entry.projects?.name || "Unknown")}
+                                        </TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">{new Date(entry.clock_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2">
+                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                        </TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">
+                                          {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2">
+                                          {entry.clock_out ? (
+                                            <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                          ) : "—"}
+                                        </TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
+                                        <TableCell className="text-[10px] sm:text-xs py-2 px-2 max-w-[80px] truncate">{entry.notes || "—"}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                              <ScrollBar orientation="horizontal" />
+                            </ScrollArea>
                           </div>
                         ))}
                       </div>
@@ -273,10 +277,10 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
                   {/* By Project Section */}
                   <Card>
-                    <CardHeader>
-                      <CardTitle>Hours by Project</CardTitle>
+                    <CardHeader className="py-3 px-3 sm:px-6">
+                      <CardTitle className="text-sm sm:text-base">Hours by Project</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="px-3 sm:px-6 pb-3">
                       <div className="space-y-4">
                         {Object.entries(projectData || {}).map(([project, entries]) => {
                           const projectTotal = entries.reduce((sum, entry) => {
@@ -289,46 +293,49 @@ const TimeTrackingDetailDialog = ({ open, onOpenChange }: TimeTrackingDetailDial
 
                           return (
                             <div key={project} className="space-y-2">
-                              <div className="flex justify-between items-center font-semibold">
-                                <span>{entries[0]?.notes?.startsWith("TRAVEL:") ? "Travel" : project}</span>
-                                <span>{projectTotal.toFixed(2)} hrs</span>
+                              <div className="flex justify-between items-center font-semibold text-xs sm:text-sm">
+                                <span className="truncate mr-2">{entries[0]?.notes?.startsWith("TRAVEL:") ? "Travel" : project}</span>
+                                <span className="flex-shrink-0">{projectTotal.toFixed(2)} hrs</span>
                               </div>
-                              <div className="overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow>
-                                      <TableHead className="min-w-[100px]">Builder</TableHead>
-                                      <TableHead className="min-w-[100px]">Clock In</TableHead>
-                                      <TableHead className="min-w-[100px]">Location (In)</TableHead>
-                                      <TableHead className="min-w-[100px]">Clock Out</TableHead>
-                                      <TableHead className="min-w-[100px]">Location (Out)</TableHead>
-                                      <TableHead className="min-w-[80px]">Duration</TableHead>
-                                      <TableHead className="min-w-[120px]">Notes</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {entries.map((entry) => (
-                                      <TableRow key={entry.id}>
-                                        <TableCell>{entry.profiles.full_name}</TableCell>
-                                        <TableCell>{new Date(entry.clock_in).toLocaleTimeString()}</TableCell>
-                                        <TableCell className="text-xs">
-                                          <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                        </TableCell>
-                                        <TableCell>
-                                          {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString() : "—"}
-                                        </TableCell>
-                                        <TableCell className="text-xs">
-                                          {entry.clock_out ? (
-                                            <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
-                                          ) : "—"}
-                                        </TableCell>
-                                        <TableCell>{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
-                                        <TableCell>{entry.notes || "—"}</TableCell>
+                              <ScrollArea className="w-full">
+                                <div className="min-w-[500px]">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Builder</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">In</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Loc</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Out</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Loc</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Dur</TableHead>
+                                        <TableHead className="text-[10px] sm:text-xs py-2 px-2">Notes</TableHead>
                                       </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {entries.map((entry) => (
+                                        <TableRow key={entry.id}>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2">{entry.profiles.full_name}</TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">{new Date(entry.clock_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2">
+                                            <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                          </TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">
+                                            {entry.clock_out ? new Date(entry.clock_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "—"}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2">
+                                            {entry.clock_out ? (
+                                              <LocationLink lat={entry.location_lat} lng={entry.location_lng} />
+                                            ) : "—"}
+                                          </TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2 whitespace-nowrap">{calculateDuration(entry.clock_in, entry.clock_out)}</TableCell>
+                                          <TableCell className="text-[10px] sm:text-xs py-2 px-2 max-w-[80px] truncate">{entry.notes || "—"}</TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                                <ScrollBar orientation="horizontal" />
+                              </ScrollArea>
                             </div>
                           );
                         })}
