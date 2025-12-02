@@ -142,7 +142,11 @@ export default function JobsToDoList({
                             Assigned by manager
                           </div>
                           {job.job_photos && job.job_photos.length > 0 && <div className="flex gap-1 mt-2 overflow-x-auto">
-                              {job.job_photos.slice(0, 3).map(photo => {})}
+                              {job.job_photos.slice(0, 3).map(photo => (
+                                <div key={photo.id} className="h-12 w-12 rounded border bg-muted flex items-center justify-center">
+                                  <Image className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              ))}
                               {job.job_photos.length > 3 && <div className="h-12 w-12 rounded border bg-muted flex items-center justify-center text-xs">
                                   +{job.job_photos.length - 3}
                                 </div>}
