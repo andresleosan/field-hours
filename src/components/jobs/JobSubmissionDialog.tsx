@@ -270,7 +270,16 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       // Status is set to "waiting_review" by a DB trigger after a completion is inserted/updated.
       // No direct status update here due to RLS on jobs.
 
-      // Clear local materials list; they've been linked to the job
+      // Delete material_usage records after they've been linked to the job
+      // This clears the builder's logged materials so they can log fresh for new jobs/corrections
+      for (const material of loggedMaterials) {
+        await supabase
+          .from("material_usage")
+          .delete()
+          .eq("id", material.id);
+      }
+
+      // Clear local materials list
       setLoggedMaterials([]);
 
       console.log("Job submission successful!");
