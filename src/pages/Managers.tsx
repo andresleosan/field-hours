@@ -225,7 +225,7 @@ const Managers = () => {
           </TabsList>
 
 
-          <TabsContent value="projects">
+          <TabsContent value="projects" className="space-y-6">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -241,17 +241,16 @@ const Managers = () => {
               </CardHeader>
               <CardContent>
                 <ProjectList onProjectCreated={fetchDashboardStats} />
-                <div className="mt-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Jobs Awaiting Review</CardTitle>
-                      <CardDescription>Review submissions from builders in real time</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ManagerJobsList />
-                    </CardContent>
-                  </Card>
-                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Jobs Awaiting Review</CardTitle>
+                <CardDescription>Review submissions from builders in real time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ManagerJobsList />
               </CardContent>
             </Card>
           </TabsContent>
