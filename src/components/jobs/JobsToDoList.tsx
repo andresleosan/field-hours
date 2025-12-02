@@ -18,7 +18,7 @@ interface JobItem {
   status: string;
   created_at: string;
   created_by: string;
-  job_photos?: Array<{ id: string; photo_url: string }>;
+  job_photos?: Array<{ id: string; photo_url: string; created_at: string }>;
 }
 
 export default function JobsToDoList({ projectId }: JobsToDoListProps) {
@@ -41,7 +41,7 @@ export default function JobsToDoList({ projectId }: JobsToDoListProps) {
         status, 
         created_at, 
         created_by,
-        job_photos(id, photo_url)
+        job_photos(id, photo_url, created_at)
       `)
       .eq("project_id", projectId)
       .in("status", ["approved", "needs_correction", "waiting_review"])

@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Image, X, Loader2 } from "lucide-react";
+import { Image, X, Loader2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface ManagerReferencePhotosDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   jobTitle: string;
-  photos: Array<{ id: string; photo_url: string }>;
+  photos: Array<{ id: string; photo_url: string; created_at?: string }>;
 }
 
 export const ManagerReferencePhotosDialog = ({
@@ -19,6 +21,19 @@ export const ManagerReferencePhotosDialog = ({
 }: ManagerReferencePhotosDialogProps) => {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const extractPhotoPath = (photoUrl: string) => {
+    // Extract just the path if it's a full URL
+    if (photoUrl.includes('/storage/v1/object/')) {
+      const parts = photoUrl.split('/job-photos/');
+      if (parts[1]) {
+        return decodeURIComponent(parts[1]);
+      }
+    }
+    return photoUrl;
+  };
 
   useEffect(() => {
     const fetchSignedUrls = async () => {
@@ -31,9 +46,10 @@ export const ManagerReferencePhotosDialog = ({
       const urls: Record<string, string> = {};
 
       for (const photo of photos) {
+        const photoPath = extractPhotoPath(photo.photo_url);
         const { data, error } = await supabase.storage
           .from('job-photos')
-          .createSignedUrl(photo.photo_url, 3600); // 1 hour expiry
+          .createSignedUrl(photoPath, 3600); // 1 hour expiry
 
         if (data?.signedUrl && !error) {
           urls[photo.id] = data.signedUrl;
@@ -48,6 +64,36 @@ export const ManagerReferencePhotosDialog = ({
       fetchSignedUrls();
     }
   }, [open, photos]);
+
+  const handleDownload = async (photo: { id: string; photo_url: string }) => {
+    try {
+      setDownloading(photo.id);
+      const photoPath = extractPhotoPath(photo.photo_url);
+      
+      const { data, error } = await supabase.storage
+        .from("job-photos")
+        .download(photoPath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = photoPath.split("/").pop() || "reference-photo.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to download photo",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   if (!photos || photos.length === 0) {
     return (
@@ -85,15 +131,37 @@ export const ManagerReferencePhotosDialog = ({
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {photos.map((photo) => (
                 <div key={photo.id} className="relative group">
                   {signedUrls[photo.id] ? (
-                    <img
-                      src={signedUrls[photo.id]}
-                      alt="Manager reference"
-                      className="w-full aspect-square object-cover rounded-lg border-2 border-border shadow-md"
-                    />
+                    <div className="space-y-2">
+                      <div className="relative">
+                        <img
+                          src={signedUrls[photo.id]}
+                          alt="Manager reference"
+                          className="w-full aspect-square object-cover rounded-lg border-2 border-border shadow-md"
+                        />
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                          onClick={() => handleDownload(photo)}
+                          disabled={downloading === photo.id}
+                        >
+                          {downloading === photo.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Download className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      {photo.created_at && (
+                        <p className="text-xs text-muted-foreground text-center">
+                          Uploaded {format(new Date(photo.created_at), "MMM d, yyyy 'at' h:mm a")}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <div className="w-full aspect-square flex items-center justify-center bg-muted rounded-lg border-2 border-border">
                       <Image className="h-8 w-8 text-muted-foreground opacity-50" />
