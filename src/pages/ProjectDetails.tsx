@@ -25,7 +25,7 @@ export default function ProjectDetails() {
   const [selectedJobForFeedback, setSelectedJobForFeedback] = useState<string | null>(null);
   const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
   const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
-  const [managerFeedbackPhotos, setManagerFeedbackPhotos] = useState<{ [key: string]: string[] }>();
+  const [managerFeedbackPhotoUrls, setManagerFeedbackPhotoUrls] = useState<{ [key: string]: string[] }>({});
 
   useEffect(() => {
     checkAuth();
@@ -242,6 +242,33 @@ export default function ProjectDetails() {
         } else {
           jobCopy.job_photos = [];
         }
+        
+        // Generate signed URLs for manager feedback photos
+        const managerPhotoUrls: { [key: string]: string[] } = {};
+        if (managerPhotos && managerPhotos.length > 0) {
+          const urls: string[] = [];
+          for (const photo of managerPhotos) {
+            // Extract just the path if it's a full URL
+            let photoPath = photo.photo_url;
+            if (photoPath.includes('/storage/v1/object/')) {
+              const parts = photoPath.split('/job-photos/');
+              if (parts[1]) {
+                photoPath = decodeURIComponent(parts[1]);
+              }
+            }
+            const { data: signedData } = await supabase
+              .storage
+              .from("job-photos")
+              .createSignedUrl(photoPath, 3600);
+            if (signedData?.signedUrl) {
+              urls.push(signedData.signedUrl);
+            }
+          }
+          if (urls.length > 0) managerPhotoUrls[job.id] = urls;
+        }
+        
+        // Store manager feedback photo URLs
+        setManagerFeedbackPhotoUrls(prev => ({ ...prev, ...managerPhotoUrls }));
 
         enrichedJobs.push(jobCopy);
       }
@@ -332,18 +359,28 @@ export default function ProjectDetails() {
     return `${hours}h ${mins}m`;
   };
 
-  const downloadPhoto = async (photoPath: string) => {
+  const downloadPhoto = async (photoPath: string, bucket: string = "job-completion-photos") => {
     try {
+      // Extract just the path if it's a full URL
+      let cleanPath = photoPath;
+      if (photoPath.includes('/storage/v1/object/')) {
+        const bucketName = bucket === "job-photos" ? "job-photos" : "job-completion-photos";
+        const parts = photoPath.split(`/${bucketName}/`);
+        if (parts[1]) {
+          cleanPath = decodeURIComponent(parts[1]);
+        }
+      }
+
       const { data, error } = await supabase.storage
-        .from("job-completion-photos")
-        .download(photoPath);
+        .from(bucket)
+        .download(cleanPath);
 
       if (error) throw error;
 
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = photoPath.split("/").pop() || "photo.jpg";
+      a.download = cleanPath.split("/").pop() || "photo.jpg";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -641,15 +678,15 @@ export default function ProjectDetails() {
                           )}
 
                           {/* Manager Reference Photos */}
-                          {job.job_photos && job.job_photos.length > 0 && (
+                          {job.job_photos && job.job_photos.length > 0 && managerFeedbackPhotoUrls[job.id] && (
                             <div className="space-y-3">
                               <p className="text-sm font-medium">Reference Photos ({job.job_photos.length})</p>
                               <ScrollArea className="w-full">
                                 <div className="flex gap-4 pb-4">
-                                  {job.job_photos.map((photo: any, index: number) => (
-                                    <div key={photo.id} className="relative group shrink-0">
+                                  {managerFeedbackPhotoUrls[job.id].map((signedUrl: string, index: number) => (
+                                    <div key={index} className="relative group shrink-0">
                                       <img
-                                        src={photo.photo_url}
+                                        src={signedUrl}
                                         alt={`Manager reference ${index + 1}`}
                                         className="h-48 w-48 object-cover rounded-lg border-2 border-destructive"
                                       />
@@ -657,7 +694,7 @@ export default function ProjectDetails() {
                                         variant="secondary"
                                         size="sm"
                                         className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => downloadPhoto(photo.photo_url)}
+                                        onClick={() => downloadPhoto(job.job_photos[index]?.photo_url, "job-photos")}
                                       >
                                         <Download className="h-4 w-4" />
                                       </Button>
