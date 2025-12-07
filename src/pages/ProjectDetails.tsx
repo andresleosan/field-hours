@@ -523,23 +523,23 @@ export default function ProjectDetails() {
                     <div className="pt-1">{getStatusBadge(job.status)}</div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-6">
+                <CardContent className="pt-6 px-3 sm:px-6">
                   <div className="grid gap-6">
                     {/* Quick Stats Row */}
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {/* Currently Working */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Users className="h-4 w-4 text-primary" />
-                            Currently Working
+                      <Card className="shadow-sm">
+                        <CardHeader className="pb-2 px-3 pt-3">
+                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate">Currently Working</span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
+                        <CardContent className="px-3 pb-3">
                           {workers.length > 0 ? (
-                            <div className="space-y-2">
+                            <div className="flex flex-wrap gap-1">
                               {workers.map((worker: any) => (
-                                <Badge key={worker.id} variant="secondary" className="animate-pulse">
+                                <Badge key={worker.id} variant="secondary" className="animate-pulse text-xs">
                                   {worker.profiles?.full_name}
                                 </Badge>
                               ))}
@@ -551,19 +551,19 @@ export default function ProjectDetails() {
                       </Card>
 
                       {/* Time Worked */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-primary" />
-                            Time Worked
+                      <Card className="shadow-sm">
+                        <CardHeader className="pb-2 px-3 pt-3">
+                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate">Time Worked</span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">
+                        <CardContent className="px-3 pb-3">
+                          <div className="text-xl sm:text-2xl font-bold">
                             {totalTime > 0 ? formatTime(totalTime) : "0h 0m"}
                           </div>
                           {job.job_time_tracking && job.job_time_tracking.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               {job.job_time_tracking.length} session(s)
                             </p>
                           )}
@@ -571,17 +571,17 @@ export default function ProjectDetails() {
                       </Card>
 
                       {/* Materials */}
-                      <Card>
-                        <CardHeader className="pb-3">
-                          <CardTitle className="text-sm flex items-center gap-2">
-                            <Package className="h-4 w-4 text-primary" />
-                            Materials Used
+                      <Card className="shadow-sm">
+                        <CardHeader className="pb-2 px-3 pt-3">
+                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
+                            <Package className="h-3.5 w-3.5 text-primary shrink-0" />
+                            <span className="truncate">Materials Used</span>
                           </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                          <div className="text-2xl font-bold">{materials.length}</div>
+                        <CardContent className="px-3 pb-3">
+                          <div className="text-xl sm:text-2xl font-bold">{materials.length}</div>
                           {materials.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <p className="text-xs text-muted-foreground mt-0.5">
                               £{materials.reduce((sum: number, m: any) => {
                                 const usage = m.material_usage;
                                 const material = usage?.materials;
@@ -739,7 +739,7 @@ export default function ProjectDetails() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex gap-2 pt-4 border-t">
+                    <div className="flex flex-wrap gap-2 pt-4 border-t">
                       {userRole === "builder" && job.status === "approved" && (
                         <>
                           {!workers.some(w => w.user_id === userRole) && (
