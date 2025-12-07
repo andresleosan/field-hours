@@ -252,12 +252,12 @@ const BuilderActivityTracker = () => {
           <div className="text-lg sm:text-xl font-bold">{totalHoursLast10Days.toFixed(2)}h</div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         <Tabs defaultValue="time" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="time">Time Tracking</TabsTrigger>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="invoices">Invoices</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+            <TabsTrigger value="time" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Time</TabsTrigger>
+            <TabsTrigger value="materials" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Materials</TabsTrigger>
+            <TabsTrigger value="invoices" className="text-xs sm:text-sm px-1 sm:px-3 py-2">Invoices</TabsTrigger>
           </TabsList>
 
           <TabsContent value="time">
