@@ -301,7 +301,8 @@ const Builders = () => {
         description: "Successfully signed out",
       });
       
-      navigate("/auth");
+      // Use hard redirect to ensure full page reload and clear all state
+      window.location.href = "/auth";
     } catch (error: any) {
       toast({
         title: "Error",

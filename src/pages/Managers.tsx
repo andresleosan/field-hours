@@ -132,12 +132,21 @@ const Managers = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    toast({
-      title: "Signed out",
-      description: "Successfully signed out",
-    });
-    navigate("/auth");
+    try {
+      await supabase.auth.signOut();
+      toast({
+        title: "Signed out",
+        description: "Successfully signed out",
+      });
+      // Use hard redirect to ensure full page reload and clear all state
+      window.location.href = "/auth";
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out",
+        variant: "destructive",
+      });
+    }
   };
 
   if (isLoading) {
