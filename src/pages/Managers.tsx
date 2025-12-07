@@ -132,21 +132,23 @@ const Managers = () => {
   };
 
   const handleSignOut = async () => {
+    // Clear local storage first to ensure clean state
+    localStorage.removeItem('sb-lukmmizugpnecispdzsn-auth-token');
+    
     try {
-      await supabase.auth.signOut();
-      toast({
-        title: "Signed out",
-        description: "Successfully signed out",
-      });
-      // Use hard redirect to ensure full page reload and clear all state
-      window.location.href = "/auth";
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to sign out",
-        variant: "destructive",
-      });
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      // Ignore errors - we're forcing sign out anyway
+      console.log('Sign out error (ignored):', error);
     }
+    
+    toast({
+      title: "Signed out",
+      description: "Successfully signed out",
+    });
+    
+    // Force hard redirect to clear all state
+    window.location.href = "/auth";
   };
 
   if (isLoading) {
