@@ -91,6 +91,8 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
   };
 
   const fetchMaterialLogs = async () => {
+    // Only fetch materials that haven't been linked to a job yet (job_id is NULL)
+    // Once materials are submitted with a job, they won't appear here anymore
     const { data, error } = await supabase
       .from("material_usage")
       .select(`
@@ -99,6 +101,7 @@ const EnhancedMaterialDialog = ({ open, onOpenChange, projectId, userId, userRol
       `)
       .eq("project_id", projectId)
       .eq("used_by", userId)
+      .is("job_id", null)
       .order("date", { ascending: false });
 
     if (!error && data) {
