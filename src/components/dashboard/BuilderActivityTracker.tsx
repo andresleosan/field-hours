@@ -230,26 +230,26 @@ const BuilderActivityTracker = () => {
 
   return (
     <Card className="col-span-full">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+      <CardHeader className="space-y-4">
+        <div className="flex flex-col gap-3">
           <div>
-            <CardTitle>Builder Activity Tracker</CardTitle>
-            <CardDescription>Real-time view of all builder activities across projects</CardDescription>
+            <CardTitle className="text-base sm:text-lg">Builder Activity Tracker</CardTitle>
+            <CardDescription className="text-xs sm:text-sm">Real-time view of all builder activities</CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => generateStatement('daily')} variant="outline" size="sm">
-              <Calendar className="h-4 w-4 mr-2" />
-              Daily Statement
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => generateStatement('daily')} variant="outline" size="sm" className="text-xs px-2 py-1 h-8">
+              <Calendar className="h-3 w-3 mr-1" />
+              Daily
             </Button>
-            <Button onClick={() => generateStatement('weekly')} variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-2" />
-              Weekly Statement
+            <Button onClick={() => generateStatement('weekly')} variant="outline" size="sm" className="text-xs px-2 py-1 h-8">
+              <Download className="h-3 w-3 mr-1" />
+              Weekly
             </Button>
           </div>
         </div>
-        <div className="mt-4 p-4 bg-muted rounded-lg">
-          <div className="text-sm font-medium">Total Hours (Last 10 Days)</div>
-          <div className="text-2xl font-bold">{totalHoursLast10Days.toFixed(2)}h</div>
+        <div className="p-3 bg-muted rounded-lg">
+          <div className="text-xs font-medium">Total Hours (Last 10 Days)</div>
+          <div className="text-lg sm:text-xl font-bold">{totalHoursLast10Days.toFixed(2)}h</div>
         </div>
       </CardHeader>
       <CardContent>
