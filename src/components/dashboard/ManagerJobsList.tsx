@@ -6,48 +6,39 @@ import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Clock, CheckCircle2, AlertCircle, PlayCircle, Loader2 } from "lucide-react";
 import { JobReviewDialog } from "@/components/jobs/JobReviewDialog";
-
 export const ManagerJobsList = () => {
   const [jobs, setJobs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJobForReview, setSelectedJobForReview] = useState<string | null>(null);
   const navigate = useNavigate();
-
   useEffect(() => {
     fetchJobs();
-
-    const channel = supabase
-      .channel('manager-jobs')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'jobs' },
-        () => fetchJobs()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'job_completions' },
-        () => fetchJobs()
-      )
-      .subscribe();
-
+    const channel = supabase.channel('manager-jobs').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'jobs'
+    }, () => fetchJobs()).on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'job_completions'
+    }, () => fetchJobs()).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
-
   const fetchJobs = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
-        .from("jobs")
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from("jobs").select(`
           *,
           projects(name),
           job_photos(id, photo_url)
-        `)
-        .neq("status", "completed")
-        .order("created_at", { ascending: false });
-
+        `).neq("status", "completed").order("created_at", {
+        ascending: false
+      });
       if (error) throw error;
       setJobs(data || []);
     } catch (error: any) {
@@ -56,48 +47,54 @@ export const ManagerJobsList = () => {
       setIsLoading(false);
     }
   };
-
   const getStatusBadge = (status: string) => {
     const statusConfig = {
-      approved: { label: "To Do", variant: "secondary" as const, icon: AlertCircle },
-      pending: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
-      waiting_review: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
-      needs_correction: { label: "Needs Correction", variant: "destructive" as const, icon: AlertCircle },
-      completed: { label: "Completed", variant: "default" as const, icon: CheckCircle2 },
+      approved: {
+        label: "To Do",
+        variant: "secondary" as const,
+        icon: AlertCircle
+      },
+      pending: {
+        label: "Waiting for Review",
+        variant: "warning" as const,
+        icon: Clock
+      },
+      waiting_review: {
+        label: "Waiting for Review",
+        variant: "warning" as const,
+        icon: Clock
+      },
+      needs_correction: {
+        label: "Needs Correction",
+        variant: "destructive" as const,
+        icon: AlertCircle
+      },
+      completed: {
+        label: "Completed",
+        variant: "default" as const,
+        icon: CheckCircle2
+      }
     };
-
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.approved;
     const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
+    return <Badge variant={config.variant} className="flex items-center gap-1">
         <Icon className="h-3 w-3" />
         {config.label}
-      </Badge>
-    );
+      </Badge>;
   };
-
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-8">
+    return <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
-      </div>
-    );
+      </div>;
   }
-
   if (jobs.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
+    return <div className="text-center py-8 text-muted-foreground">
         No active jobs found
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <>
+  return <>
       <div className="space-y-3">
-        {jobs.map((job) => (
-          <Card key={job.id} className="hover:shadow-md transition-shadow">
+        {jobs.map(job => <Card key={job.id} className="hover:shadow-md transition-shadow">
             <CardContent className="pt-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -105,61 +102,30 @@ export const ManagerJobsList = () => {
                     <h3 className="font-semibold">{job.title}</h3>
                     {getStatusBadge(job.status)}
                   </div>
-                  {job.description && (
-                    <p className="text-sm text-muted-foreground mb-2">{job.description}</p>
-                  )}
+                  {job.description && <p className="text-sm text-muted-foreground mb-2">{job.description}</p>}
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span>Project: {job.projects?.name}</span>
                   </div>
-                  {job.job_photos && job.job_photos.length > 0 && (
-                    <div className="flex gap-2 mt-3 overflow-x-auto">
-                      {job.job_photos.slice(0, 4).map((photo: any) => (
-                        <img
-                          key={photo.id}
-                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/job-photos/${photo.photo_url}`}
-                          alt="Job reference"
-                          className="h-16 w-16 object-cover rounded border"
-                        />
-                      ))}
-                      {job.job_photos.length > 4 && (
-                        <div className="h-16 w-16 rounded border bg-muted flex items-center justify-center text-sm">
+                  {job.job_photos && job.job_photos.length > 0 && <div className="flex gap-2 mt-3 overflow-x-auto">
+                      {job.job_photos.slice(0, 4).map((photo: any) => {})}
+                      {job.job_photos.length > 4 && <div className="h-16 w-16 rounded border bg-muted flex items-center justify-center text-sm">
                           +{job.job_photos.length - 4}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                        </div>}
+                    </div>}
                 </div>
                 <div className="flex gap-2 ml-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/project/${job.project_id}`)}
-                  >
+                  <Button variant="outline" size="sm" onClick={() => navigate(`/project/${job.project_id}`)}>
                     View Project
                   </Button>
-                  {(job.status === "waiting_review" || job.status === "pending") && (
-                    <Button
-                      size="sm"
-                      onClick={() => setSelectedJobForReview(job.id)}
-                    >
+                  {(job.status === "waiting_review" || job.status === "pending") && <Button size="sm" onClick={() => setSelectedJobForReview(job.id)}>
                       Review
-                    </Button>
-                  )}
+                    </Button>}
                 </div>
               </div>
             </CardContent>
-          </Card>
-        ))}
+          </Card>)}
       </div>
 
-      {selectedJobForReview && (
-        <JobReviewDialog
-          open={!!selectedJobForReview}
-          onOpenChange={(open) => !open && setSelectedJobForReview(null)}
-          jobId={selectedJobForReview}
-          onReviewed={fetchJobs}
-        />
-      )}
-    </>
-  );
+      {selectedJobForReview && <JobReviewDialog open={!!selectedJobForReview} onOpenChange={open => !open && setSelectedJobForReview(null)} jobId={selectedJobForReview} onReviewed={fetchJobs} />}
+    </>;
 };
