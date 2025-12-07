@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
@@ -603,7 +603,7 @@ export default function ProjectDetails() {
                           {photos.length > 0 && (
                             <div className="space-y-3">
                               <p className="text-sm font-medium">Photos ({photos.length})</p>
-                              <ScrollArea className="w-full">
+                              <ScrollArea className="w-full whitespace-nowrap">
                                 <div className="flex gap-4 pb-4">
                                   {photos.map((url, index) => (
                                     <div key={index} className="relative group shrink-0">
@@ -626,6 +626,7 @@ export default function ProjectDetails() {
                                     </div>
                                   ))}
                                 </div>
+                                <ScrollBar orientation="horizontal" />
                               </ScrollArea>
                             </div>
                           )}
