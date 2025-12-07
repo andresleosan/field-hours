@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Clock, Package, FileText, MapPin, Download, Calendar } from "lucide-react";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 
 interface Builder {
   id: string;
@@ -175,35 +176,135 @@ const BuilderActivityTracker = () => {
 
       const totalInvoiceAmount = invoiceData?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0;
 
-      // Generate report text
-      const reportLines = [
-        `${type.toUpperCase()} STATEMENT - ${now.toLocaleDateString()}`,
-        `Period: ${startDate.toLocaleDateString()} - ${now.toLocaleDateString()}`,
-        '',
-        '=== TIME TRACKING ===',
-        `Total Hours: ${totalHours.toFixed(2)}h`,
-        `Number of Entries: ${timeData?.length || 0}`,
-        '',
-        '=== MATERIALS ===',
-        `Total Material Logs: ${materialData?.length || 0}`,
-        ...(materialData?.map(m => `  - ${m.materials.name}: ${m.quantity_used} ${m.materials.unit} (${m.projects.name})`) || []),
-        '',
-        '=== INVOICES ===',
-        `Total Invoice Amount: £${totalInvoiceAmount.toFixed(2)}`,
-        `Number of Invoices: ${invoiceData?.length || 0}`,
-        ...(invoiceData?.map(i => `  - Invoice #${i.invoice_number}: £${i.total_amount} (${i.projects.name})`) || []),
-      ];
+      if (type === 'weekly') {
+        // Generate Excel file for weekly statement
+        const workbook = XLSX.utils.book_new();
 
-      // Download as text file
-      const blob = new Blob([reportLines.join('\n')], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${type}-statement-${now.toISOString().split('T')[0]}.txt`;
-      a.click();
-      URL.revokeObjectURL(url);
+        // Summary Sheet
+        const summaryData = [
+          ['WEEKLY STATEMENT'],
+          ['Generated', now.toLocaleDateString()],
+          ['Period', `${startDate.toLocaleDateString()} - ${now.toLocaleDateString()}`],
+          [''],
+          ['SUMMARY'],
+          ['Total Hours Worked', totalHours.toFixed(2)],
+          ['Total Time Entries', timeData?.length || 0],
+          ['Total Materials Logged', materialData?.length || 0],
+          ['Total Invoices', invoiceData?.length || 0],
+          ['Total Invoice Amount (£)', totalInvoiceAmount.toFixed(2)],
+        ];
+        const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+        summarySheet['!cols'] = [{ wch: 25 }, { wch: 40 }];
+        XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
-      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} statement downloaded successfully`);
+        // Time Tracking Sheet
+        const timeHeaders = ['Builder Name', 'Project', 'Clock In', 'Clock Out', 'Hours Worked', 'Location'];
+        const timeRows = timeData?.map(entry => {
+          const hours = entry.clock_out 
+            ? ((new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime()) / 3600000).toFixed(2)
+            : 'In Progress';
+          const location = entry.location_lat && entry.location_lng 
+            ? `${entry.location_lat.toFixed(6)}, ${entry.location_lng.toFixed(6)}` 
+            : 'N/A';
+          return [
+            (entry.profiles as any)?.full_name || 'Unknown',
+            (entry.projects as any)?.name || 'Unknown',
+            new Date(entry.clock_in).toLocaleString(),
+            entry.clock_out ? new Date(entry.clock_out).toLocaleString() : 'In Progress',
+            hours,
+            location
+          ];
+        }) || [];
+        
+        // Add builder hours summary at top
+        const builderHours: Record<string, number> = {};
+        timeData?.forEach(entry => {
+          if (entry.clock_out) {
+            const name = (entry.profiles as any)?.full_name || 'Unknown';
+            const hours = (new Date(entry.clock_out).getTime() - new Date(entry.clock_in).getTime()) / 3600000;
+            builderHours[name] = (builderHours[name] || 0) + hours;
+          }
+        });
+        
+        const builderSummary = Object.entries(builderHours).map(([name, hours]) => [name, '', '', '', hours.toFixed(2), '']);
+        const timeSheetData = [
+          ['HOURS BY BUILDER'],
+          ['Builder Name', '', '', '', 'Total Hours', ''],
+          ...builderSummary,
+          [''],
+          ['DETAILED TIME ENTRIES'],
+          timeHeaders,
+          ...timeRows
+        ];
+        const timeSheet = XLSX.utils.aoa_to_sheet(timeSheetData);
+        timeSheet['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 25 }];
+        XLSX.utils.book_append_sheet(workbook, timeSheet, 'Time Tracking');
+
+        // Materials Sheet
+        const materialHeaders = ['Builder Name', 'Project', 'Material', 'Quantity', 'Unit', 'Date', 'Notes'];
+        const materialRows = materialData?.map(log => [
+          (log.profiles as any)?.full_name || 'Unknown',
+          (log.projects as any)?.name || 'Unknown',
+          (log.materials as any)?.name || 'Unknown',
+          log.quantity_used,
+          (log.materials as any)?.unit || '',
+          new Date(log.date).toLocaleDateString(),
+          log.notes || ''
+        ]) || [];
+        const materialSheetData = [materialHeaders, ...materialRows];
+        const materialSheet = XLSX.utils.aoa_to_sheet(materialSheetData);
+        materialSheet['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(workbook, materialSheet, 'Materials');
+
+        // Invoices Sheet
+        const invoiceHeaders = ['Builder Name', 'Project', 'Supplier', 'Invoice #', 'Amount (£)', 'Date', 'Needs Review', 'Notes'];
+        const invoiceRows = invoiceData?.map(inv => [
+          (inv.profiles as any)?.full_name || 'Unknown',
+          (inv.projects as any)?.name || 'Unknown',
+          (inv.suppliers as any)?.name || 'N/A',
+          inv.invoice_number,
+          Number(inv.total_amount).toFixed(2),
+          new Date(inv.date).toLocaleDateString(),
+          inv.needs_review ? 'Yes' : 'No',
+          inv.notes || ''
+        ]) || [];
+        const invoiceSheetData = [invoiceHeaders, ...invoiceRows];
+        const invoiceSheet = XLSX.utils.aoa_to_sheet(invoiceSheetData);
+        invoiceSheet['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
+        XLSX.utils.book_append_sheet(workbook, invoiceSheet, 'Invoices');
+
+        // Download Excel file
+        XLSX.writeFile(workbook, `weekly-statement-${now.toISOString().split('T')[0]}.xlsx`);
+        toast.success('Weekly Excel statement downloaded successfully');
+      } else {
+        // Generate text file for daily statement
+        const reportLines = [
+          `${type.toUpperCase()} STATEMENT - ${now.toLocaleDateString()}`,
+          `Period: ${startDate.toLocaleDateString()} - ${now.toLocaleDateString()}`,
+          '',
+          '=== TIME TRACKING ===',
+          `Total Hours: ${totalHours.toFixed(2)}h`,
+          `Number of Entries: ${timeData?.length || 0}`,
+          '',
+          '=== MATERIALS ===',
+          `Total Material Logs: ${materialData?.length || 0}`,
+          ...(materialData?.map(m => `  - ${m.materials.name}: ${m.quantity_used} ${m.materials.unit} (${m.projects.name})`) || []),
+          '',
+          '=== INVOICES ===',
+          `Total Invoice Amount: £${totalInvoiceAmount.toFixed(2)}`,
+          `Number of Invoices: ${invoiceData?.length || 0}`,
+          ...(invoiceData?.map(i => `  - Invoice #${i.invoice_number}: £${i.total_amount} (${i.projects.name})`) || []),
+        ];
+
+        const blob = new Blob([reportLines.join('\n')], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${type}-statement-${now.toISOString().split('T')[0]}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success('Daily statement downloaded successfully');
+      }
     } catch (error) {
       console.error('Error generating statement:', error);
       toast.error('Failed to generate statement');
