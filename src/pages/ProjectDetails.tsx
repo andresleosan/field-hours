@@ -11,6 +11,7 @@ import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle,
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
 import { ManagerFeedbackDialog } from "@/components/jobs/ManagerFeedbackDialog";
+import { getThumbnailPath } from "@/lib/imageUtils";
 
 export default function ProjectDetails() {
   const { projectId } = useParams();
@@ -216,14 +217,26 @@ export default function ProjectDetails() {
           };
           compsDetailed.push(compDetail);
 
-          // Prepare signed URLs for the first completion's photos
+          // Prepare signed URLs for thumbnails (faster loading)
           if (!urlsMap[job.id] && (photos?.length || 0) > 0) {
             const urls: string[] = [];
             for (const photo of photos || []) {
-              const { data: signedData } = await supabase
+              // Try to get thumbnail first, fall back to original
+              const thumbPath = getThumbnailPath(photo.photo_url);
+              let { data: signedData } = await supabase
                 .storage
                 .from("job-completion-photos")
-                .createSignedUrl(photo.photo_url, 3600);
+                .createSignedUrl(thumbPath, 3600);
+              
+              // If thumbnail doesn't exist, use original
+              if (!signedData?.signedUrl) {
+                const originalResult = await supabase
+                  .storage
+                  .from("job-completion-photos")
+                  .createSignedUrl(photo.photo_url, 3600);
+                signedData = originalResult.data;
+              }
+              
               if (signedData?.signedUrl) urls.push(signedData.signedUrl);
             }
             if (urls.length > 0) urlsMap[job.id] = urls;
@@ -243,7 +256,7 @@ export default function ProjectDetails() {
           jobCopy.job_photos = [];
         }
         
-        // Generate signed URLs for manager feedback photos
+        // Generate signed URLs for manager feedback photos (use thumbnails)
         const managerPhotoUrls: { [key: string]: string[] } = {};
         if (managerPhotos && managerPhotos.length > 0) {
           const urls: string[] = [];
@@ -256,10 +269,23 @@ export default function ProjectDetails() {
                 photoPath = decodeURIComponent(parts[1]);
               }
             }
-            const { data: signedData } = await supabase
+            
+            // Try thumbnail first
+            const thumbPath = getThumbnailPath(photoPath);
+            let { data: signedData } = await supabase
               .storage
               .from("job-photos")
-              .createSignedUrl(photoPath, 3600);
+              .createSignedUrl(thumbPath, 3600);
+            
+            // Fall back to original if thumbnail doesn't exist
+            if (!signedData?.signedUrl) {
+              const originalResult = await supabase
+                .storage
+                .from("job-photos")
+                .createSignedUrl(photoPath, 3600);
+              signedData = originalResult.data;
+            }
+            
             if (signedData?.signedUrl) {
               urls.push(signedData.signedUrl);
             }
@@ -604,24 +630,25 @@ export default function ProjectDetails() {
                             <div className="space-y-3">
                               <p className="text-sm font-medium">Photos ({photos.length})</p>
                               <ScrollArea className="w-full whitespace-nowrap">
-                                <div className="flex gap-4 pb-4">
+                                <div className="flex gap-3 pb-4">
                                   {photos.map((url, index) => (
                                     <div key={index} className="relative group shrink-0">
                                       <img
                                         src={url}
                                         alt={`Job completion ${index + 1}`}
-                                        className="h-48 w-48 object-cover rounded-lg border-2 border-border"
+                                        className="h-24 w-24 sm:h-32 sm:w-32 object-cover rounded-lg border-2 border-border"
+                                        loading="lazy"
                                       />
                                       <Button
                                         variant="secondary"
                                         size="sm"
-                                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute bottom-1 right-1 h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                         onClick={() => {
                                           const photo = completion.job_completion_photos[index];
                                           if (photo) downloadPhoto(photo.photo_url);
                                         }}
                                       >
-                                        <Download className="h-4 w-4" />
+                                        <Download className="h-3 w-3" />
                                       </Button>
                                     </div>
                                   ))}
@@ -682,26 +709,28 @@ export default function ProjectDetails() {
                           {job.job_photos && job.job_photos.length > 0 && managerFeedbackPhotoUrls[job.id] && (
                             <div className="space-y-3">
                               <p className="text-sm font-medium">Reference Photos ({job.job_photos.length})</p>
-                              <ScrollArea className="w-full">
-                                <div className="flex gap-4 pb-4">
+                              <ScrollArea className="w-full whitespace-nowrap">
+                                <div className="flex gap-3 pb-4">
                                   {managerFeedbackPhotoUrls[job.id].map((signedUrl: string, index: number) => (
                                     <div key={index} className="relative group shrink-0">
                                       <img
                                         src={signedUrl}
                                         alt={`Manager reference ${index + 1}`}
-                                        className="h-48 w-48 object-cover rounded-lg border-2 border-destructive"
+                                        className="h-24 w-24 sm:h-32 sm:w-32 object-cover rounded-lg border-2 border-destructive"
+                                        loading="lazy"
                                       />
                                       <Button
                                         variant="secondary"
                                         size="sm"
-                                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="absolute bottom-1 right-1 h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                         onClick={() => downloadPhoto(job.job_photos[index]?.photo_url, "job-photos")}
                                       >
-                                        <Download className="h-4 w-4" />
+                                        <Download className="h-3 w-3" />
                                       </Button>
                                     </div>
                                   ))}
                                 </div>
+                                <ScrollBar orientation="horizontal" />
                               </ScrollArea>
                             </div>
                           )}

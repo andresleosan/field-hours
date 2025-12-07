@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Camera, Upload, X, Loader2 } from "lucide-react";
 import { CameraCapture } from "./CameraCapture";
+import { createThumbnail, getThumbnailPath } from "@/lib/imageUtils";
 
 interface ManagerFeedbackDialogProps {
   open: boolean;
@@ -56,15 +57,28 @@ export const ManagerFeedbackDialog = ({ open, onOpenChange, jobId, onSubmitted }
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error("Not authenticated");
 
-      // Upload photos to storage
+      // Upload photos to storage (both original and thumbnail)
       const photoUrls: string[] = [];
       for (const photo of photos) {
         const fileName = `${jobId}/${Date.now()}-${photo.name}`;
+        const thumbPath = getThumbnailPath(fileName);
+        
+        // Upload original photo
         const { error: uploadError } = await supabase.storage
           .from("job-photos")
           .upload(fileName, photo);
 
         if (uploadError) throw uploadError;
+
+        // Create and upload thumbnail
+        try {
+          const thumbnail = await createThumbnail(photo, 150, 0.6);
+          await supabase.storage
+            .from("job-photos")
+            .upload(thumbPath, thumbnail, { contentType: "image/jpeg" });
+        } catch (thumbError) {
+          console.warn("Thumbnail creation failed, continuing with original:", thumbError);
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from("job-photos")
