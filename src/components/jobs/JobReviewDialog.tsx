@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Download, CheckCircle, XCircle, Users, Clock, Package } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getThumbnailPath } from "@/lib/imageUtils";
 
 interface JobReviewDialogProps {
   open: boolean;
@@ -62,16 +63,26 @@ export const JobReviewDialog = ({ open, onOpenChange, jobId, onReviewed }: JobRe
       
       setJobData(job);
 
-      // Generate signed URLs for ALL photos from ALL submissions
+      // Generate signed URLs for ALL photos from ALL submissions (use thumbnails for display)
       const allPhotos = job.job_completions?.flatMap((comp: any) => 
         comp.job_completion_photos || []
       ) || [];
       const urls: { [key: string]: string } = {};
       
       for (const photo of allPhotos) {
-        const { data: signedData } = await supabase.storage
+        // Try thumbnail first for faster loading
+        const thumbPath = getThumbnailPath(photo.photo_url);
+        let { data: signedData } = await supabase.storage
           .from("job-completion-photos")
-          .createSignedUrl(photo.photo_url, 3600); // 1 hour expiry
+          .createSignedUrl(thumbPath, 3600);
+        
+        // Fall back to original if thumbnail doesn't exist
+        if (!signedData?.signedUrl) {
+          const originalResult = await supabase.storage
+            .from("job-completion-photos")
+            .createSignedUrl(photo.photo_url, 3600);
+          signedData = originalResult.data;
+        }
         
         if (signedData?.signedUrl) {
           urls[photo.id] = signedData.signedUrl;

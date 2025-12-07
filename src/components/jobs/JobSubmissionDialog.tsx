@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, Upload, X, Loader2, Users } from "lucide-react";
 import { CameraCapture } from "./CameraCapture";
 import { Checkbox } from "@/components/ui/checkbox";
+import { createThumbnail, getThumbnailPath } from "@/lib/imageUtils";
 
 interface JobSubmissionDialogProps {
   open: boolean;
@@ -205,14 +206,27 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
       if (completionError) throw completionError;
       const completion = newCompletion;
 
-      // Upload photos
+      // Upload photos (both original and thumbnail)
       for (const photo of photos) {
         const fileName = `${completion.id}/${Date.now()}-${photo.name}`;
+        const thumbPath = getThumbnailPath(fileName);
+        
+        // Upload original photo
         const { error: uploadError } = await supabase.storage
           .from("job-completion-photos")
           .upload(fileName, photo);
 
         if (uploadError) throw uploadError;
+
+        // Create and upload thumbnail
+        try {
+          const thumbnail = await createThumbnail(photo, 150, 0.6);
+          await supabase.storage
+            .from("job-completion-photos")
+            .upload(thumbPath, thumbnail, { contentType: "image/jpeg" });
+        } catch (thumbError) {
+          console.warn("Thumbnail creation failed, continuing with original:", thumbError);
+        }
 
         const { error: photoError } = await supabase
           .from("job_completion_photos")

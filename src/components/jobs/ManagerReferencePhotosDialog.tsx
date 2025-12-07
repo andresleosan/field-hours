@@ -5,6 +5,7 @@ import { Image, X, Loader2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { getThumbnailPath } from "@/lib/imageUtils";
 
 interface ManagerReferencePhotosDialogProps {
   open: boolean;
@@ -47,11 +48,22 @@ export const ManagerReferencePhotosDialog = ({
 
       for (const photo of photos) {
         const photoPath = extractPhotoPath(photo.photo_url);
-        const { data, error } = await supabase.storage
+        
+        // Try thumbnail first for faster loading
+        const thumbPath = getThumbnailPath(photoPath);
+        let { data, error } = await supabase.storage
           .from('job-photos')
-          .createSignedUrl(photoPath, 3600); // 1 hour expiry
+          .createSignedUrl(thumbPath, 3600);
 
-        if (data?.signedUrl && !error) {
+        // Fall back to original if thumbnail doesn't exist
+        if (!data?.signedUrl || error) {
+          const originalResult = await supabase.storage
+            .from('job-photos')
+            .createSignedUrl(photoPath, 3600);
+          data = originalResult.data;
+        }
+
+        if (data?.signedUrl) {
           urls[photo.id] = data.signedUrl;
         }
       }
