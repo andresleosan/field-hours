@@ -238,7 +238,7 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
         if (photoError) throw photoError;
       }
 
-      // Link logged materials to this job (via job_materials). We do not update material_usage directly due to RLS.
+      // Link logged materials to this job (via job_materials) and update material_usage.job_id
       for (const material of loggedMaterials) {
         // Check if job_material link already exists
         const { data: existingLink, error: linkCheckError } = await supabase
@@ -258,6 +258,13 @@ export const JobSubmissionDialog = ({ open, onOpenChange, jobId, projectId, onSu
             });
           if (insertLinkError) throw insertLinkError;
         }
+
+        // Update material_usage.job_id to link it to this job
+        // This will remove it from the "View Logs" section in Material Management
+        await supabase
+          .from("material_usage")
+          .update({ job_id: jobId })
+          .eq("id", material.id);
       }
 
       // Add collaborators
