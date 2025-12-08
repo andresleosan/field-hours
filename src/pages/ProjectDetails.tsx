@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
+import { EditJobDialog } from "@/components/jobs/EditJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
 import { ManagerFeedbackDialog } from "@/components/jobs/ManagerFeedbackDialog";
 import { BulkJobUploadDialog } from "@/components/jobs/BulkJobUploadDialog";
@@ -26,6 +27,7 @@ export default function ProjectDetails() {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedJobForSubmission, setSelectedJobForSubmission] = useState<string | null>(null);
   const [selectedJobForFeedback, setSelectedJobForFeedback] = useState<string | null>(null);
+  const [selectedJobForEdit, setSelectedJobForEdit] = useState<any | null>(null);
   const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
   const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
   const [managerFeedbackPhotoUrls, setManagerFeedbackPhotoUrls] = useState<{ [key: string]: string[] }>({});
@@ -528,7 +530,19 @@ export default function ProjectDetails() {
                         Created by {job.profiles?.full_name || "Unknown"}
                       </div>
                     </div>
-                    <div className="pt-1">{getStatusBadge(job.status)}</div>
+                    <div className="flex items-center gap-2 pt-1">
+                      {userRole === "manager" && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setSelectedJobForEdit(job)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {getStatusBadge(job.status)}
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-6 px-3 sm:px-6">
@@ -827,6 +841,15 @@ export default function ProjectDetails() {
           onOpenChange={(open) => !open && setSelectedJobForFeedback(null)}
           jobId={selectedJobForFeedback}
           onSubmitted={fetchJobs}
+        />
+      )}
+
+      {selectedJobForEdit && (
+        <EditJobDialog
+          open={!!selectedJobForEdit}
+          onOpenChange={(open) => !open && setSelectedJobForEdit(null)}
+          job={selectedJobForEdit}
+          onJobUpdated={fetchJobs}
         />
       )}
     </div>
