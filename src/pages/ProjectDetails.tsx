@@ -67,14 +67,7 @@ export default function ProjectDetails() {
     return { sections: sortedGroups, unsectioned };
   }, [jobs]);
 
-  // Initialize all sections as open when jobs load
-  useEffect(() => {
-    const allSections = new Set(Object.keys(groupedJobs.sections));
-    if (groupedJobs.unsectioned.length > 0) {
-      allSections.add("__unsectioned__");
-    }
-    setOpenSections(allSections);
-  }, [groupedJobs]);
+  // Sections start collapsed by default - no initialization needed
 
   const toggleSection = (section: string) => {
     setOpenSections(prev => {
