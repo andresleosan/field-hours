@@ -7,10 +7,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
 import { ManagerFeedbackDialog } from "@/components/jobs/ManagerFeedbackDialog";
+import { BulkJobUploadDialog } from "@/components/jobs/BulkJobUploadDialog";
 import { getThumbnailPath } from "@/lib/imageUtils";
 
 export default function ProjectDetails() {
@@ -22,6 +23,7 @@ export default function ProjectDetails() {
   const [userRole, setUserRole] = useState<"manager" | "builder" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateJob, setShowCreateJob] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [selectedJobForSubmission, setSelectedJobForSubmission] = useState<string | null>(null);
   const [selectedJobForFeedback, setSelectedJobForFeedback] = useState<string | null>(null);
   const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
@@ -475,10 +477,16 @@ export default function ProjectDetails() {
           </div>
         </div>
         {userRole === "manager" && (
-          <Button onClick={() => setShowCreateJob(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Create Job
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Import from Excel
+            </Button>
+            <Button onClick={() => setShowCreateJob(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Job
+            </Button>
+          </div>
         )}
       </div>
 
@@ -791,6 +799,15 @@ export default function ProjectDetails() {
           onOpenChange={setShowCreateJob}
           projectId={projectId!}
           onJobCreated={fetchJobs}
+        />
+      )}
+
+      {showBulkUpload && (
+        <BulkJobUploadDialog
+          open={showBulkUpload}
+          onOpenChange={setShowBulkUpload}
+          projectId={projectId!}
+          onJobsCreated={fetchJobs}
         />
       )}
 

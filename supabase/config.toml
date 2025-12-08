@@ -2,3 +2,6 @@ project_id = "lukmmizugpnecispdzsn"
 
 [functions.process-invoice]
 verify_jwt = true
+
+[functions.extract-jobs-from-excel]
+verify_jwt = true
