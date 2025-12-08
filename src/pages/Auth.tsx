@@ -9,6 +9,25 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, HardHat } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { z } from "zod";
+
+// Validation schemas
+const signInSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address").max(255, "Email is too long"),
+  password: z.string().min(1, "Password is required").max(72, "Password is too long"),
+});
+
+const signUpSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address").max(255, "Email is too long"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password is too long")
+    .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+    .regex(/[a-z]/, "Password must contain at least one lowercase letter")
+    .regex(/[0-9]/, "Password must contain at least one number"),
+  fullName: z.string().trim().min(1, "Full name is required").max(100, "Name is too long"),
+  phone: z.string().trim().regex(/^(\+?[0-9\s\-()]+)?$/, "Please enter a valid phone number").max(20, "Phone number is too long").optional().or(z.literal("")),
+});
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -32,20 +51,26 @@ const Auth = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password || !fullName) {
+    
+    // Validate input with Zod
+    const validationResult = signUpSchema.safeParse({ email, password, fullName, phone });
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       toast({
-        title: "Missing information",
-        description: "Please fill in all required fields",
+        title: "Validation Error",
+        description: firstError.message,
         variant: "destructive",
       });
       return;
     }
 
+    const validatedData = validationResult.data;
+
     // Validate invitation for manager role
     if (role === "manager") {
       const { data: isValid, error: validationError } = await supabase.rpc(
         "validate_invitation",
-        { user_email: email, user_role: role }
+        { user_email: validatedData.email, user_role: role }
       );
 
       if (validationError || !isValid) {
@@ -62,12 +87,12 @@ const Auth = () => {
     setIsLoading(true);
     try {
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
+        email: validatedData.email,
+        password: validatedData.password,
         options: {
           data: {
-            full_name: fullName,
-            phone: phone,
+            full_name: validatedData.fullName,
+            phone: validatedData.phone || "",
           },
           emailRedirectTo: `${window.location.origin}/dashboard`,
         },
@@ -102,20 +127,26 @@ const Auth = () => {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    
+    // Validate input with Zod
+    const validationResult = signInSchema.safeParse({ email, password });
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0];
       toast({
-        title: "Missing information",
-        description: "Please enter your email and password",
+        title: "Validation Error",
+        description: firstError.message,
         variant: "destructive",
       });
       return;
     }
 
+    const validatedData = validationResult.data;
+
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: validatedData.email,
+        password: validatedData.password,
       });
 
       if (error) throw error;
@@ -169,6 +200,7 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     required
+                    maxLength={255}
                   />
                 </div>
                 <div className="space-y-2">
@@ -180,6 +212,7 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                     required
+                    maxLength={72}
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
@@ -201,6 +234,7 @@ const Auth = () => {
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={isLoading}
                     required
+                    maxLength={100}
                   />
                 </div>
                 <div className="space-y-2">
@@ -213,6 +247,7 @@ const Auth = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     required
+                    maxLength={255}
                   />
                 </div>
                 <div className="space-y-2">
@@ -224,6 +259,7 @@ const Auth = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     disabled={isLoading}
+                    maxLength={20}
                   />
                 </div>
                 <div className="space-y-2">
@@ -235,7 +271,11 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
                     required
+                    maxLength={72}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Min 8 characters with uppercase, lowercase, and number
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-role">Role *</Label>
