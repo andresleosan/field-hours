@@ -43,7 +43,7 @@ export const ManagerJobsList = () => {
           projects(name),
           job_photos(id, photo_url)
         `)
-        .neq("status", "completed")
+        .in("status", ["waiting_review", "pending"])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
