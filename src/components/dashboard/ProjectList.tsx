@@ -6,6 +6,17 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Building2, Clock, DollarSign, Edit, Loader2 } from "lucide-react";
 import EditProjectDialog from "./EditProjectDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface ProjectListProps {
   onProjectCreated: () => void;
@@ -32,10 +43,42 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [navigatingToProject, setNavigatingToProject] = useState<string | null>(null);
+  const [projectToFinish, setProjectToFinish] = useState<Project | null>(null);
+  const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
 
   const handleEditProject = (project: Project) => {
     setSelectedProject(project);
     setIsEditDialogOpen(true);
+  };
+
+  const handleStatusClick = (e: React.MouseEvent, project: Project) => {
+    e.stopPropagation();
+    if (project.status === "active") {
+      setProjectToFinish(project);
+      setIsFinishDialogOpen(true);
+    }
+  };
+
+  const handleConfirmFinish = async () => {
+    if (!projectToFinish) return;
+    
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({ status: "finished" })
+        .eq("id", projectToFinish.id);
+
+      if (error) throw error;
+      
+      toast.success("Project moved to finished projects");
+      fetchProjects();
+    } catch (error) {
+      console.error("Error finishing project:", error);
+      toast.error("Failed to update project status");
+    } finally {
+      setIsFinishDialogOpen(false);
+      setProjectToFinish(null);
+    }
   };
 
   useEffect(() => {
@@ -170,7 +213,11 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                   <p className="text-sm text-muted-foreground">{project.client_name}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge variant={project.status === "active" ? "default" : "secondary"}>
+                  <Badge 
+                    variant={project.status === "active" ? "default" : "secondary"}
+                    className={project.status === "active" ? "cursor-pointer hover:opacity-80" : ""}
+                    onClick={(e) => handleStatusClick(e, project)}
+                  >
                     {project.status}
                   </Badge>
                   <Button
@@ -217,6 +264,24 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
         onProjectUpdated={fetchProjects}
         project={selectedProject}
       />
+
+      <AlertDialog open={isFinishDialogOpen} onOpenChange={setIsFinishDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Would you like to move "{projectToFinish?.name}" to finished projects? 
+              This will mark the project as completed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmFinish}>
+              Yes, finish project
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
