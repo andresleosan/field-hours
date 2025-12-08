@@ -105,6 +105,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
       const { data: projectsData, error } = await supabase
         .from("projects")
         .select("*")
+        .eq("status", "active")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
