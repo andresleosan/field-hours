@@ -214,11 +214,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                   <p className="text-sm text-muted-foreground">{project.client_name}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Badge 
-                    variant={project.status === "active" ? "default" : "secondary"}
-                    className={project.status === "active" ? "cursor-pointer hover:opacity-80" : ""}
-                    onClick={(e) => handleStatusClick(e, project)}
-                  >
+                  <Badge variant={project.status === "active" ? "default" : "secondary"}>
                     {project.status}
                   </Badge>
                   <Button
