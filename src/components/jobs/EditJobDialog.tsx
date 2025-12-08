@@ -133,12 +133,12 @@ export const EditJobDialog = ({ open, onOpenChange, job, onJobUpdated }: EditJob
             <Label htmlFor="edit-section">Section</Label>
             {!showNewSection ? (
               <div className="flex gap-2">
-                <Select value={section} onValueChange={setSection}>
+                <Select value={section || "__none__"} onValueChange={(val) => setSection(val === "__none__" ? "" : val)}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder="Select or create a section" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No section</SelectItem>
+                    <SelectItem value="__none__">No section</SelectItem>
                     {existingSections.map((s) => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
