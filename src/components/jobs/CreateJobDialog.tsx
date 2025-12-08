@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, Upload, X, Loader2 } from "lucide-react";
+import { Camera, Upload, X, Loader2, Plus } from "lucide-react";
 import { CameraCapture } from "./CameraCapture";
 
 interface CreateJobDialogProps {
@@ -19,10 +20,44 @@ interface CreateJobDialogProps {
 export const CreateJobDialog = ({ open, onOpenChange, projectId, onJobCreated }: CreateJobDialogProps) => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [section, setSection] = useState("");
+  const [newSection, setNewSection] = useState("");
+  const [showNewSection, setShowNewSection] = useState(false);
+  const [existingSections, setExistingSections] = useState<string[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [showCamera, setShowCamera] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (open) {
+      fetchExistingSections();
+    }
+  }, [open, projectId]);
+
+  const fetchExistingSections = async () => {
+    const { data } = await supabase
+      .from("jobs")
+      .select("section")
+      .eq("project_id", projectId)
+      .not("section", "is", null);
+    
+    if (data) {
+      const uniqueSections = [...new Set(data.map(j => j.section).filter(Boolean))] as string[];
+      setExistingSections(uniqueSections.sort());
+    }
+  };
+
+  const handleAddNewSection = () => {
+    if (newSection.trim()) {
+      setSection(newSection.trim());
+      if (!existingSections.includes(newSection.trim())) {
+        setExistingSections(prev => [...prev, newSection.trim()].sort());
+      }
+      setNewSection("");
+      setShowNewSection(false);
+    }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -62,6 +97,7 @@ export const CreateJobDialog = ({ open, onOpenChange, projectId, onJobCreated }:
         .insert({
           title,
           description,
+          section: section || null,
           project_id: projectId,
           created_by: userData.user.id,
           status: "approved",
@@ -98,6 +134,9 @@ export const CreateJobDialog = ({ open, onOpenChange, projectId, onJobCreated }:
 
       setTitle("");
       setDescription("");
+      setSection("");
+      setNewSection("");
+      setShowNewSection(false);
       setPhotos([]);
       onJobCreated();
       onOpenChange(false);
@@ -129,6 +168,49 @@ export const CreateJobDialog = ({ open, onOpenChange, projectId, onJobCreated }:
                 placeholder="e.g., Install kitchen cabinets"
                 disabled={isLoading}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="section">Section</Label>
+              {!showNewSection ? (
+                <div className="flex gap-2">
+                  <Select value={section} onValueChange={setSection}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select or create a section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No section</SelectItem>
+                      {existingSections.map((s) => (
+                        <SelectItem key={s} value={s}>{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowNewSection(true)}
+                    disabled={isLoading}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Input
+                    value={newSection}
+                    onChange={(e) => setNewSection(e.target.value)}
+                    placeholder="Enter new section name"
+                    disabled={isLoading}
+                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddNewSection())}
+                  />
+                  <Button type="button" variant="outline" onClick={handleAddNewSection} disabled={isLoading}>
+                    Add
+                  </Button>
+                  <Button type="button" variant="ghost" onClick={() => setShowNewSection(false)} disabled={isLoading}>
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>

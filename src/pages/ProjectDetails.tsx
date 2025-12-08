@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -7,12 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight } from "lucide-react";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { EditJobDialog } from "@/components/jobs/EditJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
 import { ManagerFeedbackDialog } from "@/components/jobs/ManagerFeedbackDialog";
 import { BulkJobUploadDialog } from "@/components/jobs/BulkJobUploadDialog";
+import { JobCard } from "@/components/jobs/JobCard";
 import { getThumbnailPath } from "@/lib/imageUtils";
 
 export default function ProjectDetails() {
@@ -31,6 +33,53 @@ export default function ProjectDetails() {
   const [activeWorkers, setActiveWorkers] = useState<{ [key: string]: any[] }>({});
   const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
   const [managerFeedbackPhotoUrls, setManagerFeedbackPhotoUrls] = useState<{ [key: string]: string[] }>({});
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+
+  // Group jobs by section
+  const groupedJobs = useMemo(() => {
+    const groups: { [key: string]: any[] } = {};
+    const unsectioned: any[] = [];
+    
+    jobs.forEach(job => {
+      if (job.section) {
+        if (!groups[job.section]) {
+          groups[job.section] = [];
+        }
+        groups[job.section].push(job);
+      } else {
+        unsectioned.push(job);
+      }
+    });
+    
+    // Sort sections alphabetically
+    const sortedGroups = Object.keys(groups).sort().reduce((acc, key) => {
+      acc[key] = groups[key];
+      return acc;
+    }, {} as { [key: string]: any[] });
+    
+    return { sections: sortedGroups, unsectioned };
+  }, [jobs]);
+
+  // Initialize all sections as open when jobs load
+  useEffect(() => {
+    const allSections = new Set(Object.keys(groupedJobs.sections));
+    if (groupedJobs.unsectioned.length > 0) {
+      allSections.add("__unsectioned__");
+    }
+    setOpenSections(allSections);
+  }, [groupedJobs]);
+
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(section)) {
+        newSet.delete(section);
+      } else {
+        newSet.add(section);
+      }
+      return newSet;
+    });
+  };
 
   useEffect(() => {
     checkAuth();
@@ -492,7 +541,7 @@ export default function ProjectDetails() {
         )}
       </div>
 
-      <div className="grid gap-6">
+      <div className="space-y-4">
         {jobs.length === 0 ? (
           <Card>
             <CardContent className="flex items-center justify-center py-12">
@@ -508,302 +557,143 @@ export default function ProjectDetails() {
             </CardContent>
           </Card>
         ) : (
-          jobs.map((job) => {
-            const completion = job.job_completions?.[0];
-            const totalTime = calculateTotalTime(job.job_time_tracking || []);
-            const workers = activeWorkers[job.id] || [];
-            const materials = job.job_materials || [];
-            const photos = photoUrls[job.id] || [];
-
-            return (
-              <Card key={job.id} className="overflow-hidden">
-                <CardHeader className="bg-muted/30">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="mb-2">
-                        <CardTitle className="text-xl">{job.title}</CardTitle>
-                      </div>
-                      {job.description && (
-                        <CardDescription className="text-sm">{job.description}</CardDescription>
-                      )}
-                      <div className="mt-3 text-xs text-muted-foreground">
-                        Created by {job.profiles?.full_name || "Unknown"}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 pt-1">
-                      {userRole === "manager" && (
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setSelectedJobForEdit(job)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {getStatusBadge(job.status)}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-6 px-3 sm:px-6">
-                  <div className="grid gap-6">
-                    {/* Quick Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      {/* Currently Working */}
-                      <Card className="shadow-sm">
-                        <CardHeader className="pb-2 px-3 pt-3">
-                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="truncate">Currently Working</span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-3 pb-3">
-                          {workers.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {workers.map((worker: any) => (
-                                <Badge key={worker.id} variant="secondary" className="animate-pulse text-xs">
-                                  {worker.profiles?.full_name}
-                                </Badge>
-                              ))}
-                            </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">No one working</p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Time Worked */}
-                      <Card className="shadow-sm">
-                        <CardHeader className="pb-2 px-3 pt-3">
-                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="truncate">Time Worked</span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-3 pb-3">
-                          <div className="text-xl sm:text-2xl font-bold">
-                            {totalTime > 0 ? formatTime(totalTime) : "0h 0m"}
+          <>
+            {/* Section-based job organization */}
+            {Object.entries(groupedJobs.sections).map(([sectionName, sectionJobs]) => {
+              const isOpen = openSections.has(sectionName);
+              const completedCount = sectionJobs.filter((j: any) => j.status === "completed").length;
+              const pendingCount = sectionJobs.filter((j: any) => j.status === "pending" || j.status === "waiting_review").length;
+              
+              return (
+                <Collapsible key={sectionName} open={isOpen} onOpenChange={() => toggleSection(sectionName)}>
+                  <CollapsibleTrigger asChild>
+                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <CardHeader className="py-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            {isOpen ? (
+                              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
+                            ) : (
+                              <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform" />
+                            )}
+                            <FolderOpen className="h-5 w-5 text-primary" />
+                            <CardTitle className="text-lg">{sectionName}</CardTitle>
                           </div>
-                          {job.job_time_tracking && job.job_time_tracking.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {job.job_time_tracking.length} session(s)
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
-
-                      {/* Materials */}
-                      <Card className="shadow-sm">
-                        <CardHeader className="pb-2 px-3 pt-3">
-                          <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                            <Package className="h-3.5 w-3.5 text-primary shrink-0" />
-                            <span className="truncate">Materials Used</span>
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-3 pb-3">
-                          <div className="text-xl sm:text-2xl font-bold">{materials.length}</div>
-                          {materials.length > 0 && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              £{materials.reduce((sum: number, m: any) => {
-                                const usage = m.material_usage;
-                                const material = usage?.materials;
-                                return sum + (usage?.quantity_used * material?.cost_per_unit || 0);
-                              }, 0).toFixed(2)} total
-                            </p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </div>
-
-                    {/* Submission Details for Waiting Review and Completed */}
-                    {(job.status === "pending" || job.status === "waiting_review" || job.status === "completed") && completion && (
-                      <>
-                        <Separator />
-                        <div className="space-y-4">
-                          <h3 className="font-semibold text-lg">Submission Details</h3>
-                          
-                          {/* Submitted by & Collaborators */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant="outline">
-                              Submitted by {completion.profiles?.full_name}
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs">
+                              {sectionJobs.length} job{sectionJobs.length !== 1 ? "s" : ""}
                             </Badge>
-                            {completion.job_collaborators?.length > 0 && (
-                              <>
-                                <span className="text-sm text-muted-foreground">with</span>
-                                {completion.job_collaborators.map((collab: any) => (
-                                  <Badge key={collab.user_id} variant="secondary">
-                                    {collab.profiles?.full_name}
-                                  </Badge>
-                                ))}
-                              </>
+                            {completedCount > 0 && (
+                              <Badge variant="default" className="text-xs">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                {completedCount}
+                              </Badge>
+                            )}
+                            {pendingCount > 0 && (
+                              <Badge variant="warning" className="text-xs">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {pendingCount}
+                              </Badge>
                             )}
                           </div>
+                        </div>
+                      </CardHeader>
+                    </Card>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pl-4 border-l-2 border-primary/20 ml-4 mt-2 space-y-3">
+                    {sectionJobs.map((job: any) => (
+                      <JobCard
+                        key={job.id}
+                        job={job}
+                        userRole={userRole}
+                        activeWorkers={activeWorkers[job.id] || []}
+                        photoUrls={photoUrls[job.id] || []}
+                        managerFeedbackPhotoUrls={managerFeedbackPhotoUrls[job.id] || []}
+                        onEdit={setSelectedJobForEdit}
+                        onStartTracking={startJobTracking}
+                        onSubmitForReview={setSelectedJobForSubmission}
+                        onNeedsCorrection={(jobId) => handleJobStatusChange(jobId, "needs_correction")}
+                        onJobDone={(jobId) => handleJobStatusChange(jobId, "completed")}
+                        onDownloadPhoto={downloadPhoto}
+                        calculateTotalTime={calculateTotalTime}
+                        formatTime={formatTime}
+                      />
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
 
-                          {/* Builder Notes */}
-                          {completion.notes && (
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Builder Notes:</p>
-                              <p className="text-sm bg-muted p-4 rounded-lg">{completion.notes}</p>
-                            </div>
+            {/* Unsectioned jobs */}
+            {groupedJobs.unsectioned.length > 0 && (
+              <Collapsible 
+                open={openSections.has("__unsectioned__")} 
+                onOpenChange={() => toggleSection("__unsectioned__")}
+              >
+                <CollapsibleTrigger asChild>
+                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <CardHeader className="py-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {openSections.has("__unsectioned__") ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform" />
                           )}
-
-                          {/* Photos */}
-                          {photos.length > 0 && (
-                            <div className="space-y-3">
-                              <p className="text-sm font-medium">Photos ({photos.length})</p>
-                              <ScrollArea className="w-full whitespace-nowrap">
-                                <div className="flex gap-3 pb-4">
-                                  {photos.map((url, index) => (
-                                    <div key={index} className="relative group shrink-0">
-                                      <img
-                                        src={url}
-                                        alt={`Job completion ${index + 1}`}
-                                        className="h-24 w-24 sm:h-32 sm:w-32 object-cover rounded-lg border-2 border-border"
-                                        loading="lazy"
-                                      />
-                                      <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        className="absolute bottom-1 right-1 h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                        onClick={() => {
-                                          const photo = completion.job_completion_photos[index];
-                                          if (photo) downloadPhoto(photo.photo_url);
-                                        }}
-                                      >
-                                        <Download className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                                <ScrollBar orientation="horizontal" />
-                              </ScrollArea>
-                            </div>
+                          <FolderOpen className="h-5 w-5 text-muted-foreground" />
+                          <CardTitle className="text-lg text-muted-foreground">Unsectioned Jobs</CardTitle>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {groupedJobs.unsectioned.length} job{groupedJobs.unsectioned.length !== 1 ? "s" : ""}
+                          </Badge>
+                          {groupedJobs.unsectioned.filter((j: any) => j.status === "completed").length > 0 && (
+                            <Badge variant="default" className="text-xs">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              {groupedJobs.unsectioned.filter((j: any) => j.status === "completed").length}
+                            </Badge>
                           )}
-
-                          {/* Materials Details */}
-                          {materials.length > 0 && (
-                            <div className="space-y-3">
-                              <p className="text-sm font-medium">Materials Breakdown</p>
-                              <div className="border rounded-lg divide-y">
-                                {materials.map((jm: any) => {
-                                  const usage = jm.material_usage;
-                                  const material = usage?.materials;
-                                  return (
-                                    <div key={jm.id} className="p-3 flex justify-between items-center">
-                                      <div>
-                                        <div className="font-medium text-sm">{material?.name}</div>
-                                        <div className="text-xs text-muted-foreground">
-                                          {usage?.quantity_used} {material?.unit}
-                                        </div>
-                                      </div>
-                                      <div className="font-semibold text-sm">
-                                        £{(usage?.quantity_used * material?.cost_per_unit).toFixed(2)}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
+                          {groupedJobs.unsectioned.filter((j: any) => j.status === "pending" || j.status === "waiting_review").length > 0 && (
+                            <Badge variant="warning" className="text-xs">
+                              <Clock className="h-3 w-3 mr-1" />
+                              {groupedJobs.unsectioned.filter((j: any) => j.status === "pending" || j.status === "waiting_review").length}
+                            </Badge>
                           )}
                         </div>
-                      </>
-                    )}
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pl-4 border-l-2 border-muted ml-4 mt-2 space-y-3">
+                  {groupedJobs.unsectioned.map((job: any) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      userRole={userRole}
+                      activeWorkers={activeWorkers[job.id] || []}
+                      photoUrls={photoUrls[job.id] || []}
+                      managerFeedbackPhotoUrls={managerFeedbackPhotoUrls[job.id] || []}
+                      onEdit={setSelectedJobForEdit}
+                      onStartTracking={startJobTracking}
+                      onSubmitForReview={setSelectedJobForSubmission}
+                      onNeedsCorrection={(jobId) => handleJobStatusChange(jobId, "needs_correction")}
+                      onJobDone={(jobId) => handleJobStatusChange(jobId, "completed")}
+                      onDownloadPhoto={downloadPhoto}
+                      calculateTotalTime={calculateTotalTime}
+                      formatTime={formatTime}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
 
-                    {/* Manager Feedback Section for Needs Correction */}
-                    {job.status === "needs_correction" && (job.manager_feedback || (job.job_photos && job.job_photos.length > 0)) && (
-                      <>
-                        <Separator />
-                        <div className="space-y-4 bg-destructive/5 p-4 rounded-lg border-2 border-destructive/20">
-                          <div className="flex items-center gap-2">
-                            <AlertCircle className="h-5 w-5 text-destructive" />
-                            <h3 className="font-semibold text-lg text-destructive">Corrections Required</h3>
-                          </div>
-                          
-                          {/* Manager Feedback Notes */}
-                          {job.manager_feedback && (
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Manager Feedback:</p>
-                              <p className="text-sm bg-background p-4 rounded-lg border">{job.manager_feedback}</p>
-                            </div>
-                          )}
-
-                          {/* Manager Reference Photos */}
-                          {job.job_photos && job.job_photos.length > 0 && managerFeedbackPhotoUrls[job.id] && (
-                            <div className="space-y-3">
-                              <p className="text-sm font-medium">Reference Photos ({job.job_photos.length})</p>
-                              <ScrollArea className="w-full whitespace-nowrap">
-                                <div className="flex gap-3 pb-4">
-                                  {managerFeedbackPhotoUrls[job.id].map((signedUrl: string, index: number) => (
-                                    <div key={index} className="relative group shrink-0">
-                                      <img
-                                        src={signedUrl}
-                                        alt={`Manager reference ${index + 1}`}
-                                        className="h-24 w-24 sm:h-32 sm:w-32 object-cover rounded-lg border-2 border-destructive"
-                                        loading="lazy"
-                                      />
-                                      <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        className="absolute bottom-1 right-1 h-7 w-7 p-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
-                                        onClick={() => downloadPhoto(job.job_photos[index]?.photo_url, "job-photos")}
-                                      >
-                                        <Download className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                                <ScrollBar orientation="horizontal" />
-                              </ScrollArea>
-                            </div>
-                          )}
-                        </div>
-                      </>
-                    )}
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2 pt-4 border-t">
-                      {userRole === "builder" && job.status === "approved" && (
-                        <>
-                          {!workers.some(w => w.user_id === userRole) && (
-                            <Button
-                              variant="outline"
-                              onClick={() => startJobTracking(job.id)}
-                            >
-                              <PlayCircle className="h-4 w-4 mr-2" />
-                              Start Working
-                            </Button>
-                          )}
-                          <Button onClick={() => setSelectedJobForSubmission(job.id)}>
-                            Submit for Review
-                          </Button>
-                        </>
-                      )}
-                      {userRole === "builder" && job.status === "needs_correction" && (
-                        <Button onClick={() => setSelectedJobForSubmission(job.id)}>
-                          Resubmit Job
-                        </Button>
-                      )}
-                      {userRole === "manager" && (job.status === "pending" || job.status === "waiting_review") && (
-                        <>
-                          <Button
-                            variant="destructive"
-                            onClick={() => handleJobStatusChange(job.id, "needs_correction")}
-                          >
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Needs Correction
-                          </Button>
-                          <Button onClick={() => handleJobStatusChange(job.id, "completed")}>
-                            <CheckCircle2 className="h-4 w-4 mr-2" />
-                            Job Done
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })
+            {/* If no sections exist yet, show jobs in a simple list */}
+            {Object.keys(groupedJobs.sections).length === 0 && groupedJobs.unsectioned.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                No jobs to display
+              </div>
+            )}
+          </>
         )}
       </div>
 
