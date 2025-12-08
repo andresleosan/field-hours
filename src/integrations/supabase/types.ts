@@ -437,6 +437,7 @@ export type Database = {
           manager_feedback: string | null
           manager_voice_note_url: string | null
           project_id: string
+          section: string | null
           status: string
           title: string
           updated_at: string
@@ -451,6 +452,7 @@ export type Database = {
           manager_feedback?: string | null
           manager_voice_note_url?: string | null
           project_id: string
+          section?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -465,6 +467,7 @@ export type Database = {
           manager_feedback?: string | null
           manager_voice_note_url?: string | null
           project_id?: string
+          section?: string | null
           status?: string
           title?: string
           updated_at?: string
