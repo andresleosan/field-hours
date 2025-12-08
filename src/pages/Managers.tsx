@@ -8,6 +8,7 @@ import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, Building2 } f
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
+import FinishedProjectList from "@/components/dashboard/FinishedProjectList";
 import BuilderActivityTracker from "@/components/dashboard/BuilderActivityTracker";
 import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
@@ -217,8 +218,9 @@ const Managers = () => {
         </div>
 
         <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="projects">Projects</TabsTrigger>
+            <TabsTrigger value="finished">Finished Projects</TabsTrigger>
             <TabsTrigger value="activity">Builder Activity</TabsTrigger>
             <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
           </TabsList>
@@ -250,6 +252,18 @@ const Managers = () => {
               </CardHeader>
               <CardContent>
                 <ManagerJobsList />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="finished">
+            <Card>
+              <CardHeader>
+                <CardTitle>Finished Projects</CardTitle>
+                <CardDescription>View completed construction projects</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FinishedProjectList />
               </CardContent>
             </Card>
           </TabsContent>
