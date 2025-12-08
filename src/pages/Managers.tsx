@@ -14,7 +14,6 @@ import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog"
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
-
 interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
@@ -22,82 +21,78 @@ interface DashboardStats {
   totalSpent: number;
   totalMaterials: number;
 }
-
 const Managers = () => {
   const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ full_name: string; role: string } | null>(null);
+  const [userProfile, setUserProfile] = useState<{
+    full_name: string;
+    role: string;
+  } | null>(null);
   const [stats, setStats] = useState<DashboardStats>({
     totalProjects: 0,
     activeProjects: 0,
     totalHours: 0,
     totalSpent: 0,
-    totalMaterials: 0,
+    totalMaterials: 0
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
-
   useEffect(() => {
     checkAuth();
   }, []);
-
   const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
+    const {
+      data: {
+        session
+      }
+    } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
       return;
     }
-
     setUserId(session.user.id);
-
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-
+    const {
+      data: roleData
+    } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
     if (!roleData || roleData.role !== "manager") {
       navigate("/builders");
       return;
     }
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", session.user.id)
-      .single();
-
+    const {
+      data: profileData
+    } = await supabase.from("profiles").select("full_name").eq("id", session.user.id).single();
     if (profileData && roleData) {
       setUserProfile({
         full_name: profileData.full_name,
-        role: roleData.role,
+        role: roleData.role
       });
     }
-
     await fetchDashboardStats();
     setIsLoading(false);
   };
-
   const fetchDashboardStats = async () => {
     try {
-      const { count: totalProjects } = await supabase
-        .from("projects")
-        .select("*", { count: "exact", head: true });
-
-      const { count: activeProjects } = await supabase
-        .from("projects")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active");
-
-      const { data: timeData } = await supabase
-        .from("time_tracking")
-        .select("clock_in, clock_out");
-
+      const {
+        count: totalProjects
+      } = await supabase.from("projects").select("*", {
+        count: "exact",
+        head: true
+      });
+      const {
+        count: activeProjects
+      } = await supabase.from("projects").select("*", {
+        count: "exact",
+        head: true
+      }).eq("status", "active");
+      const {
+        data: timeData
+      } = await supabase.from("time_tracking").select("clock_in, clock_out");
       let totalHours = 0;
       if (timeData) {
         totalHours = timeData.reduce((acc, record) => {
@@ -108,59 +103,52 @@ const Managers = () => {
           return acc;
         }, 0);
       }
-
-      const { data: invoiceData } = await supabase
-        .from("invoices")
-        .select("total_amount");
-
+      const {
+        data: invoiceData
+      } = await supabase.from("invoices").select("total_amount");
       const totalSpent = invoiceData?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
-
-      const { count: totalMaterials } = await supabase
-        .from("materials")
-        .select("*", { count: "exact", head: true });
-
+      const {
+        count: totalMaterials
+      } = await supabase.from("materials").select("*", {
+        count: "exact",
+        head: true
+      });
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
         totalHours: Math.round(totalHours),
         totalSpent,
-        totalMaterials: totalMaterials || 0,
+        totalMaterials: totalMaterials || 0
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
     }
   };
-
   const handleSignOut = async () => {
     // Clear local storage first to ensure clean state
     localStorage.removeItem('sb-lukmmizugpnecispdzsn-auth-token');
-    
     try {
-      await supabase.auth.signOut({ scope: 'local' });
+      await supabase.auth.signOut({
+        scope: 'local'
+      });
     } catch (error) {
       // Ignore errors - we're forcing sign out anyway
       console.log('Sign out error (ignored):', error);
     }
-    
     toast({
       title: "Signed out",
-      description: "Successfully signed out",
+      description: "Successfully signed out"
     });
-    
+
     // Force hard redirect to clear all state
     window.location.href = "/auth";
   };
-
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+    return <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-muted/30">
+  return <div className="min-h-screen bg-muted/30">
       <header className="bg-card border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -196,7 +184,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsTimeTrackingOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Hours</CardTitle>
+              <CardTitle className="text-sm font-medium">Builder Total Hours</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -207,7 +195,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsInvoicesOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Spent</CardTitle>
+              <CardTitle className="text-sm font-medium">Note Collections</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -292,28 +280,13 @@ const Managers = () => {
         </Tabs>
       </main>
 
-      <CreateProjectDialog
-        open={isCreateProjectOpen}
-        onOpenChange={setIsCreateProjectOpen}
-        onProjectCreated={fetchDashboardStats}
-      />
+      <CreateProjectDialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen} onProjectCreated={fetchDashboardStats} />
       
-      <MaterialsDetailDialog
-        open={isMaterialsOpen}
-        onOpenChange={setIsMaterialsOpen}
-      />
+      <MaterialsDetailDialog open={isMaterialsOpen} onOpenChange={setIsMaterialsOpen} />
       
-      <TimeTrackingDetailDialog
-        open={isTimeTrackingOpen}
-        onOpenChange={setIsTimeTrackingOpen}
-      />
+      <TimeTrackingDetailDialog open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen} />
       
-      <InvoicesDetailDialog
-        open={isInvoicesOpen}
-        onOpenChange={setIsInvoicesOpen}
-      />
-    </div>
-  );
+      <InvoicesDetailDialog open={isInvoicesOpen} onOpenChange={setIsInvoicesOpen} />
+    </div>;
 };
-
 export default Managers;
