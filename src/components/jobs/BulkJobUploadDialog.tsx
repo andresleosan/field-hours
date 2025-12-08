@@ -225,7 +225,7 @@ export const BulkJobUploadDialog = ({ open, onOpenChange, projectId, onJobsCreat
                 </Button>
               </div>
               
-              <ScrollArea className="flex-1 border rounded-md p-2">
+              <ScrollArea className="max-h-[300px] border rounded-md p-2">
                 <div className="space-y-2">
                   {extractedJobs.map((job, index) => (
                     <div
