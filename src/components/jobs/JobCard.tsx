@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, Edit } from "lucide-react";
 
 interface JobCardProps {
@@ -19,6 +20,10 @@ interface JobCardProps {
   onDownloadPhoto: (photoPath: string, bucket?: string) => void;
   calculateTotalTime: (timeTracking: any[]) => number;
   formatTime: (minutes: number) => string;
+  // Selection mode props
+  selectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (jobId: string) => void;
 }
 
 export const JobCard = ({
@@ -35,6 +40,9 @@ export const JobCard = ({
   onDownloadPhoto,
   calculateTotalTime,
   formatTime,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect,
 }: JobCardProps) => {
   const completion = job.job_completions?.[0];
   const totalTime = calculateTotalTime(job.job_time_tracking || []);
@@ -64,9 +72,18 @@ export const JobCard = ({
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden transition-all ${isSelected ? 'ring-2 ring-primary bg-primary/5' : ''}`}>
       <CardHeader className="bg-muted/30 py-4">
         <div className="flex items-start justify-between gap-4">
+          {selectionMode && (
+            <div className="flex items-center pt-1">
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect?.(job.id)}
+                className="h-5 w-5"
+              />
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="mb-1">
               <CardTitle className="text-lg">{job.title}</CardTitle>
