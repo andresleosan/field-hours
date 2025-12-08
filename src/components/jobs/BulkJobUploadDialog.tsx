@@ -20,6 +20,7 @@ interface BulkJobUploadDialogProps {
 interface ExtractedJob {
   title: string;
   description?: string;
+  section?: string;
   selected: boolean;
 }
 
@@ -60,7 +61,7 @@ export const BulkJobUploadDialog = ({ open, onOpenChange, projectId, onJobsCreat
       if (error) throw error;
 
       if (data.jobs && data.jobs.length > 0) {
-        setExtractedJobs(data.jobs.map((job: { title: string; description?: string }) => ({
+        setExtractedJobs(data.jobs.map((job: { title: string; description?: string; section?: string }) => ({
           ...job,
           selected: true
         })));
@@ -100,7 +101,7 @@ export const BulkJobUploadDialog = ({ open, onOpenChange, projectId, onJobsCreat
     setExtractedJobs(prev => prev.map(job => ({ ...job, selected: !allSelected })));
   };
 
-  const updateJob = (index: number, field: "title" | "description", value: string) => {
+  const updateJob = (index: number, field: "title" | "description" | "section", value: string) => {
     setExtractedJobs(prev => prev.map((job, i) => 
       i === index ? { ...job, [field]: value } : job
     ));
@@ -131,6 +132,7 @@ export const BulkJobUploadDialog = ({ open, onOpenChange, projectId, onJobsCreat
       const jobsToInsert = selectedJobs.map(job => ({
         title: job.title.trim(),
         description: job.description?.trim() || null,
+        section: job.section?.trim() || null,
         project_id: projectId,
         created_by: userData.user.id,
         status: "approved",
@@ -253,10 +255,23 @@ export const BulkJobUploadDialog = ({ open, onOpenChange, projectId, onJobsCreat
                                 placeholder="Description (optional)"
                                 className="h-8"
                               />
+                              <Input
+                                value={job.section || ""}
+                                onChange={(e) => updateJob(index, "section", e.target.value)}
+                                placeholder="Section (e.g., Bathroom, Kitchen)"
+                                className="h-8"
+                              />
                             </>
                           ) : (
                             <>
-                              <p className="font-medium">{job.title}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{job.title}</p>
+                                {job.section && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                    {job.section}
+                                  </span>
+                                )}
+                              </div>
                               {job.description && (
                                 <p className="text-sm text-muted-foreground">{job.description}</p>
                               )}

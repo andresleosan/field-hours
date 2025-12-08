@@ -26,7 +26,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    console.log("Processing Excel content for job extraction...");
+    console.log("Processing Excel content for job extraction with sections...");
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -39,20 +39,34 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a helpful assistant that extracts job information from Excel data. 
-Extract all jobs from the provided content and return them as a JSON array.
+            content: `You are a helpful assistant that extracts job information from Excel data for construction projects.
+
+IMPORTANT: The Excel data is organized by SECTIONS (like "Bathroom", "Kitchen", "Living Room", "Bedroom", "Exterior", etc.). 
+- Section headers are usually standalone cells or rows that indicate an area/room of the house
+- Jobs listed after a section header belong to that section
+- Look for patterns like: a cell with just "Bathroom" followed by cells with actual job tasks
+
+Extract all jobs and assign each job to its corresponding section based on the document structure.
+
 Each job should have:
-- title: string (required) - the job title/name
-- description: string (optional) - any additional details or description
+- title: string (required) - the job title/name/task
+- description: string (optional) - any additional details
+- section: string (optional) - the section/area this job belongs to (e.g., "Bathroom", "Kitchen", "Master Bedroom")
 
-Return ONLY a valid JSON array, no other text. Example:
-[{"title": "Install kitchen cabinets", "description": "Oak cabinets in main kitchen area"}, {"title": "Paint living room", "description": "Two coats of white paint"}]
+Return ONLY a valid JSON array. Example:
+[
+  {"title": "Install vanity", "description": "Double sink vanity", "section": "Bathroom"},
+  {"title": "Tile shower", "description": "Subway tiles", "section": "Bathroom"},
+  {"title": "Install cabinets", "description": "Oak upper and lower", "section": "Kitchen"},
+  {"title": "Paint walls", "section": "Living Room"}
+]
 
+If a job doesn't clearly belong to a section, leave the section field empty or omit it.
 If you cannot extract any jobs, return an empty array: []`
           },
           {
             role: "user",
-            content: `Extract all jobs from this Excel content:\n\n${excelContent}`
+            content: `Extract all jobs with their sections from this Excel content:\n\n${excelContent}`
           }
         ],
         tools: [
@@ -60,7 +74,7 @@ If you cannot extract any jobs, return an empty array: []`
             type: "function",
             function: {
               name: "extract_jobs",
-              description: "Extract jobs from Excel content",
+              description: "Extract jobs with sections from Excel content",
               parameters: {
                 type: "object",
                 properties: {
@@ -69,8 +83,9 @@ If you cannot extract any jobs, return an empty array: []`
                     items: {
                       type: "object",
                       properties: {
-                        title: { type: "string", description: "Job title or name" },
-                        description: { type: "string", description: "Job description or details" }
+                        title: { type: "string", description: "Job title or task name" },
+                        description: { type: "string", description: "Job description or details" },
+                        section: { type: "string", description: "Section/area of the house this job belongs to (e.g., Bathroom, Kitchen)" }
                       },
                       required: ["title"]
                     }
@@ -108,7 +123,7 @@ If you cannot extract any jobs, return an empty array: []`
     const data = await response.json();
     console.log("AI response received:", JSON.stringify(data));
 
-    let jobs: { title: string; description?: string }[] = [];
+    let jobs: { title: string; description?: string; section?: string }[] = [];
 
     // Handle tool call response
     if (data.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments) {
@@ -125,7 +140,7 @@ If you cannot extract any jobs, return an empty array: []`
       }
     }
 
-    console.log(`Extracted ${jobs.length} jobs from Excel`);
+    console.log(`Extracted ${jobs.length} jobs from Excel with sections`);
 
     return new Response(
       JSON.stringify({ jobs }),
