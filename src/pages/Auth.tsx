@@ -27,7 +27,14 @@ const signUpSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number"),
   fullName: z.string().trim().min(1, "Full name is required").max(100, "Name is too long"),
   phone: z.string().trim().regex(/^(\+?[0-9\s\-()]+)?$/, "Please enter a valid phone number").max(20, "Phone number is too long").optional().or(z.literal("")),
+  invitationCode: z.string().trim().min(1, "Invitation code is required"),
 });
+
+// Invitation codes (validated on client for simplicity - consider edge function for production)
+const INVITATION_CODES = {
+  builder: "I will be responsible using the app",
+  manager: "dublin getto all the way up",
+};
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +43,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<"manager" | "builder">("builder");
+  const [invitationCode, setInvitationCode] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -53,7 +61,7 @@ const Auth = () => {
     e.preventDefault();
     
     // Validate input with Zod
-    const validationResult = signUpSchema.safeParse({ email, password, fullName, phone });
+    const validationResult = signUpSchema.safeParse({ email, password, fullName, phone, invitationCode });
     if (!validationResult.success) {
       const firstError = validationResult.error.errors[0];
       toast({
@@ -66,7 +74,18 @@ const Auth = () => {
 
     const validatedData = validationResult.data;
 
-    // Validate invitation for manager role
+    // Validate invitation code based on role
+    const expectedCode = INVITATION_CODES[role];
+    if (validatedData.invitationCode !== expectedCode) {
+      toast({
+        title: "Invalid Invitation Code",
+        description: "The invitation code you entered is incorrect. Please contact your administrator for the correct code.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Additional validation for manager role (email-based invitation)
     if (role === "manager") {
       const { data: isValid, error: validationError } = await supabase.rpc(
         "validate_invitation",
@@ -76,10 +95,9 @@ const Auth = () => {
       if (validationError || !isValid) {
         toast({
           title: "Invalid or Expired Invitation",
-          description: "Manager signup requires a valid invitation. Please contact an existing manager to receive one.",
+          description: "Manager signup requires a valid email invitation. Please contact an existing manager to receive one.",
           variant: "destructive",
         });
-        setIsLoading(false);
         return;
       }
     }
@@ -285,15 +303,30 @@ const Auth = () => {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="builder">Builder</SelectItem>
-                      <SelectItem value="manager">Manager (Requires Invitation)</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-invitation-code">Invitation Code *</Label>
+                  <Input
+                    id="signup-invitation-code"
+                    type="password"
+                    placeholder="Enter your invitation code"
+                    value={invitationCode}
+                    onChange={(e) => setInvitationCode(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    maxLength={100}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Contact your administrator to receive an invitation code
+                  </p>
                 </div>
                 {role === "manager" && (
                   <div className="rounded-md border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3">
                     <p className="text-sm text-amber-900 dark:text-amber-100">
-                      <strong>Note:</strong> Manager signup requires a valid invitation from an existing manager. 
-                      If you don't have an invitation, please sign up as a Builder or contact your administrator.
+                      <strong>Note:</strong> Manager signup also requires a valid email invitation from an existing manager.
                     </p>
                   </div>
                 )}
