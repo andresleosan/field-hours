@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight, Trash2, CheckSquare, Square } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { EditJobDialog } from "@/components/jobs/EditJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
@@ -34,6 +35,12 @@ export default function ProjectDetails() {
   const [photoUrls, setPhotoUrls] = useState<{ [key: string]: string[] }>({});
   const [managerFeedbackPhotoUrls, setManagerFeedbackPhotoUrls] = useState<{ [key: string]: string[] }>({});
   const [openSections, setOpenSections] = useState<Set<string>>(new Set());
+  
+  // Selection mode state for bulk delete
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Group jobs by section
   const groupedJobs = useMemo(() => {
@@ -79,6 +86,88 @@ export default function ProjectDetails() {
       }
       return newSet;
     });
+  };
+
+  // Selection mode functions
+  const toggleJobSelection = (jobId: string) => {
+    setSelectedJobs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllJobs = () => {
+    const allJobIds = jobs.map(j => j.id);
+    setSelectedJobs(new Set(allJobIds));
+  };
+
+  const deselectAllJobs = () => {
+    setSelectedJobs(new Set());
+  };
+
+  const toggleSelectionMode = () => {
+    if (selectionMode) {
+      setSelectionMode(false);
+      setSelectedJobs(new Set());
+    } else {
+      setSelectionMode(true);
+    }
+  };
+
+  const handleDeleteSelectedJobs = async () => {
+    if (selectedJobs.size === 0) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete jobs one by one (Supabase doesn't have bulk delete with .in() for managers)
+      for (const jobId of selectedJobs) {
+        // First delete related records
+        await supabase.from("job_photos").delete().eq("job_id", jobId);
+        await supabase.from("job_time_tracking").delete().eq("job_id", jobId);
+        await supabase.from("job_materials").delete().eq("job_id", jobId);
+        
+        // Delete job completions and their photos
+        const { data: completions } = await supabase
+          .from("job_completions")
+          .select("id")
+          .eq("job_id", jobId);
+        
+        if (completions) {
+          for (const completion of completions) {
+            await supabase.from("job_completion_photos").delete().eq("completion_id", completion.id);
+            await supabase.from("job_collaborators").delete().eq("job_completion_id", completion.id);
+          }
+        }
+        await supabase.from("job_completions").delete().eq("job_id", jobId);
+        
+        // Finally delete the job
+        const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Success",
+        description: `${selectedJobs.size} job(s) deleted successfully`,
+      });
+
+      setSelectedJobs(new Set());
+      setSelectionMode(false);
+      setShowDeleteConfirm(false);
+      fetchJobs();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete jobs",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   useEffect(() => {
@@ -529,17 +618,71 @@ export default function ProjectDetails() {
         </div>
         {userRole === "manager" && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Import from Excel
+            <Button 
+              variant={selectionMode ? "default" : "outline"} 
+              onClick={toggleSelectionMode}
+            >
+              {selectionMode ? (
+                <>
+                  <XCircle className="h-4 w-4 mr-2" />
+                  Cancel Selection
+                </>
+              ) : (
+                <>
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  Select Jobs
+                </>
+              )}
             </Button>
-            <Button onClick={() => setShowCreateJob(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Job
-            </Button>
+            {!selectionMode && (
+              <>
+                <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import from Excel
+                </Button>
+                <Button onClick={() => setShowCreateJob(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Job
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>
+
+      {/* Selection toolbar */}
+      {selectionMode && userRole === "manager" && jobs.length > 0 && (
+        <Card className="bg-primary/5 border-primary/20">
+          <CardContent className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium">
+                  {selectedJobs.size} of {jobs.length} job(s) selected
+                </span>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAllJobs}>
+                    <CheckSquare className="h-4 w-4 mr-1" />
+                    Select All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={deselectAllJobs}>
+                    <Square className="h-4 w-4 mr-1" />
+                    Deselect All
+                  </Button>
+                </div>
+              </div>
+              <Button 
+                variant="destructive" 
+                size="sm"
+                disabled={selectedJobs.size === 0}
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete Selected ({selectedJobs.size})
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="space-y-4">
         {jobs.length === 0 ? (
@@ -617,6 +760,9 @@ export default function ProjectDetails() {
                         onDownloadPhoto={downloadPhoto}
                         calculateTotalTime={calculateTotalTime}
                         formatTime={formatTime}
+                        selectionMode={selectionMode}
+                        isSelected={selectedJobs.has(job.id)}
+                        onToggleSelect={toggleJobSelection}
                       />
                     ))}
                   </CollapsibleContent>
@@ -681,6 +827,9 @@ export default function ProjectDetails() {
                       onDownloadPhoto={downloadPhoto}
                       calculateTotalTime={calculateTotalTime}
                       formatTime={formatTime}
+                      selectionMode={selectionMode}
+                      isSelected={selectedJobs.has(job.id)}
+                      onToggleSelect={toggleJobSelection}
                     />
                   ))}
                 </CollapsibleContent>
@@ -742,6 +891,39 @@ export default function ProjectDetails() {
           onJobUpdated={fetchJobs}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedJobs.size} Job(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected jobs 
+              and all associated data including time tracking, materials, photos, and submissions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteSelectedJobs}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Jobs
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
