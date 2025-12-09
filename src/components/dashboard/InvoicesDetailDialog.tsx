@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink, Download, FileText, User, Calendar, Building2, ChevronUp, ChevronDown } from "lucide-react";
+import { Loader2, ExternalLink, Download, FileText, User, Calendar, Building2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,16 +38,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
   const [projectsData, setProjectsData] = useState<ProjectInvoiceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  const scrollUp = () => {
-    scrollRef.current?.scrollBy({ top: -200, behavior: 'smooth' });
-  };
-
-  const scrollDown = () => {
-    scrollRef.current?.scrollBy({ top: 200, behavior: 'smooth' });
-  };
 
   useEffect(() => {
     if (open) {
@@ -264,7 +255,7 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                   </TabsList>
                 </ScrollArea>
 
-                <div className="flex-1 overflow-hidden relative">
+                <div className="flex-1 overflow-hidden">
                   {projectsData.map((project) => (
                     <TabsContent 
                       key={project.projectName} 
@@ -279,33 +270,15 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                           Total: £{project.totalAmount.toFixed(2)}
                         </Badge>
                       </div>
-                      <div className="flex-1 h-[calc(85vh-200px)] overflow-y-auto pr-2" ref={scrollRef}>
-                        {project.invoices.map((invoice) => (
-                          <InvoiceCard key={invoice.id} invoice={invoice} />
-                        ))}
-                      </div>
+                      <ScrollArea className="flex-1 h-[calc(85vh-200px)]">
+                        <div className="pr-2">
+                          {project.invoices.map((invoice) => (
+                            <InvoiceCard key={invoice.id} invoice={invoice} />
+                          ))}
+                        </div>
+                      </ScrollArea>
                     </TabsContent>
                   ))}
-                  
-                  {/* Scroll navigation buttons */}
-                  <div className="absolute right-1 bottom-2 flex flex-col gap-1">
-                    <Button 
-                      size="icon" 
-                      variant="secondary" 
-                      className="h-8 w-8 rounded-full shadow-md opacity-80 hover:opacity-100"
-                      onClick={scrollUp}
-                    >
-                      <ChevronUp className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      size="icon" 
-                      variant="secondary" 
-                      className="h-8 w-8 rounded-full shadow-md opacity-80 hover:opacity-100"
-                      onClick={scrollDown}
-                    >
-                      <ChevronDown className="h-4 w-4" />
-                    </Button>
-                  </div>
                 </div>
               </Tabs>
             )}
