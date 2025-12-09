@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ExternalLink, Download } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Loader2, ExternalLink, Download, FileText, User, Calendar, Building2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface Invoice {
   id: string;
@@ -150,98 +151,149 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
     }
   };
 
+  const InvoiceCard = ({ invoice }: { invoice: Invoice }) => (
+    <Card className="mb-3">
+      <CardContent className="p-4">
+        <div className="flex justify-between items-start mb-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            <span className="font-semibold text-sm">#{invoice.invoice_number}</span>
+          </div>
+          <Badge variant="secondary" className="text-sm font-bold">
+            £{Number(invoice.total_amount).toFixed(2)}
+          </Badge>
+        </div>
+
+        <div className="space-y-2 text-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{invoice.suppliers?.name || "No supplier"}</span>
+          </div>
+          
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>{new Date(invoice.date).toLocaleDateString()}</span>
+          </div>
+          
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <User className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{invoice.profiles.full_name}</span>
+          </div>
+
+          {invoice.notes && (
+            <div className="pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground italic line-clamp-2">
+                {invoice.notes}
+              </p>
+            </div>
+          )}
+        </div>
+
+        {invoice.image_url && (
+          <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleViewImage(invoice.image_url!)}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={() => handleDownloadImage(invoice.image_url!, invoice.invoice_number)}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-7xl max-h-[90vh] w-[95vw]">
-          <DialogHeader>
-            <DialogTitle>Invoices Details</DialogTitle>
+        <DialogContent className="max-w-lg w-[95vw] max-h-[85vh] p-0 flex flex-col">
+          <DialogHeader className="p-4 pb-2 flex-shrink-0">
+            <DialogTitle className="text-lg">Invoices Details</DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="h-[600px]">
+          <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin" />
               </div>
+            ) : projectsData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mb-2" />
+                <p>No invoices found</p>
+              </div>
             ) : (
-              <Tabs defaultValue={projectsData[0]?.projectName || "all"}>
-                <ScrollArea className="w-full whitespace-nowrap">
-                  <TabsList className="inline-flex mb-4">
+              <Tabs defaultValue={projectsData[0]?.projectName || "all"} className="flex flex-col flex-1 overflow-hidden">
+                <ScrollArea className="w-full flex-shrink-0">
+                  <TabsList className="inline-flex w-full justify-start mb-3 h-auto p-1 flex-wrap gap-1">
                     {projectsData.map((project) => (
-                      <TabsTrigger key={project.projectName} value={project.projectName} className="text-xs sm:text-sm">
-                        {project.projectName} (£{project.totalAmount.toFixed(2)})
+                      <TabsTrigger 
+                        key={project.projectName} 
+                        value={project.projectName} 
+                        className="text-xs px-2 py-1.5 whitespace-nowrap"
+                      >
+                        {project.projectName.length > 12 
+                          ? `${project.projectName.substring(0, 12)}...` 
+                          : project.projectName
+                        }
+                        <span className="ml-1 text-[10px] opacity-75">
+                          (£{project.totalAmount.toFixed(0)})
+                        </span>
                       </TabsTrigger>
                     ))}
                   </TabsList>
                 </ScrollArea>
 
-                {projectsData.map((project) => (
-                  <TabsContent key={project.projectName} value={project.projectName}>
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="min-w-[100px]">Invoice #</TableHead>
-                            <TableHead className="min-w-[100px]">Supplier</TableHead>
-                            <TableHead className="min-w-[100px]">Date</TableHead>
-                            <TableHead className="min-w-[80px]">Amount</TableHead>
-                            <TableHead className="min-w-[100px]">Uploaded By</TableHead>
-                            <TableHead className="min-w-[120px]">Notes</TableHead>
-                            <TableHead className="min-w-[100px]">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
+                <div className="flex-1 overflow-hidden">
+                  {projectsData.map((project) => (
+                    <TabsContent 
+                      key={project.projectName} 
+                      value={project.projectName}
+                      className="h-full mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+                    >
+                      <div className="flex items-center justify-between mb-3 px-1">
+                        <span className="text-xs text-muted-foreground">
+                          {project.invoices.length} invoice{project.invoices.length !== 1 ? 's' : ''}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          Total: £{project.totalAmount.toFixed(2)}
+                        </Badge>
+                      </div>
+                      <ScrollArea className="flex-1 h-[calc(85vh-200px)]">
+                        <div className="pr-2">
                           {project.invoices.map((invoice) => (
-                            <TableRow key={invoice.id}>
-                              <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                              <TableCell>{invoice.suppliers?.name || "—"}</TableCell>
-                              <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
-                              <TableCell className="font-semibold">
-                                £{Number(invoice.total_amount).toFixed(2)}
-                              </TableCell>
-                              <TableCell>{invoice.profiles.full_name}</TableCell>
-                              <TableCell>{invoice.notes || "—"}</TableCell>
-                              <TableCell>
-                                {invoice.image_url && (
-                                  <div className="flex gap-1">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleViewImage(invoice.image_url!)}
-                                    >
-                                      <ExternalLink className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleDownloadImage(invoice.image_url!, invoice.invoice_number)}
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )}
-                              </TableCell>
-                            </TableRow>
+                            <InvoiceCard key={invoice.id} invoice={invoice} />
                           ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </TabsContent>
-                ))}
+                        </div>
+                      </ScrollArea>
+                    </TabsContent>
+                  ))}
+                </div>
               </Tabs>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
       {selectedImage && (
         <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
-          <DialogContent className="max-w-4xl w-[95vw]">
-            <DialogHeader>
-              <DialogTitle>Invoice Image</DialogTitle>
+          <DialogContent className="max-w-[95vw] w-auto p-2">
+            <DialogHeader className="p-2">
+              <DialogTitle className="text-base">Invoice Image</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="max-h-[70vh]">
-              <img src={selectedImage} alt="Invoice" className="w-full h-auto" />
+            <ScrollArea className="max-h-[75vh]">
+              <img src={selectedImage} alt="Invoice" className="w-full h-auto rounded" />
             </ScrollArea>
           </DialogContent>
         </Dialog>
