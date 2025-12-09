@@ -4,13 +4,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat } from "lucide-react";
+import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat, ShieldCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TimeTrackingCard from "@/components/dashboard/TimeTrackingCard";
 import EnhancedMaterialDialog from "@/components/dashboard/EnhancedMaterialDialog";
 import EnhancedInvoiceDialog from "@/components/dashboard/EnhancedInvoiceDialog";
 import DailyReportDialog from "@/components/dashboard/DailyReportDialog";
 import ChangeProjectDialog from "@/components/dashboard/ChangeProjectDialog";
+import RiskAssessmentDialog from "@/components/dashboard/RiskAssessmentDialog";
 import JobsToDoList from "@/components/jobs/JobsToDoList";
 import SelectJobDialog from "@/components/jobs/SelectJobDialog";
 interface Project {
@@ -32,6 +33,7 @@ const Builders = () => {
   const [isDailyReportDialogOpen, setIsDailyReportDialogOpen] = useState(false);
   const [isChangeProjectDialogOpen, setIsChangeProjectDialogOpen] = useState(false);
   const [isSelectJobOpen, setIsSelectJobOpen] = useState(false);
+  const [isRiskAssessmentDialogOpen, setIsRiskAssessmentDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -431,6 +433,16 @@ const Builders = () => {
               </CardDescription>
             </CardHeader>
           </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsRiskAssessmentDialogOpen(true)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-orange-500" />
+                Risk Assessment
+              </CardTitle>
+              <CardDescription>View and sign safety documents</CardDescription>
+            </CardHeader>
+          </Card>
         </div>
       </main>
 
@@ -466,6 +478,13 @@ const Builders = () => {
             userId={userId}
             currentTimeEntry={currentTimeEntry}
             onProjectChanged={handleProjectChanged}
+          />
+
+          <RiskAssessmentDialog
+            open={isRiskAssessmentDialogOpen}
+            onOpenChange={setIsRiskAssessmentDialogOpen}
+            projectId={selectedProjectId}
+            userId={userId}
           />
         </>
       )}
