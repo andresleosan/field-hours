@@ -218,12 +218,12 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg w-[95vw] max-h-[85vh] p-0 flex flex-col">
-          <DialogHeader className="p-4 pb-2 flex-shrink-0">
+        <DialogContent className="max-w-lg w-[95vw] h-[85vh] max-h-[85vh] p-0 flex flex-col overflow-hidden">
+          <DialogHeader className="p-4 pb-2 flex-shrink-0 border-b border-border">
             <DialogTitle className="text-lg">Invoices Details</DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1 overflow-hidden flex flex-col px-4 pb-4">
+          <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 overflow-hidden">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -234,9 +234,9 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                 <p>No invoices found</p>
               </div>
             ) : (
-              <Tabs defaultValue={projectsData[0]?.projectName || "all"} className="flex flex-col flex-1 overflow-hidden">
-                <ScrollArea className="w-full flex-shrink-0">
-                  <TabsList className="inline-flex w-full justify-start mb-3 h-auto p-1 flex-wrap gap-1">
+              <Tabs defaultValue={projectsData[0]?.projectName || "all"} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+                <div className="flex-shrink-0 overflow-x-auto py-2">
+                  <TabsList className="inline-flex w-full justify-start h-auto p-1 flex-wrap gap-1">
                     {projectsData.map((project) => (
                       <TabsTrigger 
                         key={project.projectName} 
@@ -253,16 +253,16 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                       </TabsTrigger>
                     ))}
                   </TabsList>
-                </ScrollArea>
+                </div>
 
-                <div className="flex-1 overflow-hidden">
+                <div className="flex-1 min-h-0 overflow-hidden">
                   {projectsData.map((project) => (
                     <TabsContent 
                       key={project.projectName} 
                       value={project.projectName}
-                      className="h-full mt-0 data-[state=active]:flex data-[state=active]:flex-col"
+                      className="h-full mt-0 data-[state=active]:flex data-[state=active]:flex-col overflow-hidden"
                     >
-                      <div className="flex items-center justify-between mb-3 px-1">
+                      <div className="flex items-center justify-between mb-3 px-1 flex-shrink-0">
                         <span className="text-xs text-muted-foreground">
                           {project.invoices.length} invoice{project.invoices.length !== 1 ? 's' : ''}
                         </span>
@@ -270,8 +270,8 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                           Total: £{project.totalAmount.toFixed(2)}
                         </Badge>
                       </div>
-                      <ScrollArea className="flex-1 h-[50vh] min-h-[300px]">
-                        <div className="pr-3 pb-4">
+                      <ScrollArea className="flex-1 min-h-0">
+                        <div className="pr-3 pb-6 space-y-3">
                           {project.invoices.map((invoice) => (
                             <InvoiceCard key={invoice.id} invoice={invoice} />
                           ))}
