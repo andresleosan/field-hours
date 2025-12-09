@@ -706,6 +706,70 @@ export type Database = {
         }
         Relationships: []
       }
+      risk_assessment_signatures: {
+        Row: {
+          id: string
+          risk_assessment_id: string
+          signed_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          risk_assessment_id: string
+          signed_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          risk_assessment_id?: string
+          signed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessment_signatures_risk_assessment_id_fkey"
+            columns: ["risk_assessment_id"]
+            isOneToOne: false
+            referencedRelation: "risk_assessments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      risk_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          pdf_url: string
+          project_id: string
+          title: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pdf_url: string
+          project_id: string
+          title: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pdf_url?: string
+          project_id?: string
+          title?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "risk_assessments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           created_at: string
