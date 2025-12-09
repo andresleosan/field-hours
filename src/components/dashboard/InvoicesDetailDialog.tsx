@@ -270,8 +270,8 @@ const InvoicesDetailDialog = ({ open, onOpenChange }: InvoicesDetailDialogProps)
                           Total: £{project.totalAmount.toFixed(2)}
                         </Badge>
                       </div>
-                      <ScrollArea className="flex-1 h-[calc(85vh-200px)]">
-                        <div className="pr-2">
+                      <ScrollArea className="flex-1 h-[50vh] min-h-[300px]">
+                        <div className="pr-3 pb-4">
                           {project.invoices.map((invoice) => (
                             <InvoiceCard key={invoice.id} invoice={invoice} />
                           ))}
