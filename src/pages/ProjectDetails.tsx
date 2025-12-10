@@ -232,211 +232,181 @@ export default function ProjectDetails() {
 
   const fetchJobs = async () => {
     try {
-      // Fetch base jobs for this project
+      // OPTIMIZED: Single query with joins to fetch all job data at once
       const { data: jobsData, error: jobsError } = await supabase
         .from("jobs")
-        .select("*")
+        .select(`
+          *,
+          profiles:created_by(id, full_name),
+          job_time_tracking(*),
+          job_materials(id, material_usage_id, material_usage:material_usage_id(*, materials:material_id(*))),
+          job_completions(*, job_completion_photos(*), job_collaborators(*)),
+          job_photos(*)
+        `)
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
 
       if (jobsError) throw jobsError;
 
-      const enrichedJobs: any[] = [];
-      const workersMap: { [key: string]: any[] } = {};
-      const urlsMap: { [key: string]: string[] } = {};
-
+      // Collect all user IDs we need profiles for (active workers, completion submitters, collaborators)
+      const allUserIds = new Set<string>();
+      const activeTrackingByJob: { [key: string]: any[] } = {};
+      
       for (const job of jobsData || []) {
-        const jobCopy: any = { ...job };
-
-        // Creator profile
-        const { data: creator } = await supabase
-          .from("profiles")
-          .select("id, full_name")
-          .eq("id", job.created_by)
-          .maybeSingle();
-        jobCopy.profiles = creator ? { full_name: creator.full_name } : null;
-
-        // Time tracking entries
-        const { data: tt } = await supabase
-          .from("job_time_tracking")
-          .select("*")
-          .eq("job_id", job.id);
-        jobCopy.job_time_tracking = tt || [];
-
-        // Active workers (ended_at IS NULL) + names
-        const { data: activeTracking } = await supabase
-          .from("job_time_tracking")
-          .select("id, user_id")
-          .eq("job_id", job.id)
-          .is("ended_at", null);
-        if (activeTracking && activeTracking.length > 0) {
-          const userIds = activeTracking.map((t: any) => t.user_id);
-          const { data: profs } = await supabase
-            .from("profiles")
-            .select("id, full_name")
-            .in("id", userIds);
-          const merged = (activeTracking || []).map((t: any) => ({
-            ...t,
-            profiles: profs?.find((p: any) => p.id === t.user_id),
-          }));
-          workersMap[job.id] = merged;
-        }
-
-        // Materials used on this job
-        const { data: jm } = await supabase
-          .from("job_materials")
-          .select("id, material_usage_id")
-          .eq("job_id", job.id);
-        const jmDetailed: any[] = [];
-        for (const link of jm || []) {
-          const { data: mu } = await supabase
-            .from("material_usage")
-            .select("*")
-            .eq("id", link.material_usage_id)
-            .maybeSingle();
-          let material: any = null;
-          if (mu?.material_id) {
-            const { data: mat } = await supabase
-              .from("materials")
-              .select("*")
-              .eq("id", mu.material_id)
-              .maybeSingle();
-            material = mat || null;
-          }
-          jmDetailed.push({ id: link.id, material_usage: { ...mu, materials: material } });
-        }
-        jobCopy.job_materials = jmDetailed;
-
-        // Job completions (most recent first) with photos and collaborators
-        const { data: completions } = await supabase
-          .from("job_completions")
-          .select("*")
-          .eq("job_id", job.id)
-          .order("completed_at", { ascending: false });
-        const compsDetailed: any[] = [];
-        for (const comp of completions || []) {
-          const { data: photos } = await supabase
-            .from("job_completion_photos")
-            .select("*")
-            .eq("completion_id", comp.id);
-
-          const { data: collabs } = await supabase
-            .from("job_collaborators")
-            .select("*")
-            .eq("job_completion_id", comp.id);
-
-          const { data: submitter } = await supabase
-            .from("profiles")
-            .select("id, full_name")
-            .eq("id", comp.completed_by)
-            .maybeSingle();
-
-          let collabWithProfiles: any[] = [];
-          if (collabs && collabs.length > 0) {
-            const collabIds = collabs.map((c: any) => c.user_id);
-            const { data: collabProfs } = await supabase
-              .from("profiles")
-              .select("id, full_name")
-              .in("id", collabIds);
-            collabWithProfiles = (collabs || []).map((c: any) => ({
-              ...c,
-              profiles: collabProfs?.find((p: any) => p.id === c.user_id),
-            }));
-          }
-
-          const compDetail = {
-            ...comp,
-            job_completion_photos: photos || [],
-            job_collaborators: collabWithProfiles,
-            profiles: submitter ? { full_name: submitter.full_name } : null,
-          };
-          compsDetailed.push(compDetail);
-
-          // Prepare signed URLs for thumbnails (faster loading)
-          if (!urlsMap[job.id] && (photos?.length || 0) > 0) {
-            const urls: string[] = [];
-            for (const photo of photos || []) {
-              // Try to get thumbnail first, fall back to original
-              const thumbPath = getThumbnailPath(photo.photo_url);
-              let { data: signedData } = await supabase
-                .storage
-                .from("job-completion-photos")
-                .createSignedUrl(thumbPath, 3600);
-              
-              // If thumbnail doesn't exist, use original
-              if (!signedData?.signedUrl) {
-                const originalResult = await supabase
-                  .storage
-                  .from("job-completion-photos")
-                  .createSignedUrl(photo.photo_url, 3600);
-                signedData = originalResult.data;
-              }
-              
-              if (signedData?.signedUrl) urls.push(signedData.signedUrl);
-            }
-            if (urls.length > 0) urlsMap[job.id] = urls;
-          }
-        }
-        jobCopy.job_completions = compsDetailed;
-
-        // Fetch manager feedback photos from job_photos table
-        const { data: managerPhotos } = await supabase
-          .from("job_photos")
-          .select("*")
-          .eq("job_id", job.id);
-        
-        if (managerPhotos && managerPhotos.length > 0) {
-          jobCopy.job_photos = managerPhotos;
-        } else {
-          jobCopy.job_photos = [];
+        // Collect active workers (ended_at IS NULL)
+        const activeTracking = (job.job_time_tracking || []).filter((t: any) => !t.ended_at);
+        if (activeTracking.length > 0) {
+          activeTrackingByJob[job.id] = activeTracking;
+          activeTracking.forEach((t: any) => allUserIds.add(t.user_id));
         }
         
-        // Generate signed URLs for manager feedback photos (use thumbnails)
-        const managerPhotoUrls: { [key: string]: string[] } = {};
-        if (managerPhotos && managerPhotos.length > 0) {
-          const urls: string[] = [];
-          for (const photo of managerPhotos) {
-            // Extract just the path if it's a full URL
-            let photoPath = photo.photo_url;
-            if (photoPath.includes('/storage/v1/object/')) {
-              const parts = photoPath.split('/job-photos/');
-              if (parts[1]) {
-                photoPath = decodeURIComponent(parts[1]);
-              }
-            }
-            
-            // Try thumbnail first
-            const thumbPath = getThumbnailPath(photoPath);
-            let { data: signedData } = await supabase
-              .storage
-              .from("job-photos")
-              .createSignedUrl(thumbPath, 3600);
-            
-            // Fall back to original if thumbnail doesn't exist
-            if (!signedData?.signedUrl) {
-              const originalResult = await supabase
-                .storage
-                .from("job-photos")
-                .createSignedUrl(photoPath, 3600);
-              signedData = originalResult.data;
-            }
-            
-            if (signedData?.signedUrl) {
-              urls.push(signedData.signedUrl);
-            }
+        // Collect completion submitters and collaborators
+        for (const comp of job.job_completions || []) {
+          allUserIds.add(comp.completed_by);
+          for (const collab of comp.job_collaborators || []) {
+            allUserIds.add(collab.user_id);
           }
-          if (urls.length > 0) managerPhotoUrls[job.id] = urls;
         }
-        
-        // Store manager feedback photo URLs
-        setManagerFeedbackPhotoUrls(prev => ({ ...prev, ...managerPhotoUrls }));
-
-        enrichedJobs.push(jobCopy);
       }
 
+      // OPTIMIZED: Single query for all profiles
+      let profilesMap: { [key: string]: any } = {};
+      if (allUserIds.size > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", Array.from(allUserIds));
+        
+        if (profiles) {
+          profilesMap = profiles.reduce((acc: any, p: any) => {
+            acc[p.id] = p;
+            return acc;
+          }, {});
+        }
+      }
+
+      // Build active workers map with profiles
+      const workersMap: { [key: string]: any[] } = {};
+      for (const [jobId, tracking] of Object.entries(activeTrackingByJob)) {
+        workersMap[jobId] = (tracking as any[]).map((t: any) => ({
+          ...t,
+          profiles: profilesMap[t.user_id] || null,
+        }));
+      }
+
+      // Enrich jobs with profiles data
+      const enrichedJobs = (jobsData || []).map((job: any) => {
+        // Add profiles to completions and collaborators
+        const enrichedCompletions = (job.job_completions || [])
+          .sort((a: any, b: any) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime())
+          .map((comp: any) => ({
+            ...comp,
+            profiles: profilesMap[comp.completed_by] ? { full_name: profilesMap[comp.completed_by].full_name } : null,
+            job_collaborators: (comp.job_collaborators || []).map((c: any) => ({
+              ...c,
+              profiles: profilesMap[c.user_id] || null,
+            })),
+          }));
+
+        return {
+          ...job,
+          job_completions: enrichedCompletions,
+          job_materials: (job.job_materials || []).map((jm: any) => ({
+            id: jm.id,
+            material_usage: jm.material_usage ? {
+              ...jm.material_usage,
+              materials: jm.material_usage.materials || null,
+            } : null,
+          })),
+          job_photos: job.job_photos || [],
+        };
+      });
+
+      // OPTIMIZED: Collect all photos that need signed URLs
+      const completionPhotosToSign: { jobId: string; photoUrl: string }[] = [];
+      const managerPhotosToSign: { jobId: string; photoUrl: string }[] = [];
+
+      for (const job of enrichedJobs) {
+        // Collect completion photos (only from first completion with photos for preview)
+        const completionWithPhotos = job.job_completions?.find((c: any) => c.job_completion_photos?.length > 0);
+        if (completionWithPhotos) {
+          for (const photo of completionWithPhotos.job_completion_photos || []) {
+            completionPhotosToSign.push({ jobId: job.id, photoUrl: photo.photo_url });
+          }
+        }
+
+        // Collect manager feedback photos
+        for (const photo of job.job_photos || []) {
+          managerPhotosToSign.push({ jobId: job.id, photoUrl: photo.photo_url });
+        }
+      }
+
+      // OPTIMIZED: Generate all signed URLs in parallel
+      const urlsMap: { [key: string]: string[] } = {};
+      const managerUrlsMap: { [key: string]: string[] } = {};
+
+      // Helper function to get signed URL with thumbnail fallback
+      const getSignedUrl = async (photoUrl: string, bucket: string): Promise<string | null> => {
+        let cleanPath = photoUrl;
+        if (photoUrl.includes('/storage/v1/object/')) {
+          const parts = photoUrl.split(`/${bucket}/`);
+          if (parts[1]) {
+            cleanPath = decodeURIComponent(parts[1]);
+          }
+        }
+
+        const thumbPath = getThumbnailPath(cleanPath);
+        let { data: signedData } = await supabase.storage
+          .from(bucket)
+          .createSignedUrl(thumbPath, 3600);
+
+        if (!signedData?.signedUrl) {
+          const originalResult = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(cleanPath, 3600);
+          signedData = originalResult.data;
+        }
+
+        return signedData?.signedUrl || null;
+      };
+
+      // Generate completion photo URLs in parallel
+      if (completionPhotosToSign.length > 0) {
+        const completionUrlPromises = completionPhotosToSign.map(async ({ jobId, photoUrl }) => {
+          const url = await getSignedUrl(photoUrl, "job-completion-photos");
+          return { jobId, url };
+        });
+
+        const completionResults = await Promise.all(completionUrlPromises);
+        for (const { jobId, url } of completionResults) {
+          if (url) {
+            if (!urlsMap[jobId]) urlsMap[jobId] = [];
+            urlsMap[jobId].push(url);
+          }
+        }
+      }
+
+      // Generate manager photo URLs in parallel
+      if (managerPhotosToSign.length > 0) {
+        const managerUrlPromises = managerPhotosToSign.map(async ({ jobId, photoUrl }) => {
+          const url = await getSignedUrl(photoUrl, "job-photos");
+          return { jobId, url };
+        });
+
+        const managerResults = await Promise.all(managerUrlPromises);
+        for (const { jobId, url } of managerResults) {
+          if (url) {
+            if (!managerUrlsMap[jobId]) managerUrlsMap[jobId] = [];
+            managerUrlsMap[jobId].push(url);
+          }
+        }
+      }
+
+      // OPTIMIZED: Update state once at the end
       setJobs(enrichedJobs);
       setActiveWorkers(workersMap);
       setPhotoUrls(urlsMap);
+      setManagerFeedbackPhotoUrls(managerUrlsMap);
     } catch (error: any) {
       console.error("Error fetching jobs:", error);
     }
