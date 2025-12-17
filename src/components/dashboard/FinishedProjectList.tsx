@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Clock, DollarSign, Loader2, RotateCcw } from "lucide-react";
+import { Building2, Clock, DollarSign, Loader2, RotateCcw, AlertTriangle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +25,10 @@ interface Project {
   created_at: string;
   description: string | null;
   address: string | null;
+  finished_at: string | null;
   total_hours?: number;
   total_spent?: number;
+  days_remaining?: number;
 }
 
 const FinishedProjectList = () => {
@@ -92,10 +94,22 @@ const FinishedProjectList = () => {
 
           const totalSpent = invoiceData?.reduce((acc, inv) => acc + Number(inv.total_amount), 0) || 0;
 
+          // Calculate days remaining until auto-deletion
+          let daysRemaining: number | undefined;
+          if (project.finished_at) {
+            const finishedDate = new Date(project.finished_at);
+            const deletionDate = new Date(finishedDate);
+            deletionDate.setMonth(deletionDate.getMonth() + 1);
+            const now = new Date();
+            daysRemaining = Math.ceil((deletionDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysRemaining < 0) daysRemaining = 0;
+          }
+
           return {
             ...project,
             total_hours: Math.round(totalHours),
             total_spent: totalSpent,
+            days_remaining: daysRemaining,
           };
         })
       );
@@ -120,7 +134,7 @@ const FinishedProjectList = () => {
     try {
       const { error } = await supabase
         .from("projects")
-        .update({ status: "active" })
+        .update({ status: "active", finished_at: null })
         .eq("id", projectToReactivate.id);
 
       if (error) throw error;
@@ -202,6 +216,16 @@ const FinishedProjectList = () => {
                   <span className="font-medium">£{project.total_spent?.toFixed(2) || "0.00"}</span>
                   <span className="text-muted-foreground">spent</span>
                 </div>
+
+                {project.days_remaining !== undefined && (
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className={`h-4 w-4 ${project.days_remaining <= 7 ? 'text-destructive' : 'text-warning'}`} />
+                    <span className={`font-medium ${project.days_remaining <= 7 ? 'text-destructive' : 'text-warning'}`}>
+                      {project.days_remaining} days
+                    </span>
+                    <span className="text-muted-foreground">until auto-delete</span>
+                  </div>
+                )}
               </div>
             </div>
           ))}
