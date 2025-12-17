@@ -218,11 +218,11 @@ const Managers = () => {
         </div>
 
         <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="projects">Projects</TabsTrigger>
-            <TabsTrigger value="finished">Finished Projects</TabsTrigger>
-            <TabsTrigger value="activity">Builder Activity</TabsTrigger>
-            <TabsTrigger value="suppliers">Suppliers</TabsTrigger>
+          <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-4">
+            <TabsTrigger value="projects" className="flex-shrink-0">Projects</TabsTrigger>
+            <TabsTrigger value="finished" className="flex-shrink-0">Finished</TabsTrigger>
+            <TabsTrigger value="activity" className="flex-shrink-0">Activity</TabsTrigger>
+            <TabsTrigger value="suppliers" className="flex-shrink-0">Suppliers</TabsTrigger>
           </TabsList>
 
 
