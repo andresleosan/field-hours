@@ -41,7 +41,7 @@ const EditProjectDialog = ({ open, onOpenChange, onProjectUpdated, project }: Ed
         description: project.description || "",
         client_name: project.client_name,
         address: project.address || "",
-        status: project.status,
+        status: project.status || "active",
       });
     }
   }, [project]);
@@ -60,15 +60,18 @@ const EditProjectDialog = ({ open, onOpenChange, onProjectUpdated, project }: Ed
 
     setIsLoading(true);
     try {
+      // Handle null/undefined status - default to 'active'
+      const currentStatus = project.status || 'active';
+      
       // Determine if we need to set finished_at
-      const isBecomingFinished = formData.status === "finished" && project.status !== "finished";
-      const isBecomingActive = formData.status === "active" && project.status === "finished";
+      const isBecomingFinished = formData.status === "finished" && currentStatus !== "finished";
+      const isBecomingActive = formData.status === "active" && currentStatus === "finished";
 
       const updateData: any = {
         name: formData.name,
-        description: formData.description,
+        description: formData.description || null,
         client_name: formData.client_name,
-        address: formData.address,
+        address: formData.address || null,
         status: formData.status,
       };
 
