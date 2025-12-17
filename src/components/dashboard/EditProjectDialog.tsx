@@ -60,22 +60,39 @@ const EditProjectDialog = ({ open, onOpenChange, onProjectUpdated, project }: Ed
 
     setIsLoading(true);
     try {
+      // Determine if we need to set finished_at
+      const isBecomingFinished = formData.status === "finished" && project.status !== "finished";
+      const isBecomingActive = formData.status === "active" && project.status === "finished";
+
+      const updateData: any = {
+        name: formData.name,
+        description: formData.description,
+        client_name: formData.client_name,
+        address: formData.address,
+        status: formData.status,
+      };
+
+      // Set finished_at when moving to finished status
+      if (isBecomingFinished) {
+        updateData.finished_at = new Date().toISOString();
+      }
+      // Clear finished_at when reactivating
+      if (isBecomingActive) {
+        updateData.finished_at = null;
+      }
+
       const { error } = await supabase
         .from("projects")
-        .update({
-          name: formData.name,
-          description: formData.description,
-          client_name: formData.client_name,
-          address: formData.address,
-          status: formData.status,
-        })
+        .update(updateData)
         .eq("id", project.id);
 
       if (error) throw error;
 
       toast({
         title: "Project updated",
-        description: "Project has been updated successfully",
+        description: isBecomingFinished 
+          ? "Project marked as finished. It will be auto-deleted after 1 month."
+          : "Project has been updated successfully",
       });
 
       onOpenChange(false);
@@ -135,7 +152,7 @@ const EditProjectDialog = ({ open, onOpenChange, onProjectUpdated, project }: Ed
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="finished">Finished</SelectItem>
                 <SelectItem value="on_hold">On Hold</SelectItem>
               </SelectContent>
             </Select>
