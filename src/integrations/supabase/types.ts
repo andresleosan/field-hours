@@ -671,6 +671,7 @@ export type Database = {
           created_at: string
           created_by: string
           description: string | null
+          finished_at: string | null
           id: string
           location_lat: number | null
           location_lng: number | null
@@ -684,6 +685,7 @@ export type Database = {
           created_at?: string
           created_by: string
           description?: string | null
+          finished_at?: string | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
@@ -697,6 +699,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           description?: string | null
+          finished_at?: string | null
           id?: string
           location_lat?: number | null
           location_lng?: number | null
