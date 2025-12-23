@@ -64,12 +64,12 @@ const Statements = () => {
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <Tabs defaultValue="daily" className="space-y-4">
-          <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-5">
-            <TabsTrigger value="daily" className="flex-shrink-0">Daily</TabsTrigger>
-            <TabsTrigger value="weekly" className="flex-shrink-0">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly" className="flex-shrink-0">Monthly</TabsTrigger>
-            <TabsTrigger value="project" className="flex-shrink-0">By Project</TabsTrigger>
-            <TabsTrigger value="builder" className="flex-shrink-0">By Builder</TabsTrigger>
+          <TabsList className="grid grid-cols-3 md:grid-cols-5 h-auto gap-1 p-1">
+            <TabsTrigger value="daily" className="text-xs sm:text-sm py-2 px-2">Daily</TabsTrigger>
+            <TabsTrigger value="weekly" className="text-xs sm:text-sm py-2 px-2">Weekly</TabsTrigger>
+            <TabsTrigger value="monthly" className="text-xs sm:text-sm py-2 px-2">Monthly</TabsTrigger>
+            <TabsTrigger value="project" className="text-xs sm:text-sm py-2 px-2 col-span-1">Project</TabsTrigger>
+            <TabsTrigger value="builder" className="text-xs sm:text-sm py-2 px-2 col-span-1">Builder</TabsTrigger>
           </TabsList>
 
           <TabsContent value="daily" className="space-y-4">
