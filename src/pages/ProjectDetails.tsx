@@ -598,44 +598,50 @@ export default function ProjectDetails() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/managers")}>
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/managers")} className="shrink-0 mt-1">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{project.name}</h1>
-            <p className="text-muted-foreground">{project.description}</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl md:text-3xl font-bold break-words">{project.name}</h1>
+            <p className="text-muted-foreground text-sm md:text-base">{project.description}</p>
           </div>
         </div>
         {userRole === "manager" && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               variant={selectionMode ? "default" : "outline"} 
               onClick={toggleSelectionMode}
+              size="sm"
+              className="text-xs md:text-sm"
             >
               {selectionMode ? (
                 <>
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Cancel Selection
+                  <XCircle className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Cancel</span>
+                  <span className="sm:hidden">Cancel</span>
                 </>
               ) : (
                 <>
-                  <CheckSquare className="h-4 w-4 mr-2" />
-                  Select Jobs
+                  <CheckSquare className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Select Jobs</span>
+                  <span className="sm:hidden">Select</span>
                 </>
               )}
             </Button>
             {!selectionMode && (
               <>
-                <Button variant="outline" onClick={() => setShowBulkUpload(true)}>
-                  <FileSpreadsheet className="h-4 w-4 mr-2" />
-                  Import from Excel
+                <Button variant="outline" onClick={() => setShowBulkUpload(true)} size="sm" className="text-xs md:text-sm">
+                  <FileSpreadsheet className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Import from Excel</span>
+                  <span className="sm:hidden">Import</span>
                 </Button>
-                <Button onClick={() => setShowCreateJob(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Job
+                <Button onClick={() => setShowCreateJob(true)} size="sm" className="text-xs md:text-sm">
+                  <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                  <span className="hidden sm:inline">Create Job</span>
+                  <span className="sm:hidden">Create</span>
                 </Button>
               </>
             )}
@@ -647,19 +653,19 @@ export default function ProjectDetails() {
       {selectionMode && userRole === "manager" && jobs.length > 0 && (
         <Card className="bg-primary/5 border-primary/20">
           <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                 <span className="text-sm font-medium">
-                  {selectedJobs.size} of {jobs.length} job(s) selected
+                  {selectedJobs.size} of {jobs.length} selected
                 </span>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAllJobs}>
+                  <Button variant="outline" size="sm" onClick={selectAllJobs} className="text-xs">
                     <CheckSquare className="h-4 w-4 mr-1" />
-                    Select All
+                    All
                   </Button>
-                  <Button variant="outline" size="sm" onClick={deselectAllJobs}>
+                  <Button variant="outline" size="sm" onClick={deselectAllJobs} className="text-xs">
                     <Square className="h-4 w-4 mr-1" />
-                    Deselect All
+                    None
                   </Button>
                 </div>
               </div>
@@ -668,9 +674,10 @@ export default function ProjectDetails() {
                 size="sm"
                 disabled={selectedJobs.size === 0}
                 onClick={() => setShowDeleteConfirm(true)}
+                className="text-xs"
               >
                 <Trash2 className="h-4 w-4 mr-1" />
-                Delete Selected ({selectedJobs.size})
+                Delete ({selectedJobs.size})
               </Button>
             </div>
           </CardContent>
