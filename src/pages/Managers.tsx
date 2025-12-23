@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, Building2, FileText } from "lucide-react";
+import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -14,13 +14,16 @@ import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
+import ManagerRiskAssessmentDialog from "@/components/dashboard/ManagerRiskAssessmentDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
+
 interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
   totalHours: number;
   totalSpent: number;
   totalMaterials: number;
+  totalRiskAssessments: number;
 }
 const Managers = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -33,12 +36,14 @@ const Managers = () => {
     activeProjects: 0,
     totalHours: 0,
     totalSpent: 0,
-    totalMaterials: 0
+    totalMaterials: 0,
+    totalRiskAssessments: 0
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
+  const [isRiskAssessmentsOpen, setIsRiskAssessmentsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const {
     toast
@@ -114,12 +119,21 @@ const Managers = () => {
         count: "exact",
         head: true
       });
+
+      const {
+        count: totalRiskAssessments
+      } = await supabase.from("risk_assessments").select("*", {
+        count: "exact",
+        head: true
+      });
+
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
         totalHours: Math.round(totalHours),
         totalSpent,
-        totalMaterials: totalMaterials || 0
+        totalMaterials: totalMaterials || 0,
+        totalRiskAssessments: totalRiskAssessments || 0
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
@@ -171,7 +185,7 @@ const Managers = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -213,6 +227,17 @@ const Managers = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.totalMaterials}</div>
               <p className="text-xs text-muted-foreground">in inventory</p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRiskAssessmentsOpen(true)}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Risk Assessments</CardTitle>
+              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{stats.totalRiskAssessments}</div>
+              <p className="text-xs text-muted-foreground">documents uploaded</p>
             </CardContent>
           </Card>
 
@@ -312,6 +337,14 @@ const Managers = () => {
       <TimeTrackingDetailDialog open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen} />
       
       <InvoicesDetailDialog open={isInvoicesOpen} onOpenChange={setIsInvoicesOpen} />
+
+      {userId && (
+        <ManagerRiskAssessmentDialog 
+          open={isRiskAssessmentsOpen} 
+          onOpenChange={setIsRiskAssessmentsOpen} 
+          userId={userId} 
+        />
+      )}
     </div>;
 };
 export default Managers;
