@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, Building2, FileText } from "lucide-react";
+import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, Building2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -14,7 +14,6 @@ import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
-import StatementsDialog from "@/components/dashboard/StatementsDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
 interface DashboardStats {
   totalProjects: number;
@@ -40,7 +39,6 @@ const Managers = () => {
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
-  const [isStatementsOpen, setIsStatementsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const {
     toast
@@ -173,7 +171,7 @@ const Managers = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -215,17 +213,6 @@ const Managers = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.totalMaterials}</div>
               <p className="text-xs text-muted-foreground">in inventory</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsStatementsOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Statements</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">View</div>
-              <p className="text-xs text-muted-foreground">financial reports</p>
             </CardContent>
           </Card>
         </div>
@@ -314,9 +301,6 @@ const Managers = () => {
       <TimeTrackingDetailDialog open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen} />
       
       <InvoicesDetailDialog open={isInvoicesOpen} onOpenChange={setIsInvoicesOpen} />
-      
-      <StatementsDialog open={isStatementsOpen} onOpenChange={setIsStatementsOpen} />
-    </div>
-  );
+    </div>;
 };
 export default Managers;
