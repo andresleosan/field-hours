@@ -14,6 +14,12 @@ interface Project {
   name: string;
 }
 
+interface Signature {
+  user_id: string;
+  signed_at: string;
+  user_name: string;
+}
+
 interface RiskAssessment {
   id: string;
   title: string;
@@ -21,7 +27,7 @@ interface RiskAssessment {
   created_at: string;
   project_id: string;
   project_name?: string;
-  signature_count?: number;
+  signatures: Signature[];
 }
 
 interface ManagerRiskAssessmentDialogProps {
@@ -73,24 +79,42 @@ const ManagerRiskAssessmentDialog = ({ open, onOpenChange, userId }: ManagerRisk
 
       if (assessmentsError) throw assessmentsError;
 
-      // Fetch signature counts
+      // Fetch all signatures with profile names
       const { data: signaturesData, error: signaturesError } = await supabase
         .from("risk_assessment_signatures")
-        .select("risk_assessment_id");
+        .select("risk_assessment_id, user_id, signed_at");
 
       if (signaturesError) throw signaturesError;
 
-      // Count signatures per assessment
-      const signatureCounts = new Map<string, number>();
+      // Fetch all profiles for signature user names
+      const userIds = [...new Set(signaturesData?.map(s => s.user_id) || [])];
+      let profilesMap = new Map<string, string>();
+      
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, full_name")
+          .in("id", userIds);
+        
+        profilesData?.forEach(p => profilesMap.set(p.id, p.full_name));
+      }
+
+      // Group signatures by assessment
+      const signaturesByAssessment = new Map<string, Signature[]>();
       signaturesData?.forEach(sig => {
-        const count = signatureCounts.get(sig.risk_assessment_id) || 0;
-        signatureCounts.set(sig.risk_assessment_id, count + 1);
+        const list = signaturesByAssessment.get(sig.risk_assessment_id) || [];
+        list.push({
+          user_id: sig.user_id,
+          signed_at: sig.signed_at,
+          user_name: profilesMap.get(sig.user_id) || "Unknown"
+        });
+        signaturesByAssessment.set(sig.risk_assessment_id, list);
       });
 
       const mergedAssessments = assessmentsData?.map(assessment => ({
         ...assessment,
         project_name: (assessment.projects as any)?.name || "Unknown",
-        signature_count: signatureCounts.get(assessment.id) || 0,
+        signatures: signaturesByAssessment.get(assessment.id) || [],
       })) || [];
 
       setAssessments(mergedAssessments);
@@ -289,10 +313,26 @@ const ManagerRiskAssessmentDialog = ({ open, onOpenChange, userId }: ManagerRisk
                     <p className="text-xs text-muted-foreground truncate">
                       {assessment.project_name} • {format(new Date(assessment.created_at), "dd MMM yyyy")}
                     </p>
-                    <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
-                      <Users className="h-3 w-3" />
-                      <span>{assessment.signature_count} signature(s)</span>
-                    </div>
+                    {assessment.signatures.length > 0 ? (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          Signatures ({assessment.signatures.length}):
+                        </p>
+                        <div className="pl-4 space-y-0.5">
+                          {assessment.signatures.map((sig, idx) => (
+                            <p key={idx} className="text-xs text-muted-foreground">
+                              {sig.user_name} — {format(new Date(sig.signed_at), "dd MMM yyyy, HH:mm")}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        No signatures yet
+                      </p>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-2 flex-shrink-0">
