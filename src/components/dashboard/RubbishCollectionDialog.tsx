@@ -1,17 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, MapPin, Camera, Trash2, X, CheckCircle2 } from "lucide-react";
+import { Loader2, Camera, Trash2, X, CheckCircle2, Building2, Plus } from "lucide-react";
 import { format } from "date-fns";
 
 interface RubbishRequest {
   id: string;
-  location_lat: number | null;
-  location_lng: number | null;
   photo_url: string | null;
   description: string | null;
   status: string;
@@ -28,15 +26,34 @@ interface RubbishCollectionDialogProps {
 
 const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: RubbishCollectionDialogProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
-  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [photo, setPhoto] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [description, setDescription] = useState("");
   const [myRequests, setMyRequests] = useState<RubbishRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [projectName, setProjectName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const MAX_PHOTOS = 10;
+
+  useEffect(() => {
+    if (open && projectId) {
+      fetchProjectName();
+    }
+  }, [open, projectId]);
+
+  const fetchProjectName = async () => {
+    if (!projectId) return;
+    const { data } = await supabase
+      .from("projects")
+      .select("name")
+      .eq("id", projectId)
+      .single();
+    if (data) {
+      setProjectName(data.name);
+    }
+  };
 
   const fetchMyRequests = async () => {
     setIsLoadingRequests(true);
@@ -66,7 +83,7 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
   const handleOpenChange = (isOpen: boolean) => {
     if (isOpen) {
       fetchMyRequests();
-      getLocation();
+      fetchProjectName();
     } else {
       resetForm();
     }
@@ -74,80 +91,63 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
   };
 
   const resetForm = () => {
-    setLocation(null);
-    setPhoto(null);
-    setPhotoPreview(null);
+    setPhotos([]);
+    setPhotoPreviews([]);
     setDescription("");
   };
 
-  const getLocation = async () => {
-    setIsLoadingLocation(true);
-    try {
-      if (!navigator.geolocation) {
-        throw new Error("Geolocation not supported");
-      }
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
 
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        });
-      });
+    const remainingSlots = MAX_PHOTOS - photos.length;
+    const filesToAdd = Array.from(files).slice(0, remainingSlots);
 
-      setLocation({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      });
-
+    if (filesToAdd.length < files.length) {
       toast({
-        title: "Location captured",
-        description: "Your current location has been recorded",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Location error",
-        description: "Could not get your location. Please try again.",
+        title: "Photo limit",
+        description: `Maximum ${MAX_PHOTOS} photos allowed`,
         variant: "destructive",
       });
-    } finally {
-      setIsLoadingLocation(false);
     }
-  };
 
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhoto(file);
+    const newPhotos = [...photos, ...filesToAdd];
+    setPhotos(newPhotos);
+
+    // Generate previews for new files
+    filesToAdd.forEach(file => {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
+        setPhotoPreviews(prev => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
-    }
-  };
+    });
 
-  const removePhoto = () => {
-    setPhoto(null);
-    setPhotoPreview(null);
+    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
-    if (!location) {
+    if (!projectId) {
       toast({
-        title: "Location required",
-        description: "Please capture your location before submitting",
+        title: "Project required",
+        description: "Please select a project first",
         variant: "destructive",
       });
       return;
     }
 
-    if (!photo) {
+    if (photos.length === 0) {
       toast({
         title: "Photo required",
-        description: "Please take a photo of what needs to be collected",
+        description: "Please add at least one photo of what needs to be collected",
         variant: "destructive",
       });
       return;
@@ -155,19 +155,28 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
 
     setIsSubmitting(true);
     try {
-      // Upload photo
-      const fileExt = photo.name.split('.').pop();
-      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      // Upload all photos
+      const uploadedUrls: string[] = [];
       
-      const { error: uploadError } = await supabase.storage
-        .from("rubbish-photos")
-        .upload(fileName, photo);
+      for (const photo of photos) {
+        const fileExt = photo.name.split('.').pop();
+        const fileName = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("rubbish-photos")
+          .upload(fileName, photo);
 
-      if (uploadError) throw uploadError;
+        if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = supabase.storage
-        .from("rubbish-photos")
-        .getPublicUrl(fileName);
+        const { data: { publicUrl } } = supabase.storage
+          .from("rubbish-photos")
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(publicUrl);
+      }
+
+      // Store URLs as JSON array string
+      const photoUrlsJson = JSON.stringify(uploadedUrls);
 
       // Create request
       const { error } = await supabase
@@ -175,9 +184,7 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
         .insert({
           user_id: userId,
           project_id: projectId,
-          location_lat: location.lat,
-          location_lng: location.lng,
-          photo_url: publicUrl,
+          photo_url: photoUrlsJson,
           description: description.trim() || null,
         });
 
@@ -190,7 +197,6 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
 
       resetForm();
       fetchMyRequests();
-      getLocation();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -213,6 +219,16 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
     }
   };
 
+  const parsePhotoUrls = (photoUrl: string | null): string[] => {
+    if (!photoUrl) return [];
+    try {
+      const parsed = JSON.parse(photoUrl);
+      return Array.isArray(parsed) ? parsed : [photoUrl];
+    } catch {
+      return photoUrl ? [photoUrl] : [];
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -228,68 +244,67 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
           <div className="space-y-4 p-4 bg-muted/30 rounded-lg border">
             <h3 className="font-medium">New Request</h3>
 
-            {/* Location */}
+            {/* Project Reference */}
             <div className="space-y-2">
-              <Label>Location</Label>
-              <div className="flex items-center gap-2">
-                {location ? (
-                  <div className="flex-1 flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded-md">
-                    <MapPin className="h-4 w-4 text-green-600" />
-                    <span className="text-sm text-green-700">
-                      {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex items-center gap-2 p-2 bg-muted border rounded-md">
-                    <MapPin className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">No location captured</span>
-                  </div>
-                )}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={getLocation}
-                  disabled={isLoadingLocation}
-                >
-                  {isLoadingLocation ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Refresh"
-                  )}
-                </Button>
+              <Label>Project</Label>
+              <div className="flex items-center gap-2 p-3 bg-primary/5 border border-primary/20 rounded-md">
+                <Building2 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">{projectName || "Select a project"}</span>
               </div>
+              <p className="text-xs text-muted-foreground">
+                The rubbish will be collected from this project location
+              </p>
             </div>
 
-            {/* Photo */}
+            {/* Photos */}
             <div className="space-y-2">
-              <Label>Photo *</Label>
+              <Label>Photos * ({photos.length}/{MAX_PHOTOS})</Label>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
+                multiple
                 onChange={handlePhotoSelect}
                 className="hidden"
               />
-              {photoPreview ? (
-                <div className="relative">
-                  <img
-                    src={photoPreview}
-                    alt="Preview"
-                    className="w-full h-48 object-cover rounded-lg border"
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-2 right-2 h-8 w-8"
-                    onClick={removePhoto}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+              
+              {photoPreviews.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {photoPreviews.map((preview, index) => (
+                    <div key={index} className="relative aspect-square">
+                      <img
+                        src={preview}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-full object-cover rounded-lg border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => removePhoto(index)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  
+                  {photos.length < MAX_PHOTOS && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="aspect-square flex flex-col items-center justify-center gap-1"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Plus className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Add</span>
+                    </Button>
+                  )}
                 </div>
-              ) : (
+              )}
+
+              {photoPreviews.length === 0 && (
                 <Button
                   type="button"
                   variant="outline"
@@ -297,7 +312,7 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Camera className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Take or select a photo</span>
+                  <span className="text-sm text-muted-foreground">Take or select photos (up to {MAX_PHOTOS})</span>
                 </Button>
               )}
             </div>
@@ -316,7 +331,7 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
             {/* Submit Button */}
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || !location || !photo}
+              disabled={isSubmitting || photos.length === 0 || !projectId}
               className="w-full"
             >
               {isSubmitting ? (
@@ -343,34 +358,44 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
               </p>
             ) : (
               <div className="space-y-2">
-                {myRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="flex items-start gap-3 p-3 bg-card border rounded-lg"
-                  >
-                    {request.photo_url && (
-                      <img
-                        src={request.photo_url}
-                        alt="Rubbish"
-                        className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {getStatusBadge(request.status)}
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(request.created_at), "dd MMM yyyy, HH:mm")}
-                        </span>
-                      </div>
-                      <p className="text-sm font-medium mt-1">{request.project_name}</p>
-                      {request.description && (
-                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                          {request.description}
-                        </p>
+                {myRequests.map((request) => {
+                  const photoUrls = parsePhotoUrls(request.photo_url);
+                  return (
+                    <div
+                      key={request.id}
+                      className="flex items-start gap-3 p-3 bg-card border rounded-lg"
+                    >
+                      {photoUrls.length > 0 && (
+                        <div className="flex gap-1 flex-shrink-0">
+                          <img
+                            src={photoUrls[0]}
+                            alt="Rubbish"
+                            className="w-16 h-16 object-cover rounded-md"
+                          />
+                          {photoUrls.length > 1 && (
+                            <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground">
+                              +{photoUrls.length - 1}
+                            </div>
+                          )}
+                        </div>
                       )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {getStatusBadge(request.status)}
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(request.created_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium mt-1">{request.project_name}</p>
+                        {request.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {request.description}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
