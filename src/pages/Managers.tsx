@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck } from "lucide-react";
+import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -15,6 +15,7 @@ import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog"
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
 import ManagerRiskAssessmentDialog from "@/components/dashboard/ManagerRiskAssessmentDialog";
+import ManagerRubbishDialog from "@/components/dashboard/ManagerRubbishDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
 
 interface DashboardStats {
@@ -24,6 +25,7 @@ interface DashboardStats {
   totalSpent: number;
   totalMaterials: number;
   totalRiskAssessments: number;
+  pendingRubbishRequests: number;
 }
 const Managers = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -37,13 +39,15 @@ const Managers = () => {
     totalHours: 0,
     totalSpent: 0,
     totalMaterials: 0,
-    totalRiskAssessments: 0
+    totalRiskAssessments: 0,
+    pendingRubbishRequests: 0
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
   const [isTimeTrackingOpen, setIsTimeTrackingOpen] = useState(false);
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const [isRiskAssessmentsOpen, setIsRiskAssessmentsOpen] = useState(false);
+  const [isRubbishRequestsOpen, setIsRubbishRequestsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const {
     toast
@@ -127,13 +131,21 @@ const Managers = () => {
         head: true
       });
 
+      const {
+        count: pendingRubbishRequests
+      } = await supabase.from("rubbish_collection_requests").select("*", {
+        count: "exact",
+        head: true
+      }).eq("status", "pending");
+
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
         totalHours: Math.round(totalHours),
         totalSpent,
         totalMaterials: totalMaterials || 0,
-        totalRiskAssessments: totalRiskAssessments || 0
+        totalRiskAssessments: totalRiskAssessments || 0,
+        pendingRubbishRequests: pendingRubbishRequests || 0
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
@@ -185,7 +197,7 @@ const Managers = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -238,6 +250,17 @@ const Managers = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.totalRiskAssessments}</div>
               <p className="text-xs text-muted-foreground">documents uploaded</p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRubbishRequestsOpen(true)}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Rubbish Requests</CardTitle>
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{stats.pendingRubbishRequests}</div>
+              <p className="text-xs text-muted-foreground">pending collection</p>
             </CardContent>
           </Card>
 
@@ -345,6 +368,11 @@ const Managers = () => {
           userId={userId} 
         />
       )}
+
+      <ManagerRubbishDialog
+        open={isRubbishRequestsOpen}
+        onOpenChange={setIsRubbishRequestsOpen}
+      />
     </div>;
 };
 export default Managers;

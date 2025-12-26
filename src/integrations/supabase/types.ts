@@ -773,6 +773,56 @@ export type Database = {
           },
         ]
       }
+      rubbish_collection_requests: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          location_lat: number | null
+          location_lng: number | null
+          photo_url: string | null
+          project_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          photo_url?: string | null
+          project_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          location_lat?: number | null
+          location_lng?: number | null
+          photo_url?: string | null
+          project_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rubbish_collection_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           created_at: string
