@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
 import FinishedProjectList from "@/components/dashboard/FinishedProjectList";
-import BuilderActivityTracker from "@/components/dashboard/BuilderActivityTracker";
 import SupplierManagement from "@/components/dashboard/SupplierManagement";
 import MaterialsDetailDialog from "@/components/dashboard/MaterialsDetailDialog";
 import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailDialog";
@@ -277,10 +276,9 @@ const Managers = () => {
         </div>
 
         <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-4">
+          <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-3">
             <TabsTrigger value="projects" className="flex-shrink-0">Projects</TabsTrigger>
             <TabsTrigger value="finished" className="flex-shrink-0">Finished</TabsTrigger>
-            <TabsTrigger value="activity" className="flex-shrink-0">Activity</TabsTrigger>
             <TabsTrigger value="suppliers" className="flex-shrink-0">Suppliers</TabsTrigger>
           </TabsList>
 
@@ -327,17 +325,6 @@ const Managers = () => {
             </Card>
           </TabsContent>
 
-          <TabsContent value="activity">
-            <Card>
-              <CardHeader>
-                <CardTitle>Builder Activity</CardTitle>
-                <CardDescription>Track all builder activities across projects</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <BuilderActivityTracker />
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="suppliers">
             <Card>
