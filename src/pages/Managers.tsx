@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2 } from "lucide-react";
+import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2, Truck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -15,6 +15,7 @@ import TimeTrackingDetailDialog from "@/components/dashboard/TimeTrackingDetailD
 import InvoicesDetailDialog from "@/components/dashboard/InvoicesDetailDialog";
 import ManagerRiskAssessmentDialog from "@/components/dashboard/ManagerRiskAssessmentDialog";
 import ManagerRubbishDialog from "@/components/dashboard/ManagerRubbishDialog";
+import ManagerMaterialDeliveryDialog from "@/components/dashboard/ManagerMaterialDeliveryDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
 
 interface DashboardStats {
@@ -25,6 +26,7 @@ interface DashboardStats {
   totalMaterials: number;
   totalRiskAssessments: number;
   pendingRubbishRequests: number;
+  pendingMaterialDeliveries: number;
 }
 const Managers = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -39,7 +41,8 @@ const Managers = () => {
     totalSpent: 0,
     totalMaterials: 0,
     totalRiskAssessments: 0,
-    pendingRubbishRequests: 0
+    pendingRubbishRequests: 0,
+    pendingMaterialDeliveries: 0
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
@@ -47,6 +50,7 @@ const Managers = () => {
   const [isInvoicesOpen, setIsInvoicesOpen] = useState(false);
   const [isRiskAssessmentsOpen, setIsRiskAssessmentsOpen] = useState(false);
   const [isRubbishRequestsOpen, setIsRubbishRequestsOpen] = useState(false);
+  const [isMaterialDeliveryOpen, setIsMaterialDeliveryOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const {
     toast
@@ -137,6 +141,13 @@ const Managers = () => {
         head: true
       }).eq("status", "pending");
 
+      const {
+        count: pendingMaterialDeliveries
+      } = await supabase.from("material_delivery_requests").select("*", {
+        count: "exact",
+        head: true
+      }).eq("status", "pending");
+
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
@@ -144,7 +155,8 @@ const Managers = () => {
         totalSpent,
         totalMaterials: totalMaterials || 0,
         totalRiskAssessments: totalRiskAssessments || 0,
-        pendingRubbishRequests: pendingRubbishRequests || 0
+        pendingRubbishRequests: pendingRubbishRequests || 0,
+        pendingMaterialDeliveries: pendingMaterialDeliveries || 0
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
@@ -196,7 +208,7 @@ const Managers = () => {
       </header>
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
@@ -260,6 +272,17 @@ const Managers = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">{stats.pendingRubbishRequests}</div>
               <p className="text-xs text-muted-foreground">pending collection</p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialDeliveryOpen(true)}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Material Requests</CardTitle>
+              <Truck className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{stats.pendingMaterialDeliveries}</div>
+              <p className="text-xs text-muted-foreground">pending delivery</p>
             </CardContent>
           </Card>
 
@@ -359,6 +382,11 @@ const Managers = () => {
       <ManagerRubbishDialog
         open={isRubbishRequestsOpen}
         onOpenChange={setIsRubbishRequestsOpen}
+      />
+
+      <ManagerMaterialDeliveryDialog
+        open={isMaterialDeliveryOpen}
+        onOpenChange={setIsMaterialDeliveryOpen}
       />
     </div>;
 };
