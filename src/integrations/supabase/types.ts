@@ -569,6 +569,51 @@ export type Database = {
           },
         ]
       }
+      material_transfers: {
+        Row: {
+          id: string
+          notes: string | null
+          project_id: string
+          quantity: number
+          storage_material_id: string
+          transferred_at: string
+          transferred_by: string
+        }
+        Insert: {
+          id?: string
+          notes?: string | null
+          project_id: string
+          quantity: number
+          storage_material_id: string
+          transferred_at?: string
+          transferred_by: string
+        }
+        Update: {
+          id?: string
+          notes?: string | null
+          project_id?: string
+          quantity?: number
+          storage_material_id?: string
+          transferred_at?: string
+          transferred_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_transfers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_transfers_storage_material_id_fkey"
+            columns: ["storage_material_id"]
+            isOneToOne: false
+            referencedRelation: "storage_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       material_usage: {
         Row: {
           created_at: string
@@ -910,6 +955,90 @@ export type Database = {
           },
         ]
       }
+      storage_materials: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string
+          id: string
+          min_stock_level: number | null
+          name: string
+          notes: string | null
+          quantity: number
+          section: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          created_by: string
+          id?: string
+          min_stock_level?: number | null
+          name: string
+          notes?: string | null
+          quantity?: number
+          section?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          min_stock_level?: number | null
+          name?: string
+          notes?: string | null
+          quantity?: number
+          section?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      storage_tools: {
+        Row: {
+          category: string
+          condition: string | null
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          notes: string | null
+          section: string | null
+          serial_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          condition?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          notes?: string | null
+          section?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          condition?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          section?: string | null
+          serial_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       suppliers: {
         Row: {
           created_at: string
@@ -971,6 +1100,63 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tool_checkouts: {
+        Row: {
+          checked_out_at: string
+          checked_out_by: string
+          condition_on_return: string | null
+          created_at: string
+          expected_return_date: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          returned_at: string | null
+          returned_by: string | null
+          tool_id: string
+        }
+        Insert: {
+          checked_out_at?: string
+          checked_out_by: string
+          condition_on_return?: string | null
+          created_at?: string
+          expected_return_date?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          returned_at?: string | null
+          returned_by?: string | null
+          tool_id: string
+        }
+        Update: {
+          checked_out_at?: string
+          checked_out_by?: string
+          condition_on_return?: string | null
+          created_at?: string
+          expected_return_date?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          returned_at?: string | null
+          returned_by?: string | null
+          tool_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_checkouts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_checkouts_tool_id_fkey"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "storage_tools"
             referencedColumns: ["id"]
           },
         ]
