@@ -10,6 +10,7 @@ import Builders from "./pages/Builders";
 import Managers from "./pages/Managers";
 import ProjectDetails from "./pages/ProjectDetails";
 import Statements from "./pages/Statements";
+import Storage from "./pages/Storage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/managers" element={<Managers />} />
           <Route path="/project/:projectId" element={<ProjectDetails />} />
           <Route path="/statements" element={<Statements />} />
+          <Route path="/storage" element={<Storage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
