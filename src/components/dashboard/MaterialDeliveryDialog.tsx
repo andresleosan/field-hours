@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Plus, Trash2, Search, Package, Clock } from "lucide-react";
+import { Loader2, Plus, Trash2, Search, Package, Clock, PlusCircle } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,6 +67,8 @@ const MaterialDeliveryDialog = ({
   const [activeTab, setActiveTab] = useState("request");
   const [myRequests, setMyRequests] = useState<DeliveryRequest[]>([]);
   const [projectName, setProjectName] = useState("");
+  const [isCreatingMaterial, setIsCreatingMaterial] = useState(false);
+  const [newMaterialUnit, setNewMaterialUnit] = useState("units");
   const { toast } = useToast();
 
   useEffect(() => {
@@ -148,6 +150,51 @@ const MaterialDeliveryDialog = ({
     }
     setSearchTerm("");
     setShowDropdown(false);
+  };
+
+  const handleCreateMaterial = async () => {
+    if (!searchTerm.trim()) return;
+    
+    setIsCreatingMaterial(true);
+    try {
+      const { data, error } = await supabase
+        .from("materials")
+        .insert({
+          name: searchTerm.trim(),
+          unit: newMaterialUnit,
+          cost_per_unit: 0,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newMaterial: Material = {
+        id: data.id,
+        name: data.name,
+        unit: data.unit,
+        category: data.category,
+      };
+
+      setSelectedItems([...selectedItems, { material: newMaterial, quantity: 1 }]);
+      setMaterials([...materials, newMaterial]);
+      setSearchTerm("");
+      setNewMaterialUnit("units");
+      setShowDropdown(false);
+
+      toast({
+        title: "Material Created",
+        description: `"${newMaterial.name}" has been added to the catalog`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create material",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingMaterial(false);
+    }
   };
 
   const handleUpdateQuantity = (materialId: string, quantity: number) => {
@@ -278,8 +325,8 @@ const MaterialDeliveryDialog = ({
                   className="pl-10"
                 />
               </div>
-              {showDropdown && (
-                <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-48 overflow-auto">
+              {(showDropdown || (searchTerm.length > 0 && filteredMaterials.length === 0)) && (
+                <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-64 overflow-auto">
                   {filteredMaterials.map((material) => (
                     <button
                       key={material.id}
@@ -292,6 +339,46 @@ const MaterialDeliveryDialog = ({
                       </span>
                     </button>
                   ))}
+                  {searchTerm.length > 0 && (
+                    <div className="border-t p-3 space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        {filteredMaterials.length === 0
+                          ? `No materials found for "${searchTerm}"`
+                          : "Or create new:"}
+                      </p>
+                      <div className="flex gap-2">
+                        <select
+                          value={newMaterialUnit}
+                          onChange={(e) => setNewMaterialUnit(e.target.value)}
+                          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                        >
+                          <option value="units">units</option>
+                          <option value="kg">kg</option>
+                          <option value="liters">liters</option>
+                          <option value="meters">meters</option>
+                          <option value="pieces">pieces</option>
+                          <option value="bags">bags</option>
+                          <option value="boxes">boxes</option>
+                          <option value="rolls">rolls</option>
+                          <option value="sheets">sheets</option>
+                          <option value="sqm">sqm</option>
+                        </select>
+                        <Button
+                          size="sm"
+                          onClick={handleCreateMaterial}
+                          disabled={isCreatingMaterial}
+                          className="flex-1"
+                        >
+                          {isCreatingMaterial ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                          ) : (
+                            <PlusCircle className="h-4 w-4 mr-1" />
+                          )}
+                          Create "{searchTerm}"
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
