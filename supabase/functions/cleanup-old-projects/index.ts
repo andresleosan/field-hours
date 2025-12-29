@@ -13,9 +13,53 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    
+
+    // Authentication check - verify the caller has a valid JWT
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      console.log('Unauthorized: No authorization header provided');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: No authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create a client with the user's JWT to verify their identity
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    if (authError || !user) {
+      console.log('Unauthorized: Invalid token', authError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: Invalid token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`User authenticated: ${user.id}`);
+
+    // Authorization check - verify the user is a manager
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    const { data: roleData, error: roleError } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', user.id)
+      .single();
+
+    if (roleError || !roleData || roleData.role !== 'manager') {
+      console.log('Forbidden: User is not a manager', user.id);
+      return new Response(
+        JSON.stringify({ error: 'Forbidden: Only managers can perform this action' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Manager role verified for user: ${user.id}`);
 
     // Find projects that have been finished for more than 1 month
     const oneMonthAgo = new Date();
@@ -166,7 +210,7 @@ Deno.serve(async (req) => {
       throw deleteError;
     }
 
-    console.log(`Successfully deleted ${projectsToDelete.length} projects and all related data`);
+    console.log(`Successfully deleted ${projectsToDelete.length} projects and all related data by manager ${user.id}`);
 
     return new Response(
       JSON.stringify({ 
