@@ -964,6 +964,7 @@ export type Database = {
           min_stock_level: number | null
           name: string
           notes: string | null
+          photo_url: string | null
           quantity: number
           section: string | null
           unit: string
@@ -977,6 +978,7 @@ export type Database = {
           min_stock_level?: number | null
           name: string
           notes?: string | null
+          photo_url?: string | null
           quantity?: number
           section?: string | null
           unit?: string
@@ -990,6 +992,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string
           notes?: string | null
+          photo_url?: string | null
           quantity?: number
           section?: string | null
           unit?: string
