@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Pencil, Trash2, Loader2, Search, Package } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Search, Package, Camera, Upload, X, Image } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { CameraCapture } from "@/components/jobs/CameraCapture";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 
 interface StorageMaterial {
   id: string;
@@ -20,6 +23,7 @@ interface StorageMaterial {
   unit: string;
   min_stock_level: number;
   notes: string | null;
+  photo_url: string | null;
   created_at: string;
 }
 
@@ -28,7 +32,7 @@ interface StorageMaterialsTabProps {
 }
 
 const CATEGORIES = ["Building Materials", "Electrical", "Plumbing", "Hardware", "Finishing", "Safety", "Other"];
-const SECTIONS = ["Section A", "Section B", "Section C", "Section D", "Section E", "Outdoor Storage"];
+const DEFAULT_SECTIONS = ["Section A", "Section B", "Section C", "Section D", "Section E", "Outdoor Storage"];
 const UNITS = ["units", "kg", "liters", "meters", "pieces", "bags", "boxes", "rolls", "sheets", "sqm", "pallets"];
 
 const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
@@ -39,6 +43,18 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [sectionFilter, setSectionFilter] = useState<string>("all");
+  
+  // Section management
+  const [sections, setSections] = useState<string[]>(DEFAULT_SECTIONS);
+  const [newSectionName, setNewSectionName] = useState("");
+  const [showSectionManager, setShowSectionManager] = useState(false);
+  
+  // Photo management
+  const [showCamera, setShowCamera] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFile, setPhotoFile] = useState<Blob | File | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     name: "",
@@ -56,6 +72,15 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
     fetchMaterials();
   }, []);
 
+  useEffect(() => {
+    // Extract unique sections from materials and merge with defaults
+    const existingSections = materials
+      .map(m => m.section)
+      .filter((s): s is string => s !== null && s.trim() !== "");
+    const allSections = [...new Set([...DEFAULT_SECTIONS, ...existingSections])].sort();
+    setSections(allSections);
+  }, [materials]);
+
   const fetchMaterials = async () => {
     const { data, error } = await supabase
       .from("storage_materials")
@@ -71,10 +96,44 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
     setIsLoading(false);
   };
 
+  const uploadPhoto = async (): Promise<string | null> => {
+    if (!photoFile) return null;
+    
+    setIsUploadingPhoto(true);
+    try {
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+      const filePath = `materials/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("storage-material-photos")
+        .upload(filePath, photoFile, { contentType: "image/jpeg" });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data } = supabase.storage
+        .from("storage-material-photos")
+        .getPublicUrl(filePath);
+      
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast({ title: "Error", description: "Failed to upload photo", variant: "destructive" });
+      return null;
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       toast({ title: "Error", description: "Material name is required", variant: "destructive" });
       return;
+    }
+
+    // Upload photo if one is selected
+    let photoUrl: string | null = null;
+    if (photoFile) {
+      photoUrl = await uploadPhoto();
     }
 
     if (editingMaterial) {
@@ -88,6 +147,7 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
           unit: formData.unit,
           min_stock_level: formData.min_stock_level,
           notes: formData.notes || null,
+          ...(photoUrl && { photo_url: photoUrl }),
         })
         .eq("id", editingMaterial.id);
 
@@ -109,6 +169,7 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
           unit: formData.unit,
           min_stock_level: formData.min_stock_level,
           notes: formData.notes || null,
+          photo_url: photoUrl,
           created_by: userId,
         });
 
@@ -133,6 +194,9 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
       min_stock_level: material.min_stock_level,
       notes: material.notes || "",
     });
+    if (material.photo_url) {
+      setPhotoPreview(material.photo_url);
+    }
     setIsDialogOpen(true);
   };
 
@@ -158,6 +222,67 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
     });
     setEditingMaterial(null);
     setIsDialogOpen(false);
+    setPhotoPreview(null);
+    setPhotoFile(null);
+    setShowSectionManager(false);
+    setNewSectionName("");
+  };
+
+  // Section management handlers
+  const handleAddSection = () => {
+    if (!newSectionName.trim()) {
+      toast({ title: "Error", description: "Section name is required", variant: "destructive" });
+      return;
+    }
+    if (sections.includes(newSectionName.trim())) {
+      toast({ title: "Error", description: "Section already exists", variant: "destructive" });
+      return;
+    }
+    setSections([...sections, newSectionName.trim()].sort());
+    setNewSectionName("");
+    toast({ title: "Success", description: "Section added" });
+  };
+
+  const handleDeleteSection = (sectionToDelete: string) => {
+    // Check if any materials are using this section
+    const materialsInSection = materials.filter(m => m.section === sectionToDelete);
+    if (materialsInSection.length > 0) {
+      toast({ 
+        title: "Cannot delete", 
+        description: `${materialsInSection.length} material(s) are in this section. Move them first.`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+    setSections(sections.filter(s => s !== sectionToDelete));
+    toast({ title: "Success", description: "Section deleted" });
+  };
+
+  // Photo handlers
+  const handleCameraCapture = (blob: Blob) => {
+    setPhotoFile(blob);
+    setPhotoPreview(URL.createObjectURL(blob));
+    setShowCamera(false);
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith("image/")) {
+        toast({ title: "Error", description: "Please select an image file", variant: "destructive" });
+        return;
+      }
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   const filteredMaterials = materials.filter((m) => {
@@ -198,87 +323,200 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
                   Add Material
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-md">
+              <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
                 <DialogHeader>
                   <DialogTitle>{editingMaterial ? "Edit Material" : "Add New Material"}</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>Name *</Label>
-                    <Input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Material name"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                <ScrollArea className="flex-1 pr-4">
+                  <div className="space-y-4 pt-4">
+                    {/* Material Name */}
                     <div className="space-y-2">
-                      <Label>Category</Label>
-                      <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {CATEGORIES.map((c) => (
-                            <SelectItem key={c} value={c}>{c}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Section</Label>
-                      <Select value={formData.section} onValueChange={(v) => setFormData({ ...formData, section: v })}>
-                        <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
-                        <SelectContent>
-                          {SECTIONS.map((s) => (
-                            <SelectItem key={s} value={s}>{s}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label>Quantity</Label>
+                      <Label>Name *</Label>
                       <Input
-                        type="number"
-                        value={formData.quantity}
-                        onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Material name"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label>Unit</Label>
-                      <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {UNITS.map((u) => (
-                            <SelectItem key={u} value={u}>{u}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    
+                    {/* Category & Section */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Select value={formData.category} onValueChange={(v) => setFormData({ ...formData, category: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {CATEGORIES.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label>Section</Label>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-xs"
+                            onClick={() => setShowSectionManager(!showSectionManager)}
+                          >
+                            {showSectionManager ? "Hide" : "Manage"}
+                          </Button>
+                        </div>
+                        <Select value={formData.section} onValueChange={(v) => setFormData({ ...formData, section: v })}>
+                          <SelectTrigger><SelectValue placeholder="Select section" /></SelectTrigger>
+                          <SelectContent>
+                            {sections.map((s) => (
+                              <SelectItem key={s} value={s}>{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+
+                    {/* Section Manager */}
+                    {showSectionManager && (
+                      <div className="rounded-lg border p-3 space-y-3 bg-muted/30">
+                        <Label className="text-sm font-medium">Manage Sections</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="New section name"
+                            value={newSectionName}
+                            onChange={(e) => setNewSectionName(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button size="sm" onClick={handleAddSection}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <Separator />
+                        <div className="space-y-1 max-h-32 overflow-y-auto">
+                          {sections.map((section) => (
+                            <div key={section} className="flex items-center justify-between py-1 px-2 rounded hover:bg-muted">
+                              <span className="text-sm">{section}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                onClick={() => handleDeleteSection(section)}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Quantity, Unit, Min Stock */}
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Quantity</Label>
+                        <Input
+                          type="number"
+                          value={formData.quantity}
+                          onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Unit</Label>
+                        <Select value={formData.unit} onValueChange={(v) => setFormData({ ...formData, unit: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {UNITS.map((u) => (
+                              <SelectItem key={u} value={u}>{u}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Min Stock</Label>
+                        <Input
+                          type="number"
+                          value={formData.min_stock_level}
+                          onChange={(e) => setFormData({ ...formData, min_stock_level: Number(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Notes */}
                     <div className="space-y-2">
-                      <Label>Min Stock</Label>
+                      <Label>Notes</Label>
                       <Input
-                        type="number"
-                        value={formData.min_stock_level}
-                        onChange={(e) => setFormData({ ...formData, min_stock_level: Number(e.target.value) })}
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        placeholder="Optional notes"
                       />
                     </div>
+
+                    {/* Photo Section */}
+                    <div className="space-y-2">
+                      <Label>Photo</Label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                      
+                      {photoPreview ? (
+                        <div className="relative rounded-lg overflow-hidden border">
+                          <img 
+                            src={photoPreview} 
+                            alt="Material preview" 
+                            className="w-full h-40 object-cover"
+                          />
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-2 right-2 h-8 w-8"
+                            onClick={handleRemovePhoto}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => setShowCamera(true)}
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            Take Photo
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Upload Photo
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 pt-4 pb-2">
+                      <Button variant="outline" onClick={resetForm} className="flex-1">Cancel</Button>
+                      <Button onClick={handleSubmit} className="flex-1" disabled={isUploadingPhoto}>
+                        {isUploadingPhoto ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          editingMaterial ? "Update" : "Add Material"
+                        )}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Notes</Label>
-                    <Input
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Optional notes"
-                    />
-                  </div>
-                  <div className="flex gap-2 pt-4">
-                    <Button variant="outline" onClick={resetForm} className="flex-1">Cancel</Button>
-                    <Button onClick={handleSubmit} className="flex-1">
-                      {editingMaterial ? "Update" : "Add Material"}
-                    </Button>
-                  </div>
-                </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>
@@ -311,7 +549,7 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Sections</SelectItem>
-                {SECTIONS.map((s) => (
+                {sections.map((s) => (
                   <SelectItem key={s} value={s}>{s}</SelectItem>
                 ))}
               </SelectContent>
@@ -332,6 +570,7 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
                     <Table>
                       <TableHeader>
                         <TableRow>
+                          <TableHead className="w-12"></TableHead>
                           <TableHead>Name</TableHead>
                           <TableHead>Category</TableHead>
                           <TableHead className="text-right">Quantity</TableHead>
@@ -343,6 +582,19 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
                       <TableBody>
                         {sectionMaterials.map((material) => (
                           <TableRow key={material.id}>
+                            <TableCell>
+                              {material.photo_url ? (
+                                <img 
+                                  src={material.photo_url} 
+                                  alt={material.name}
+                                  className="h-8 w-8 rounded object-cover"
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-muted flex items-center justify-center">
+                                  <Image className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                            </TableCell>
                             <TableCell className="font-medium">{material.name}</TableCell>
                             <TableCell>{material.category}</TableCell>
                             <TableCell className="text-right">
@@ -379,6 +631,14 @@ const StorageMaterialsTab = ({ userId }: StorageMaterialsTabProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Camera Capture Dialog */}
+      {showCamera && (
+        <CameraCapture
+          onCapture={handleCameraCapture}
+          onClose={() => setShowCamera(false)}
+        />
+      )}
     </div>
   );
 };
