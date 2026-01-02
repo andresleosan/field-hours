@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight, Trash2, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight, Trash2, CheckSquare, Square, Building2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { EditJobDialog } from "@/components/jobs/EditJobDialog";
@@ -41,6 +42,43 @@ export default function ProjectDetails() {
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Loading animation state
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStage, setLoadingStage] = useState("Initializing...");
+
+  // Loading animation effect
+  useEffect(() => {
+    if (isLoading) {
+      setLoadingProgress(0);
+      setLoadingStage("Initializing...");
+      
+      const stages = [
+        { progress: 15, stage: "Connecting to database...", delay: 200 },
+        { progress: 30, stage: "Loading project details...", delay: 400 },
+        { progress: 50, stage: "Fetching jobs...", delay: 600 },
+        { progress: 70, stage: "Loading time tracking...", delay: 800 },
+        { progress: 85, stage: "Preparing workspace...", delay: 1000 },
+        { progress: 95, stage: "Almost ready...", delay: 1200 },
+      ];
+      
+      const timers: NodeJS.Timeout[] = [];
+      
+      stages.forEach(({ progress, stage, delay }) => {
+        const timer = setTimeout(() => {
+          setLoadingProgress(progress);
+          setLoadingStage(stage);
+        }, delay);
+        timers.push(timer);
+      });
+      
+      return () => timers.forEach(clearTimeout);
+    } else {
+      // Complete the animation when loading finishes
+      setLoadingProgress(100);
+      setLoadingStage("Complete!");
+    }
+  }, [isLoading]);
 
   // Group jobs by section
   const groupedJobs = useMemo(() => {
@@ -578,8 +616,64 @@ export default function ProjectDetails() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="w-full max-w-md px-8 space-y-8">
+          {/* Animated Icon */}
+          <div className="flex justify-center">
+            <div className="relative">
+              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
+              <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse" />
+              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20">
+                <Building2 className="h-10 w-10 text-primary animate-pulse" />
+              </div>
+            </div>
+          </div>
+          
+          {/* Title */}
+          <div className="text-center space-y-2">
+            <h2 className="text-xl font-semibold text-foreground">Loading Project</h2>
+            <p className="text-sm text-muted-foreground">{loadingStage}</p>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="space-y-3">
+            <div className="relative">
+              <Progress 
+                value={loadingProgress} 
+                className="h-2 bg-muted"
+              />
+              <div 
+                className="absolute top-0 left-0 h-2 bg-gradient-to-r from-primary/50 via-primary to-primary/50 rounded-full opacity-50 blur-sm transition-all duration-500"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <div className="flex justify-between items-center px-1">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs text-muted-foreground">Processing...</span>
+              </div>
+              <span className="text-sm font-semibold text-primary tabular-nums">{loadingProgress}%</span>
+            </div>
+          </div>
+          
+          {/* Loading Steps Indicator */}
+          <div className="flex justify-center gap-1.5 pt-4">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div 
+                key={i}
+                className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                  loadingProgress >= (i + 1) * 20 
+                    ? 'bg-primary scale-100' 
+                    : 'bg-muted scale-75'
+                }`}
+                style={{ 
+                  animationDelay: `${i * 100}ms`,
+                  transform: loadingProgress >= (i + 1) * 20 ? 'scale(1)' : 'scale(0.75)'
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
