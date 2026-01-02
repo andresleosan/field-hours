@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Clock, DollarSign, Edit, Loader2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import { Building2, Clock, DollarSign, Edit } from "lucide-react";
 import EditProjectDialog from "./EditProjectDialog";
 import {
   AlertDialog,
@@ -43,6 +44,8 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [navigatingToProject, setNavigatingToProject] = useState<string | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStage, setLoadingStage] = useState("");
   const [projectToFinish, setProjectToFinish] = useState<Project | null>(null);
   const [isFinishDialogOpen, setIsFinishDialogOpen] = useState(false);
 
@@ -196,15 +199,73 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
               onClick={() => {
                 if (!navigatingToProject) {
                   setNavigatingToProject(project.id);
-                  navigate(`/project/${project.id}`);
+                  setLoadingProgress(0);
+                  setLoadingStage("Initializing...");
+                  
+                  // Simulate loading stages with smooth progress
+                  const stages = [
+                    { progress: 15, text: "Connecting to project..." },
+                    { progress: 35, text: "Loading jobs data..." },
+                    { progress: 55, text: "Fetching time records..." },
+                    { progress: 75, text: "Loading materials..." },
+                    { progress: 90, text: "Preparing dashboard..." },
+                    { progress: 100, text: "Almost ready..." },
+                  ];
+                  
+                  let stageIndex = 0;
+                  const interval = setInterval(() => {
+                    if (stageIndex < stages.length) {
+                      setLoadingProgress(stages[stageIndex].progress);
+                      setLoadingStage(stages[stageIndex].text);
+                      stageIndex++;
+                    } else {
+                      clearInterval(interval);
+                    }
+                  }, 250);
+                  
+                  // Navigate after animation completes
+                  setTimeout(() => {
+                    clearInterval(interval);
+                    setLoadingProgress(100);
+                    setLoadingStage("Ready!");
+                    setTimeout(() => {
+                      navigate(`/project/${project.id}`);
+                    }, 200);
+                  }, 1600);
                 }
               }}
             >
               {navigatingToProject === project.id && (
-                <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-lg z-10">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span className="text-sm font-medium">Loading project...</span>
+                <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg z-10 p-6">
+                  <div className="w-full max-w-xs space-y-4">
+                    {/* Animated building icon */}
+                    <div className="flex justify-center mb-2">
+                      <div className="relative">
+                        <Building2 className="h-8 w-8 text-primary animate-pulse" />
+                        <div className="absolute inset-0 h-8 w-8 bg-primary/20 rounded-full animate-ping" />
+                      </div>
+                    </div>
+                    
+                    {/* Progress bar */}
+                    <div className="space-y-2">
+                      <Progress 
+                        value={loadingProgress} 
+                        className="h-2 bg-muted"
+                      />
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground font-medium transition-all duration-300">
+                          {loadingStage}
+                        </span>
+                        <span className="text-xs font-semibold text-primary">
+                          {loadingProgress}%
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {/* Project name being loaded */}
+                    <p className="text-sm font-medium text-center text-foreground mt-2">
+                      Opening <span className="text-primary">{project.name}</span>
+                    </p>
                   </div>
                 </div>
               )}
