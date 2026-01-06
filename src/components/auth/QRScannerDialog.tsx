@@ -16,80 +16,152 @@ export const QRScannerDialog = ({ open, onClose, onScan }: QRScannerDialogProps)
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const hasStartedRef = useRef(false);
 
-  const handleClose = useCallback(() => {
-    if (scannerRef.current && hasStartedRef.current) {
-      scannerRef.current.stop().catch(() => {});
-      hasStartedRef.current = false;
+  const stopScanner = useCallback(async () => {
+    const scanner = scannerRef.current;
+    if (!scanner || !hasStartedRef.current) return;
+
+    try {
+      await scanner.stop();
+    } catch {
+      // ignore
     }
+
+    try {
+      scanner.clear();
+    } catch {
+      // ignore
+    }
+
+    hasStartedRef.current = false;
+  }, []);
+
+  const handleClose = useCallback(() => {
+    void stopScanner();
     setError(null);
     setIsStarting(true);
     onClose();
-  }, [onClose]);
+  }, [onClose, stopScanner]);
 
-  const handleScan = useCallback((decodedText: string) => {
-    // Extract code from URL if it's a full URL
-    let code = decodedText;
-    try {
-      if (decodedText.includes("code=")) {
-        const url = new URL(decodedText);
-        code = url.searchParams.get("code") || decodedText;
+  const handleScan = useCallback(
+    (decodedText: string) => {
+      // Extract code from URL if it's a full URL
+      let code = decodedText;
+      try {
+        if (decodedText.includes("code=")) {
+          const url = new URL(decodedText);
+          code = url.searchParams.get("code") || decodedText;
+        }
+      } catch {
+        // Not a URL, use as-is
       }
-    } catch {
-      // Not a URL, use as-is
-    }
-    onScan(code);
-    handleClose();
-  }, [onScan, handleClose]);
+      onScan(code);
+      handleClose();
+    },
+    [onScan, handleClose]
+  );
 
   useEffect(() => {
     if (!open) return;
+
+    let cancelled = false;
 
     // Small delay to ensure DOM is ready
     const initTimer = setTimeout(() => {
       const containerId = "qr-reader";
       const container = document.getElementById(containerId);
-      
+
       if (!container) {
-        setError("Scanner container not found");
-        setIsStarting(false);
+        if (!cancelled) {
+          setError("Scanner container not found");
+          setIsStarting(false);
+        }
         return;
       }
 
       // Clear any existing content
       container.innerHTML = "";
-      
+
       const scanner = new Html5Qrcode(containerId);
       scannerRef.current = scanner;
 
-      scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1.0,
-        },
-        handleScan,
-        () => {
+      const scanConfig = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+      };
+
+      const attemptStart = async (cameraIdOrConfig: string | MediaTrackConstraints) => {
+        await scanner.start(cameraIdOrConfig, scanConfig, handleScan, () => {
           // Ignore scan errors (no QR found yet)
+        });
+      };
+
+      (async () => {
+        try {
+          if (!cancelled) {
+            setError(null);
+            setIsStarting(true);
+          }
+
+          let lastErr: unknown;
+
+          const tryAttempt = async (cameraIdOrConfig: string | MediaTrackConstraints) => {
+            try {
+              await attemptStart(cameraIdOrConfig);
+              return true;
+            } catch (e) {
+              lastErr = e;
+              return false;
+            }
+          };
+
+          const cameras = await Html5Qrcode.getCameras().catch(() => []);
+          const preferred =
+            cameras.find((c) => /back|rear|environment/i.test(c.label)) ??
+            (cameras.length ? cameras[cameras.length - 1] : undefined);
+
+          const started =
+            (preferred?.id ? await tryAttempt(preferred.id) : false) ||
+            (await tryAttempt({ facingMode: { ideal: "environment" } })) ||
+            (await tryAttempt({ facingMode: { ideal: "user" } }));
+
+          if (!started) {
+            throw lastErr ?? new Error("Failed to start camera");
+          }
+
+          hasStartedRef.current = true;
+          if (!cancelled) setIsStarting(false);
+        } catch (err) {
+          console.error("QR Scanner error:", err);
+          const name =
+            typeof err === "object" && err && "name" in err
+              ? String((err as any).name)
+              : "";
+
+          if (!cancelled) {
+            if (name === "NotFoundError") {
+              setError(
+                "No camera was found. If you're on a desktop preview, try on a phone (or connect a camera) and close any other app using the camera."
+              );
+            } else if (name === "NotAllowedError" || name === "SecurityError") {
+              setError(
+                "Camera permission is blocked. Please allow camera access in your browser settings and try again."
+              );
+            } else {
+              setError("Unable to access camera. Please check permissions and try again.");
+            }
+            setIsStarting(false);
+          }
         }
-      ).then(() => {
-        hasStartedRef.current = true;
-        setIsStarting(false);
-      }).catch((err) => {
-        console.error("QR Scanner error:", err);
-        setError("Unable to access camera. Please check permissions and try again.");
-        setIsStarting(false);
-      });
+      })();
     }, 300);
 
     return () => {
+      cancelled = true;
       clearTimeout(initTimer);
-      if (scannerRef.current && hasStartedRef.current) {
-        scannerRef.current.stop().catch(() => {});
-        hasStartedRef.current = false;
-      }
+      void stopScanner();
     };
-  }, [open, handleScan]);
+  }, [open, handleScan, stopScanner]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
