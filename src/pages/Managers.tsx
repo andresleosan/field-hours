@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2, Truck } from "lucide-react";
+import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2, Truck, QrCode } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -305,6 +305,17 @@ const Managers = () => {
             <CardContent>
               <div className="text-2xl font-bold text-primary">Manage</div>
               <p className="text-xs text-muted-foreground">materials & tools</p>
+            </CardContent>
+          </Card>
+
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-green-500/10 border-green-500/30" onClick={() => navigate("/invite")}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Invite Team</CardTitle>
+              <QrCode className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">QR Code</div>
+              <p className="text-xs text-muted-foreground">invite builders</p>
             </CardContent>
           </Card>
         </div>
