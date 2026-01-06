@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, HardHat } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Loader2, HardHat, QrCode, AlertTriangle } from "lucide-react";
 import { z } from "zod";
+import { Badge } from "@/components/ui/badge";
 
 // Validation schemas
 const signInSchema = z.object({
@@ -27,23 +27,29 @@ const signUpSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number"),
   fullName: z.string().trim().min(1, "Full name is required").max(100, "Name is too long"),
   phone: z.string().trim().regex(/^(\+?[0-9\s\-()]+)?$/, "Please enter a valid phone number").max(20, "Phone number is too long").optional().or(z.literal("")),
-  invitationCode: z.string().trim().min(1, "Invitation code is required"),
 });
 
-// Invitation codes (validated on client for simplicity - consider edge function for production)
-const INVITATION_CODES = {
-  builder: "I will be responsible using the app",
-  manager: "dublin getto all the way up",
-};
+interface InvitationData {
+  valid: boolean;
+  role: "builder" | "manager";
+  invitation_id: string;
+  error_message: string | null;
+}
 
 const Auth = () => {
+  const [searchParams] = useSearchParams();
+  const invitationCodeFromUrl = searchParams.get("code");
+  
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidatingCode, setIsValidatingCode] = useState(!!invitationCodeFromUrl);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<"manager" | "builder">("builder");
-  const [invitationCode, setInvitationCode] = useState("");
+  const [invitationCode, setInvitationCode] = useState(invitationCodeFromUrl || "");
+  const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState(invitationCodeFromUrl ? "signup" : "signin");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -57,11 +63,62 @@ const Auth = () => {
     checkUser();
   }, [navigate]);
 
+  // Validate invitation code from URL
+  useEffect(() => {
+    if (invitationCodeFromUrl) {
+      validateInvitationCode(invitationCodeFromUrl);
+    }
+  }, [invitationCodeFromUrl]);
+
+  const validateInvitationCode = async (code: string) => {
+    if (!code.trim()) {
+      setInvitationData(null);
+      setCodeError(null);
+      return;
+    }
+
+    setIsValidatingCode(true);
+    setCodeError(null);
+    
+    try {
+      const { data, error } = await supabase.rpc("validate_invitation_code", {
+        invitation_code: code.trim().toUpperCase(),
+      });
+
+      if (error) throw error;
+
+      const result = data?.[0] as InvitationData | undefined;
+      
+      if (result?.valid) {
+        setInvitationData(result);
+        setCodeError(null);
+      } else {
+        setInvitationData(null);
+        setCodeError(result?.error_message || "Invalid invitation code");
+      }
+    } catch (error: any) {
+      setInvitationData(null);
+      setCodeError("Failed to validate invitation code");
+    } finally {
+      setIsValidatingCode(false);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Must have valid invitation
+    if (!invitationData?.valid) {
+      toast({
+        title: "Invalid Invitation",
+        description: "You need a valid QR code invitation to sign up. Please contact a manager.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate input with Zod
-    const validationResult = signUpSchema.safeParse({ email, password, fullName, phone, invitationCode });
+    const validationResult = signUpSchema.safeParse({ email, password, fullName, phone });
     if (!validationResult.success) {
       const firstError = validationResult.error.errors[0];
       toast({
@@ -73,34 +130,6 @@ const Auth = () => {
     }
 
     const validatedData = validationResult.data;
-
-    // Validate invitation code based on role
-    const expectedCode = INVITATION_CODES[role];
-    if (validatedData.invitationCode !== expectedCode) {
-      toast({
-        title: "Invalid Invitation Code",
-        description: "The invitation code you entered is incorrect. Please contact your administrator for the correct code.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Additional validation for manager role (email-based invitation)
-    if (role === "manager") {
-      const { data: isValid, error: validationError } = await supabase.rpc(
-        "validate_invitation",
-        { user_email: validatedData.email, user_role: role }
-      );
-
-      if (validationError || !isValid) {
-        toast({
-          title: "Invalid or Expired Invitation",
-          description: "Manager signup requires a valid email invitation. Please contact an existing manager to receive one.",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
 
     setIsLoading(true);
     try {
@@ -122,13 +151,19 @@ const Auth = () => {
         // Add role to user_roles table
         const { error: roleError } = await supabase
           .from("user_roles")
-          .insert({ user_id: authData.user.id, role });
+          .insert({ user_id: authData.user.id, role: invitationData.role });
 
         if (roleError) throw roleError;
 
+        // Mark invitation as used
+        await supabase.rpc("use_invitation", {
+          invitation_id: invitationData.invitation_id,
+          user_id: authData.user.id,
+        });
+
         toast({
           title: "Account created!",
-          description: "Welcome to BuildTrack Pro",
+          description: `Welcome to BuildTrack Pro as a ${invitationData.role}`,
         });
         navigate("/dashboard");
       }
@@ -200,7 +235,7 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -242,98 +277,134 @@ const Auth = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
+                {/* Invitation Code Input */}
                 <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name *</Label>
-                  <Input
-                    id="signup-name"
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    maxLength={100}
-                  />
+                  <Label htmlFor="signup-invitation-code" className="flex items-center gap-2">
+                    <QrCode className="h-4 w-4" />
+                    Invitation Code *
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="signup-invitation-code"
+                      type="text"
+                      placeholder="Enter code from QR scan"
+                      value={invitationCode}
+                      onChange={(e) => {
+                        setInvitationCode(e.target.value.toUpperCase());
+                        if (e.target.value.length >= 12) {
+                          validateInvitationCode(e.target.value);
+                        } else {
+                          setInvitationData(null);
+                          setCodeError(null);
+                        }
+                      }}
+                      onBlur={() => validateInvitationCode(invitationCode)}
+                      disabled={isLoading}
+                      required
+                      maxLength={12}
+                      className="font-mono tracking-wider uppercase"
+                    />
+                    {isValidatingCode && (
+                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                    )}
+                  </div>
+                  
+                  {/* Validation Status */}
+                  {invitationData?.valid && (
+                    <div className="flex items-center gap-2 text-sm text-green-600">
+                      <Badge variant="outline" className="border-green-500 text-green-600">
+                        ✓ Valid invitation for {invitationData.role}
+                      </Badge>
+                    </div>
+                  )}
+                  {codeError && (
+                    <div className="flex items-center gap-2 text-sm text-destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      {codeError}
+                    </div>
+                  )}
+                  {!invitationData && !codeError && !isValidatingCode && (
+                    <p className="text-xs text-muted-foreground">
+                      Scan the QR code from a manager to get your invitation code
+                    </p>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email *</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="you@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    maxLength={255}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-phone">Phone</Label>
-                  <Input
-                    id="signup-phone"
-                    type="tel"
-                    placeholder="+1 (555) 000-0000"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    disabled={isLoading}
-                    maxLength={20}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password *</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    maxLength={72}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Min 8 characters with uppercase, lowercase, and number
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-role">Role *</Label>
-                  <Select value={role} onValueChange={(value: "manager" | "builder") => setRole(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="builder">Builder</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-invitation-code">Invitation Code *</Label>
-                  <Input
-                    id="signup-invitation-code"
-                    type="password"
-                    placeholder="Enter your invitation code"
-                    value={invitationCode}
-                    onChange={(e) => setInvitationCode(e.target.value)}
-                    disabled={isLoading}
-                    required
-                    maxLength={100}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Contact your administrator to receive an invitation code
-                  </p>
-                </div>
-                {role === "manager" && (
-                  <div className="rounded-md border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-3">
+
+                {/* Only show rest of form if invitation is valid */}
+                {invitationData?.valid && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name">Full Name *</Label>
+                      <Input
+                        id="signup-name"
+                        type="text"
+                        placeholder="John Doe"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        disabled={isLoading}
+                        required
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email">Email *</Label>
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="you@company.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        disabled={isLoading}
+                        required
+                        maxLength={255}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-phone">Phone</Label>
+                      <Input
+                        id="signup-phone"
+                        type="tel"
+                        placeholder="+1 (555) 000-0000"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        disabled={isLoading}
+                        maxLength={20}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password">Password *</Label>
+                      <Input
+                        id="signup-password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        disabled={isLoading}
+                        required
+                        maxLength={72}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Min 8 characters with uppercase, lowercase, and number
+                      </p>
+                    </div>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Create Account as {invitationData.role.charAt(0).toUpperCase() + invitationData.role.slice(1)}
+                    </Button>
+                  </>
+                )}
+
+                {/* No invitation message */}
+                {!invitationData?.valid && !isValidatingCode && (
+                  <div className="rounded-lg border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-4 text-center">
+                    <QrCode className="h-8 w-8 mx-auto mb-2 text-amber-600" />
                     <p className="text-sm text-amber-900 dark:text-amber-100">
-                      <strong>Note:</strong> Manager signup also requires a valid email invitation from an existing manager.
+                      <strong>QR Code Required</strong>
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">
+                      Ask a manager to generate an invitation QR code for you to sign up.
                     </p>
                   </div>
                 )}
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create Account
-                </Button>
               </form>
             </TabsContent>
           </Tabs>

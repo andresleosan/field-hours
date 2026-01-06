@@ -70,6 +70,42 @@ export type Database = {
         }
         Relationships: []
       }
+      invitations: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          is_used: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at: string
+          id?: string
+          is_used?: boolean
+          role: Database["public"]["Enums"]["app_role"]
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          is_used?: boolean
+          role?: Database["public"]["Enums"]["app_role"]
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       invoice_extraction_training: {
         Row: {
           created_at: string
@@ -1224,12 +1260,25 @@ export type Database = {
         Args: { _completion_id: string; _user_id: string }
         Returns: boolean
       }
+      use_invitation: {
+        Args: { invitation_id: string; user_id: string }
+        Returns: boolean
+      }
       validate_invitation: {
         Args: {
           user_email: string
           user_role: Database["public"]["Enums"]["app_role"]
         }
         Returns: boolean
+      }
+      validate_invitation_code: {
+        Args: { invitation_code: string }
+        Returns: {
+          error_message: string
+          invitation_id: string
+          role: Database["public"]["Enums"]["app_role"]
+          valid: boolean
+        }[]
       }
     }
     Enums: {
