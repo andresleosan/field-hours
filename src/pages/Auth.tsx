@@ -7,9 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, HardHat, QrCode, AlertTriangle } from "lucide-react";
+import { Loader2, HardHat, QrCode, AlertTriangle, Camera } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
+import { QRScannerDialog } from "@/components/auth/QRScannerDialog";
 
 // Validation schemas
 const signInSchema = z.object({
@@ -50,6 +51,7 @@ const Auth = () => {
   const [invitationData, setInvitationData] = useState<InvitationData | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(invitationCodeFromUrl ? "signup" : "signin");
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -393,18 +395,37 @@ const Auth = () => {
                   </>
                 )}
 
-                {/* No invitation message */}
+                {/* QR Scanner Button */}
                 {!invitationData?.valid && !isValidatingCode && (
-                  <div className="rounded-lg border border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-4 text-center">
-                    <QrCode className="h-8 w-8 mx-auto mb-2 text-amber-600" />
-                    <p className="text-sm text-amber-900 dark:text-amber-100">
-                      <strong>QR Code Required</strong>
-                    </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-200 mt-1">
-                      Ask a manager to generate an invitation QR code for you to sign up.
-                    </p>
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowQRScanner(true)}
+                    className="w-full h-auto py-6 flex flex-col items-center gap-3 border-2 border-dashed border-primary/50 hover:border-primary hover:bg-primary/5 transition-all"
+                  >
+                    <div className="rounded-full bg-primary/10 p-3">
+                      <Camera className="h-8 w-8 text-primary" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-base font-semibold text-foreground">
+                        Touch here to scan the QR code
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ask a manager for an invitation QR code
+                      </p>
+                    </div>
+                  </Button>
                 )}
+
+                {/* QR Scanner Dialog */}
+                <QRScannerDialog
+                  open={showQRScanner}
+                  onClose={() => setShowQRScanner(false)}
+                  onScan={(code) => {
+                    setInvitationCode(code.toUpperCase());
+                    validateInvitationCode(code);
+                  }}
+                />
               </form>
             </TabsContent>
           </Tabs>
