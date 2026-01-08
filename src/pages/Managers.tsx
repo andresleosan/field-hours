@@ -17,7 +17,6 @@ import ManagerRiskAssessmentDialog from "@/components/dashboard/ManagerRiskAsses
 import ManagerRubbishDialog from "@/components/dashboard/ManagerRubbishDialog";
 import ManagerMaterialDeliveryDialog from "@/components/dashboard/ManagerMaterialDeliveryDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
-
 interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
@@ -126,28 +125,24 @@ const Managers = () => {
         count: "exact",
         head: true
       });
-
       const {
         count: totalRiskAssessments
       } = await supabase.from("risk_assessments").select("*", {
         count: "exact",
         head: true
       });
-
       const {
         count: pendingRubbishRequests
       } = await supabase.from("rubbish_collection_requests").select("*", {
         count: "exact",
         head: true
       }).eq("status", "pending");
-
       const {
         count: pendingMaterialDeliveries
       } = await supabase.from("material_delivery_requests").select("*", {
         count: "exact",
         head: true
       }).eq("status", "pending");
-
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
@@ -211,7 +206,7 @@ const Managers = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-2xl font-medium">Active Projects</CardTitle>
+              <CardTitle className="font-medium text-xl">Active Projects</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -393,23 +388,11 @@ const Managers = () => {
       
       <InvoicesDetailDialog open={isInvoicesOpen} onOpenChange={setIsInvoicesOpen} />
 
-      {userId && (
-        <ManagerRiskAssessmentDialog 
-          open={isRiskAssessmentsOpen} 
-          onOpenChange={setIsRiskAssessmentsOpen} 
-          userId={userId} 
-        />
-      )}
+      {userId && <ManagerRiskAssessmentDialog open={isRiskAssessmentsOpen} onOpenChange={setIsRiskAssessmentsOpen} userId={userId} />}
 
-      <ManagerRubbishDialog
-        open={isRubbishRequestsOpen}
-        onOpenChange={setIsRubbishRequestsOpen}
-      />
+      <ManagerRubbishDialog open={isRubbishRequestsOpen} onOpenChange={setIsRubbishRequestsOpen} />
 
-      <ManagerMaterialDeliveryDialog
-        open={isMaterialDeliveryOpen}
-        onOpenChange={setIsMaterialDeliveryOpen}
-      />
+      <ManagerMaterialDeliveryDialog open={isMaterialDeliveryOpen} onOpenChange={setIsMaterialDeliveryOpen} />
     </div>;
 };
 export default Managers;
