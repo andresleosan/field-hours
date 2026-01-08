@@ -211,7 +211,7 @@ const Managers = () => {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <Card className="cursor-pointer hover:shadow-lg transition-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <CardTitle className="text-2xl font-medium">Active Projects</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -222,7 +222,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsTimeTrackingOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Builder Total Hours</CardTitle>
+              <CardTitle className="text-2xl font-medium">Builder Total Hours</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -233,7 +233,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsInvoicesOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Note Collections</CardTitle>
+              <CardTitle className="text-2xl font-medium">Note Collections</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -244,7 +244,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialsOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Materials</CardTitle>
+              <CardTitle className="text-2xl font-medium">Materials</CardTitle>
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -255,7 +255,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRiskAssessmentsOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Risk Assessments</CardTitle>
+              <CardTitle className="text-2xl font-medium">Risk Assessments</CardTitle>
               <ShieldCheck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -266,7 +266,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRubbishRequestsOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rubbish Requests</CardTitle>
+              <CardTitle className="text-2xl font-medium">Rubbish Requests</CardTitle>
               <Trash2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -277,7 +277,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialDeliveryOpen(true)}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Material Requests</CardTitle>
+              <CardTitle className="text-2xl font-medium">Material Requests</CardTitle>
               <Truck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -288,7 +288,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/statements")}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Statements</CardTitle>
+              <CardTitle className="text-2xl font-medium">Statements</CardTitle>
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -299,7 +299,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-primary/5 border-primary/20" onClick={() => navigate("/storage")}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Storage</CardTitle>
+              <CardTitle className="text-2xl font-medium">Storage</CardTitle>
               <Package className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -310,7 +310,7 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-green-500/10 border-green-500/30" onClick={() => navigate("/invite")}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Invite Team</CardTitle>
+              <CardTitle className="text-2xl font-medium">Invite Team</CardTitle>
               <QrCode className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
