@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat, ShieldCheck, Trash2, Truck } from "lucide-react";
+import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TimeTrackingCard from "@/components/dashboard/TimeTrackingCard";
 import EnhancedMaterialDialog from "@/components/dashboard/EnhancedMaterialDialog";
@@ -14,6 +14,7 @@ import ChangeProjectDialog from "@/components/dashboard/ChangeProjectDialog";
 import RiskAssessmentDialog from "@/components/dashboard/RiskAssessmentDialog";
 import RubbishCollectionDialog from "@/components/dashboard/RubbishCollectionDialog";
 import MaterialDeliveryDialog from "@/components/dashboard/MaterialDeliveryDialog";
+import ToolRequestDialog from "@/components/builders/ToolRequestDialog";
 import JobsToDoList from "@/components/jobs/JobsToDoList";
 import SelectJobDialog from "@/components/jobs/SelectJobDialog";
 interface Project {
@@ -38,6 +39,7 @@ const Builders = () => {
   const [isRiskAssessmentDialogOpen, setIsRiskAssessmentDialogOpen] = useState(false);
   const [isRubbishDialogOpen, setIsRubbishDialogOpen] = useState(false);
   const [isMaterialDeliveryDialogOpen, setIsMaterialDeliveryDialogOpen] = useState(false);
+  const [isToolRequestDialogOpen, setIsToolRequestDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -467,6 +469,16 @@ const Builders = () => {
               <CardDescription>Ask for materials to be delivered</CardDescription>
             </CardHeader>
           </Card>
+
+          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsToolRequestDialogOpen(true)}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-teal-500" />
+                Request Tools
+              </CardTitle>
+              <CardDescription>Request tools from the yard</CardDescription>
+            </CardHeader>
+          </Card>
         </div>
       </main>
 
@@ -523,6 +535,14 @@ const Builders = () => {
             onOpenChange={setIsMaterialDeliveryDialogOpen}
             projectId={selectedProjectId}
             userId={userId}
+          />
+
+          <ToolRequestDialog
+            open={isToolRequestDialogOpen}
+            onOpenChange={setIsToolRequestDialogOpen}
+            projectId={selectedProjectId}
+            userId={userId}
+            projectName={selectedProject?.name}
           />
         </>
       )}

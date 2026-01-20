@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Package, Wrench, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Package, Wrench, Loader2, Plus, ClipboardList } from "lucide-react";
 import StorageMaterialsTab from "@/components/storage/StorageMaterialsTab";
 import StorageToolsTab from "@/components/storage/StorageToolsTab";
 import ToolCheckoutsTab from "@/components/storage/ToolCheckoutsTab";
+import ToolRequestsManagement from "@/components/storage/ToolRequestsManagement";
 
 const Storage = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -77,7 +78,7 @@ const Storage = () => {
 
       <main className="container mx-auto px-4 py-6">
         <Tabs defaultValue="materials" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3 max-w-md">
+          <TabsList className="grid w-full grid-cols-4 max-w-xl">
             <TabsTrigger value="materials" className="flex items-center gap-2">
               <Package className="h-4 w-4" />
               Materials
@@ -85,6 +86,10 @@ const Storage = () => {
             <TabsTrigger value="tools" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
               Tools
+            </TabsTrigger>
+            <TabsTrigger value="requests" className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Requests
             </TabsTrigger>
             <TabsTrigger value="checkouts" className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
@@ -98,6 +103,10 @@ const Storage = () => {
 
           <TabsContent value="tools">
             {userId && <StorageToolsTab userId={userId} />}
+          </TabsContent>
+
+          <TabsContent value="requests">
+            <ToolRequestsManagement />
           </TabsContent>
 
           <TabsContent value="checkouts">
