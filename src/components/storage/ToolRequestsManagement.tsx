@@ -181,15 +181,23 @@ const ToolRequestsManagement = () => {
   };
 
   const handleBackToYard = async (requestId: string, toolId: string) => {
-    // Update request status to returned
+    if (!currentUserId) {
+      toast({ title: "Error", description: "User not authenticated", variant: "destructive" });
+      return;
+    }
+
+    // Update request status to returned with who returned it
     const { error: requestError } = await supabase
       .from("tool_requests")
       .update({
-        status: "returned"
-      })
+        status: "returned",
+        returned_by: currentUserId,
+        returned_at: new Date().toISOString()
+      } as any)
       .eq("id", requestId);
 
     if (requestError) {
+      console.error("Request update error:", requestError);
       toast({ title: "Error", description: "Failed to update request", variant: "destructive" });
       return;
     }
@@ -201,7 +209,8 @@ const ToolRequestsManagement = () => {
       .eq("id", toolId);
 
     if (toolError) {
-      console.error("Error updating tool status:", toolError);
+      console.error("Tool update error:", toolError);
+      toast({ title: "Error", description: "Failed to update tool status", variant: "destructive" });
       return;
     }
 
