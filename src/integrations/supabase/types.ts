@@ -1242,6 +1242,8 @@ export type Database = {
           rejection_reason: string | null
           requested_at: string
           requested_by: string
+          returned_at: string | null
+          returned_by: string | null
           status: string
           tool_id: string
           updated_at: string
@@ -1260,6 +1262,8 @@ export type Database = {
           rejection_reason?: string | null
           requested_at?: string
           requested_by: string
+          returned_at?: string | null
+          returned_by?: string | null
           status?: string
           tool_id: string
           updated_at?: string
@@ -1278,6 +1282,8 @@ export type Database = {
           rejection_reason?: string | null
           requested_at?: string
           requested_by?: string
+          returned_at?: string | null
+          returned_by?: string | null
           status?: string
           tool_id?: string
           updated_at?: string
