@@ -1227,6 +1227,78 @@ export type Database = {
           },
         ]
       }
+      tool_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          delivered_at: string | null
+          delivered_by: string | null
+          id: string
+          notes: string | null
+          picked_up_at: string | null
+          picked_up_by: string | null
+          project_id: string
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string
+          status: string
+          tool_id: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
+          id?: string
+          notes?: string | null
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          project_id: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by: string
+          status?: string
+          tool_id: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          delivered_by?: string | null
+          id?: string
+          notes?: string | null
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          project_id?: string
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string
+          status?: string
+          tool_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tool_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tool_requests_tool_id_fkey"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "storage_tools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
