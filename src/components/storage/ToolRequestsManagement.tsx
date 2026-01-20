@@ -181,7 +181,7 @@ const ToolRequestsManagement = () => {
   };
 
   const handleBackToYard = async (requestId: string, toolId: string) => {
-    // Update request status to completed
+    // Update request status to returned
     const { error: requestError } = await supabase
       .from("tool_requests")
       .update({
@@ -202,9 +202,13 @@ const ToolRequestsManagement = () => {
 
     if (toolError) {
       console.error("Error updating tool status:", toolError);
+      return;
     }
 
     toast({ title: "Success", description: "Tool returned to yard and marked as available" });
+    
+    // Refresh the list to remove the item from view
+    fetchRequests();
   };
 
   const getStatusBadge = (status: string) => {
