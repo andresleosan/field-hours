@@ -26,6 +26,7 @@ interface DashboardStats {
   totalRiskAssessments: number;
   pendingRubbishRequests: number;
   pendingMaterialDeliveries: number;
+  pendingToolRequests: number;
 }
 const Managers = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -41,7 +42,8 @@ const Managers = () => {
     totalMaterials: 0,
     totalRiskAssessments: 0,
     pendingRubbishRequests: 0,
-    pendingMaterialDeliveries: 0
+    pendingMaterialDeliveries: 0,
+    pendingToolRequests: 0
   });
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [isMaterialsOpen, setIsMaterialsOpen] = useState(false);
@@ -143,6 +145,12 @@ const Managers = () => {
         count: "exact",
         head: true
       }).eq("status", "pending");
+      const {
+        count: pendingToolRequests
+      } = await supabase.from("tool_requests").select("*", {
+        count: "exact",
+        head: true
+      }).eq("status", "pending");
       setStats({
         totalProjects: totalProjects || 0,
         activeProjects: activeProjects || 0,
@@ -151,7 +159,8 @@ const Managers = () => {
         totalMaterials: totalMaterials || 0,
         totalRiskAssessments: totalRiskAssessments || 0,
         pendingRubbishRequests: pendingRubbishRequests || 0,
-        pendingMaterialDeliveries: pendingMaterialDeliveries || 0
+        pendingMaterialDeliveries: pendingMaterialDeliveries || 0,
+        pendingToolRequests: pendingToolRequests || 0
       });
     } catch (error: any) {
       console.error("Error fetching stats:", error);
@@ -294,12 +303,12 @@ const Managers = () => {
 
           <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-primary/5 border-primary/20" onClick={() => navigate("/storage")}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Storage</CardTitle>
+              <CardTitle className="text-xl font-medium">Requested Tools</CardTitle>
               <Package className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">Manage</div>
-              <p className="text-xs text-muted-foreground">materials & tools</p>
+              <div className="text-2xl font-bold text-primary">{stats.pendingToolRequests}</div>
+              <p className="text-xs text-muted-foreground">waiting to be picked up</p>
             </CardContent>
           </Card>
 
