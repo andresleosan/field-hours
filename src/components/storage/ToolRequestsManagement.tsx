@@ -46,7 +46,7 @@ interface ToolRequest {
 const ToolRequestsManagement = () => {
   const [requests, setRequests] = useState<ToolRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("pending");
+  const [filter, setFilter] = useState<string>("active");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState<string>("");
   const { toast } = useToast();
@@ -97,7 +97,9 @@ const ToolRequestsManagement = () => {
       `)
       .order("requested_at", { ascending: false });
 
-    if (filter !== "all") {
+    if (filter === "active") {
+      query = query.in("status", ["pending", "picked_up", "delivered"]);
+    } else if (filter !== "all") {
       query = query.eq("status", filter);
     }
 
@@ -275,6 +277,7 @@ const ToolRequestsManagement = () => {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="active">Active Requests</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
                 <SelectItem value="picked_up">Picked Up</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
