@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Clock, CheckCircle, Truck, Package, X, Wrench } from "lucide-react";
+import { Loader2, Clock, Truck, Package, RotateCcw, Wrench, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 
 interface ToolRequest {
@@ -36,6 +36,9 @@ interface ToolRequest {
     full_name: string;
   } | null;
   picker_profile?: {
+    full_name: string;
+  } | null;
+  deliverer_profile?: {
     full_name: string;
   } | null;
 }
@@ -104,42 +107,29 @@ const ToolRequestsManagement = () => {
       console.error("Error fetching requests:", error);
       toast({ title: "Error", description: "Failed to fetch requests", variant: "destructive" });
     } else {
-      // Fetch requester and picker profiles
+      // Fetch requester, picker, and deliverer profiles
       const requestsWithProfiles = await Promise.all(
         (data || []).map(async (request) => {
-          const [requesterResult, pickerResult] = await Promise.all([
+          const [requesterResult, pickerResult, delivererResult] = await Promise.all([
             supabase.from("profiles").select("full_name").eq("id", request.requested_by).single(),
             request.picked_up_by 
               ? supabase.from("profiles").select("full_name").eq("id", request.picked_up_by).single()
+              : Promise.resolve({ data: null }),
+            request.delivered_by 
+              ? supabase.from("profiles").select("full_name").eq("id", request.delivered_by).single()
               : Promise.resolve({ data: null })
           ]);
           return {
             ...request,
             requester_profile: requesterResult.data,
-            picker_profile: pickerResult.data
+            picker_profile: pickerResult.data,
+            deliverer_profile: delivererResult.data
           };
         })
       );
       setRequests(requestsWithProfiles);
     }
     setIsLoading(false);
-  };
-
-  const handleApprove = async (requestId: string) => {
-    const { error } = await supabase
-      .from("tool_requests")
-      .update({
-        status: "approved",
-        approved_by: currentUserId,
-        approved_at: new Date().toISOString()
-      })
-      .eq("id", requestId);
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to approve request", variant: "destructive" });
-    } else {
-      toast({ title: "Success", description: "Request approved" });
-    }
   };
 
   const handlePickUp = async (requestId: string, toolId: string) => {
@@ -184,41 +174,47 @@ const ToolRequestsManagement = () => {
     if (error) {
       toast({ title: "Error", description: "Failed to mark as delivered", variant: "destructive" });
     } else {
-      toast({ title: "Success", description: "Tool marked as delivered" });
+      toast({ title: "Success", description: `Tool delivered by ${currentUserName}` });
     }
   };
 
-  const handleReject = async (requestId: string) => {
-    const reason = prompt("Enter rejection reason:");
-    if (!reason) return;
-
-    const { error } = await supabase
+  const handleBackToYard = async (requestId: string, toolId: string) => {
+    // Update request status to completed
+    const { error: requestError } = await supabase
       .from("tool_requests")
       .update({
-        status: "rejected",
-        rejection_reason: reason
+        status: "returned"
       })
       .eq("id", requestId);
 
-    if (error) {
-      toast({ title: "Error", description: "Failed to reject request", variant: "destructive" });
-    } else {
-      toast({ title: "Request rejected", description: "The builder has been notified" });
+    if (requestError) {
+      toast({ title: "Error", description: "Failed to update request", variant: "destructive" });
+      return;
     }
+
+    // Update tool status back to available
+    const { error: toolError } = await supabase
+      .from("storage_tools")
+      .update({ status: "available" })
+      .eq("id", toolId);
+
+    if (toolError) {
+      console.error("Error updating tool status:", toolError);
+    }
+
+    toast({ title: "Success", description: "Tool returned to yard and marked as available" });
   };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
         return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
-      case "approved":
-        return <Badge className="bg-blue-500"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
       case "picked_up":
         return <Badge className="bg-orange-500"><Truck className="h-3 w-3 mr-1" />Picked Up</Badge>;
       case "delivered":
-        return <Badge className="bg-green-500"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
-      case "rejected":
-        return <Badge variant="destructive"><X className="h-3 w-3 mr-1" />Rejected</Badge>;
+        return <Badge className="bg-blue-500"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
+      case "returned":
+        return <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Returned</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -228,27 +224,23 @@ const ToolRequestsManagement = () => {
     switch (request.status) {
       case "pending":
         return (
-          <div className="flex gap-2">
-            <Button size="sm" onClick={() => handleApprove(request.id)}>
-              Approve
-            </Button>
-            <Button size="sm" variant="destructive" onClick={() => handleReject(request.id)}>
-              Reject
-            </Button>
-          </div>
-        );
-      case "approved":
-        return (
           <Button size="sm" onClick={() => handlePickUp(request.id, request.tool_id)}>
             <Truck className="h-4 w-4 mr-1" />
-            Pick Up
+            Picked Up
           </Button>
         );
       case "picked_up":
         return (
           <Button size="sm" onClick={() => handleDeliver(request.id)}>
             <Package className="h-4 w-4 mr-1" />
-            Mark Delivered
+            Delivered
+          </Button>
+        );
+      case "delivered":
+        return (
+          <Button size="sm" variant="outline" onClick={() => handleBackToYard(request.id, request.tool_id)}>
+            <RotateCcw className="h-4 w-4 mr-1" />
+            Back to Yard
           </Button>
         );
       default:
@@ -284,10 +276,9 @@ const ToolRequestsManagement = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="approved">Approved</SelectItem>
                 <SelectItem value="picked_up">Picked Up</SelectItem>
                 <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="returned">Returned</SelectItem>
                 <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
@@ -304,9 +295,9 @@ const ToolRequestsManagement = () => {
                     <TableHead>Tool</TableHead>
                     <TableHead>Requested By</TableHead>
                     <TableHead>Project</TableHead>
-                    <TableHead>Requested</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Picked Up By</TableHead>
+                    <TableHead>Delivered By</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -322,18 +313,42 @@ const ToolRequestsManagement = () => {
                           </p>
                         </div>
                       </TableCell>
-                      <TableCell>{request.requester_profile?.full_name || "Unknown"}</TableCell>
-                      <TableCell>{request.projects?.name}</TableCell>
                       <TableCell>
-                        {format(new Date(request.requested_at), "MMM d, h:mm a")}
+                        <div>
+                          <p>{request.requester_profile?.full_name || "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(request.requested_at), "MMM d, h:mm a")}
+                          </p>
+                        </div>
                       </TableCell>
+                      <TableCell>{request.projects?.name}</TableCell>
                       <TableCell>{getStatusBadge(request.status)}</TableCell>
                       <TableCell>
-                        {request.picker_profile?.full_name || "-"}
-                        {request.picked_up_at && (
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(request.picked_up_at), "MMM d, h:mm a")}
-                          </p>
+                        {request.picker_profile?.full_name ? (
+                          <div>
+                            <p>{request.picker_profile.full_name}</p>
+                            {request.picked_up_at && (
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(request.picked_up_at), "MMM d, h:mm a")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {request.deliverer_profile?.full_name ? (
+                          <div>
+                            <p>{request.deliverer_profile.full_name}</p>
+                            {request.delivered_at && (
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(request.delivered_at), "MMM d, h:mm a")}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
                         )}
                       </TableCell>
                       <TableCell className="text-right">
