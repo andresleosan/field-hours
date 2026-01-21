@@ -227,128 +227,130 @@ const EnhancedInvoiceDialog = ({ open, onOpenChange, projectId, userId }: Enhanc
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col p-0">
+        <DialogHeader className="px-4 pt-4 pb-2 flex-shrink-0">
           <DialogTitle>Add Invoice</DialogTitle>
           <DialogDescription>
             Upload an invoice image and let AI extract the data, or enter manually
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Card className="p-4 bg-accent/50">
-            <Label htmlFor="invoice_image" className="block mb-2">
-              Invoice Image
-            </Label>
-            <div className="space-y-3">
-              <Input
-                id="invoice_image"
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-                disabled={isLoading || isProcessing}
-              />
-              {imagePreview && (
-                <div className="space-y-2">
-                  <img 
-                    src={imagePreview} 
-                    alt="Invoice preview" 
-                    className="w-full h-48 object-contain border rounded"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleProcessWithAI}
-                    disabled={isProcessing || isLoading}
-                    className="w-full"
-                    variant="secondary"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing with AI...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Extract Data with AI
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
+            <Card className="p-4 bg-accent/50">
+              <Label htmlFor="invoice_image" className="block mb-2">
+                Invoice Image
+              </Label>
+              <div className="space-y-3">
+                <Input
+                  id="invoice_image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  disabled={isLoading || isProcessing}
+                />
+                {imagePreview && (
+                  <div className="space-y-2">
+                    <img 
+                      src={imagePreview} 
+                      alt="Invoice preview" 
+                      className="w-full h-48 object-contain border rounded"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleProcessWithAI}
+                      disabled={isProcessing || isLoading}
+                      className="w-full"
+                      variant="secondary"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing with AI...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Extract Data with AI
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <div className="space-y-2">
+              <Label htmlFor="supplier_id">Supplier (Optional)</Label>
+              <Select
+                value={formData.supplier_id}
+                onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}
+                disabled={isLoading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map((supplier) => (
+                    <SelectItem key={supplier.id} value={supplier.id}>
+                      {supplier.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="supplier_id">Supplier (Optional)</Label>
-            <Select
-              value={formData.supplier_id}
-              onValueChange={(value) => setFormData({ ...formData, supplier_id: value })}
-              disabled={isLoading}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select supplier" />
-              </SelectTrigger>
-              <SelectContent>
-                {suppliers.map((supplier) => (
-                  <SelectItem key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-2">
+              <Label htmlFor="invoice_number">Invoice Number *</Label>
+              <Input
+                id="invoice_number"
+                value={formData.invoice_number}
+                onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+                placeholder="INV-001"
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="date">Date *</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="total_amount">Total Amount (£) *</Label>
+              <Input
+                id="total_amount"
+                type="number"
+                step="0.01"
+                value={formData.total_amount}
+                onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
+                placeholder="1500.00"
+                disabled={isLoading}
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Invoice details..."
+                disabled={isLoading}
+                rows={3}
+              />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="invoice_number">Invoice Number *</Label>
-            <Input
-              id="invoice_number"
-              value={formData.invoice_number}
-              onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-              placeholder="INV-001"
-              disabled={isLoading}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="date">Date *</Label>
-            <Input
-              id="date"
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              disabled={isLoading}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="total_amount">Total Amount (£) *</Label>
-            <Input
-              id="total_amount"
-              type="number"
-              step="0.01"
-              value={formData.total_amount}
-              onChange={(e) => setFormData({ ...formData, total_amount: e.target.value })}
-              placeholder="1500.00"
-              disabled={isLoading}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Invoice details..."
-              disabled={isLoading}
-              rows={4}
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end">
+          <div className="flex gap-3 justify-end px-4 py-3 border-t bg-background flex-shrink-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
