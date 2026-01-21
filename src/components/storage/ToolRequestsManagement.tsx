@@ -280,9 +280,9 @@ const ToolRequestsManagement = () => {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Wrench className="h-5 w-5" />
-              Tool Requests
+              Requested Tools
               {pendingCount > 0 && (
-                <Badge variant="destructive">{pendingCount} Pending</Badge>
+                <Badge variant="destructive">{pendingCount} Waiting pickup</Badge>
               )}
             </CardTitle>
             <Select value={filter} onValueChange={setFilter}>
