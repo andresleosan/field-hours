@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Building2, Clock, DollarSign, Loader2, RotateCcw, AlertTriangle, ChevronDown, ChevronRight, Package, FileText, Users, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Building2, Clock, PoundSterling, Loader2, RotateCcw, AlertTriangle, ChevronDown, ChevronRight, Package, FileText, Users, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -355,7 +355,7 @@ const FinishedProjectList = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <DollarSign className="h-4 w-4 text-muted-foreground" />
+                        <PoundSterling className="h-4 w-4 text-muted-foreground" />
                         <span className="font-medium">£{project.total_spent?.toFixed(2) || "0.00"}</span>
                         <span className="text-muted-foreground">spent</span>
                       </div>
@@ -465,7 +465,7 @@ const FinishedProjectList = () => {
                     {/* Invoices Section */}
                     <div>
                       <h4 className="font-medium text-sm mb-3 flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
+                        <PoundSterling className="h-4 w-4" />
                         Invoices ({project.invoices?.length || 0})
                       </h4>
                       {project.invoices && project.invoices.length > 0 ? (

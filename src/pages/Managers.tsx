@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Clock, DollarSign, Package, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
+import { Plus, Clock, PoundSterling, Package, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -134,45 +134,9 @@ const Managers = () => {
     return <PageLoader />;
   }
   return <AppShell role="manager" fullName={fullName}>
-        <section aria-label="Overview" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatTile
-              label="Active projects"
-              value={stats.activeProjects}
-              caption={`of ${stats.totalProjects} total`}
-              icon={Package}
-            />
-            <StatTile
-              label="Builder hours"
-              value={stats.totalHours.toLocaleString()}
-              caption="across all projects"
-              icon={Clock}
-              onClick={() => setIsTimeTrackingOpen(true)}
-            />
-            <StatTile
-              label="Note collections"
-              value={`$${stats.totalSpent.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}
-              caption="from invoices"
-              icon={DollarSign}
-              onClick={() => setIsInvoicesOpen(true)}
-            />
-            <StatTile
-              label="Materials"
-              value={stats.totalMaterials}
-              caption="in inventory"
-              icon={Package}
-              onClick={() => setIsMaterialsOpen(true)}
-            />
-            <StatTile
-              label="Risk assessments"
-              value={stats.totalRiskAssessments}
-              caption="documents uploaded"
-              icon={ShieldCheck}
-              onClick={() => setIsRiskAssessmentsOpen(true)}
-            />
+        <section aria-label="Needs attention" className="space-y-3">
+          <h2 className="label-eyebrow font-mono">Needs attention</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <StatTile
               label="Rubbish requests"
               value={stats.pendingRubbishRequests}
@@ -196,6 +160,49 @@ const Managers = () => {
               icon={Wrench}
               attention={stats.pendingToolRequests > 0}
               onClick={() => navigate("/storage")}
+            />
+          </div>
+        </section>
+
+        <section aria-label="Business" className="space-y-3">
+          <h2 className="label-eyebrow font-mono">Business</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <StatTile
+              label="Active projects"
+              value={stats.activeProjects}
+              caption={`of ${stats.totalProjects} total`}
+              icon={Package}
+            />
+            <StatTile
+              label="Builder hours"
+              value={stats.totalHours.toLocaleString()}
+              caption="across all projects"
+              icon={Clock}
+              onClick={() => setIsTimeTrackingOpen(true)}
+            />
+            <StatTile
+              label="Invoiced"
+              value={`£${stats.totalSpent.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+              caption="from invoices"
+              icon={PoundSterling}
+              onClick={() => setIsInvoicesOpen(true)}
+            />
+            <StatTile
+              label="Materials"
+              value={stats.totalMaterials}
+              caption="in inventory"
+              icon={Package}
+              onClick={() => setIsMaterialsOpen(true)}
+            />
+            <StatTile
+              label="Risk assessments"
+              value={stats.totalRiskAssessments}
+              caption="documents uploaded"
+              icon={ShieldCheck}
+              onClick={() => setIsRiskAssessmentsOpen(true)}
             />
           </div>
         </section>

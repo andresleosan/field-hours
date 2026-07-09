@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Clock, DollarSign, Edit } from "lucide-react";
+import { Building2, Clock, PoundSterling, Edit } from "lucide-react";
 import EditProjectDialog from "./EditProjectDialog";
 import {
   AlertDialog,
@@ -299,7 +299,7 @@ const ProjectList = ({ onProjectCreated }: ProjectListProps) => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  <PoundSterling className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">£{project.total_spent?.toFixed(2) || "0.00"}</span>
                   <span className="text-muted-foreground">spent</span>
                 </div>

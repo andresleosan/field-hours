@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Calendar, DollarSign, Clock, Package, Users, Loader2, Download, Briefcase } from "lucide-react";
+import { FileText, Calendar, PoundSterling, Clock, Package, Users, Loader2, Download, Briefcase } from "lucide-react";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from "date-fns";
@@ -486,7 +486,7 @@ const Statements = () => {
                   <Card className="bg-muted/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
+                        <PoundSterling className="h-4 w-4" />
                         Expenses
                       </CardTitle>
                     </CardHeader>
@@ -619,7 +619,7 @@ const Statements = () => {
                   <Card className="bg-muted/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
+                        <PoundSterling className="h-4 w-4" />
                         Total Expenses
                       </CardTitle>
                     </CardHeader>
@@ -733,7 +733,7 @@ const Statements = () => {
                   <Card className="bg-muted/50">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm flex items-center gap-2">
-                        <DollarSign className="h-4 w-4" />
+                        <PoundSterling className="h-4 w-4" />
                         Total Invoices
                       </CardTitle>
                     </CardHeader>
