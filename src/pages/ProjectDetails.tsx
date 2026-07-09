@@ -3,10 +3,10 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, XCircle, FileSpreadsheet, ChevronDown, ChevronRight, FolderOpen, Trash2, CheckSquare, Square } from "lucide-react";
+import { ArrowLeft, Plus, Loader2, Clock, XCircle, FileSpreadsheet, ChevronDown, ChevronRight, Trash2, CheckSquare, Square } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useRequireRole, homeOf } from "@/hooks/useRequireRole";
 import { AppShell, PageLoader } from "@/components/layout/AppShell";
@@ -66,6 +66,10 @@ export default function ProjectDetails() {
     
     return { sections: sortedGroups, unsectioned };
   }, [jobs]);
+
+  const isPending = (j: any) => j.status === "pending" || j.status === "waiting_review";
+  const unsectionedDone = groupedJobs.unsectioned.filter((j: any) => j.status === "completed").length;
+  const unsectionedPending = groupedJobs.unsectioned.filter(isPending).length;
 
   // Sections start collapsed by default - no initialization needed
 
@@ -599,40 +603,30 @@ export default function ProjectDetails() {
               return (
                 <Collapsible key={sectionName} open={isOpen} onOpenChange={() => toggleSection(sectionName)}>
                   <CollapsibleTrigger asChild>
-                    <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-                      <CardHeader className="py-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            {isOpen ? (
-                              <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
-                            ) : (
-                              <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform" />
-                            )}
-                            <FolderOpen className="h-5 w-5 text-primary" />
-                            <CardTitle className="text-lg">{sectionName}</CardTitle>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs">
-                              {sectionJobs.length} job{sectionJobs.length !== 1 ? "s" : ""}
-                            </Badge>
-                            {completedCount > 0 && (
-                              <Badge variant="default" className="text-xs">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                {completedCount}
-                              </Badge>
-                            )}
-                            {pendingCount > 0 && (
-                              <Badge variant="warning" className="text-xs">
-                                <Clock className="h-3 w-3 mr-1" />
-                                {pendingCount}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
+                    <button
+                      type="button"
+                      className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left shadow-xs transition-colors hover:bg-muted/50"
+                    >
+                      {isOpen ? (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="min-w-0 truncate font-semibold">{sectionName}</span>
+                      <span className="ml-auto flex shrink-0 items-center gap-2">
+                        {pendingCount > 0 && (
+                          <Badge variant="warning" className="text-xs">
+                            <Clock className="mr-1 h-3 w-3" />
+                            {pendingCount} to review
+                          </Badge>
+                        )}
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {completedCount}/{sectionJobs.length} done
+                        </span>
+                      </span>
+                    </button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="pl-4 border-l-2 border-primary/20 ml-4 mt-2 space-y-3">
+                  <CollapsibleContent className="ml-2 mt-2 space-y-3 border-l-2 border-border pl-4">
                     {sectionJobs.map((job: any) => (
                       <JobCard
                         key={job.id}
@@ -666,40 +660,30 @@ export default function ProjectDetails() {
                 onOpenChange={() => toggleSection("__unsectioned__")}
               >
                 <CollapsibleTrigger asChild>
-                  <Card className="cursor-pointer hover:bg-muted/50 transition-colors">
-                    <CardHeader className="py-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {openSections.has("__unsectioned__") ? (
-                            <ChevronDown className="h-5 w-5 text-muted-foreground transition-transform" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-muted-foreground transition-transform" />
-                          )}
-                          <FolderOpen className="h-5 w-5 text-muted-foreground" />
-                          <CardTitle className="text-lg text-muted-foreground">Unsectioned Jobs</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            {groupedJobs.unsectioned.length} job{groupedJobs.unsectioned.length !== 1 ? "s" : ""}
-                          </Badge>
-                          {groupedJobs.unsectioned.filter((j: any) => j.status === "completed").length > 0 && (
-                            <Badge variant="default" className="text-xs">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              {groupedJobs.unsectioned.filter((j: any) => j.status === "completed").length}
-                            </Badge>
-                          )}
-                          {groupedJobs.unsectioned.filter((j: any) => j.status === "pending" || j.status === "waiting_review").length > 0 && (
-                            <Badge variant="warning" className="text-xs">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {groupedJobs.unsectioned.filter((j: any) => j.status === "pending" || j.status === "waiting_review").length}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left shadow-xs transition-colors hover:bg-muted/50"
+                  >
+                    {openSections.has("__unsectioned__") ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    <span className="min-w-0 truncate font-semibold text-muted-foreground">Unsectioned</span>
+                    <span className="ml-auto flex shrink-0 items-center gap-2">
+                      {unsectionedPending > 0 && (
+                        <Badge variant="warning" className="text-xs">
+                          <Clock className="mr-1 h-3 w-3" />
+                          {unsectionedPending} to review
+                        </Badge>
+                      )}
+                      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                        {unsectionedDone}/{groupedJobs.unsectioned.length} done
+                      </span>
+                    </span>
+                  </button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="pl-4 border-l-2 border-muted ml-4 mt-2 space-y-3">
+                <CollapsibleContent className="ml-2 mt-2 space-y-3 border-l-2 border-border pl-4">
                   {groupedJobs.unsectioned.map((job: any) => (
                     <JobCard
                       key={job.id}
