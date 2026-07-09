@@ -3,14 +3,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, FileSpreadsheet, Edit, ChevronDown, FolderOpen, ChevronRight, Trash2, CheckSquare, Square, Building2 } from "lucide-react";
-import { Progress } from "@/components/ui/progress";
+import { ArrowLeft, Plus, Loader2, Clock, CheckCircle2, XCircle, FileSpreadsheet, ChevronDown, ChevronRight, FolderOpen, Trash2, CheckSquare, Square } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { useRequireRole, homeOf } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { CreateJobDialog } from "@/components/jobs/CreateJobDialog";
 import { EditJobDialog } from "@/components/jobs/EditJobDialog";
 import { JobSubmissionDialog } from "@/components/jobs/JobSubmissionDialog";
@@ -23,9 +22,9 @@ export default function ProjectDetails() {
   const { projectId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { userId, role: userRole, fullName, isLoading: isAuthLoading } = useRequireRole();
   const [project, setProject] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [userRole, setUserRole] = useState<"manager" | "builder" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateJob, setShowCreateJob] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
@@ -42,43 +41,6 @@ export default function ProjectDetails() {
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Loading animation state
-  const [loadingProgress, setLoadingProgress] = useState(0);
-  const [loadingStage, setLoadingStage] = useState("Initializing...");
-
-  // Loading animation effect
-  useEffect(() => {
-    if (isLoading) {
-      setLoadingProgress(0);
-      setLoadingStage("Initializing...");
-      
-      const stages = [
-        { progress: 15, stage: "Connecting to database...", delay: 200 },
-        { progress: 30, stage: "Loading project details...", delay: 400 },
-        { progress: 50, stage: "Fetching jobs...", delay: 600 },
-        { progress: 70, stage: "Loading time tracking...", delay: 800 },
-        { progress: 85, stage: "Preparing workspace...", delay: 1000 },
-        { progress: 95, stage: "Almost ready...", delay: 1200 },
-      ];
-      
-      const timers: NodeJS.Timeout[] = [];
-      
-      stages.forEach(({ progress, stage, delay }) => {
-        const timer = setTimeout(() => {
-          setLoadingProgress(progress);
-          setLoadingStage(stage);
-        }, delay);
-        timers.push(timer);
-      });
-      
-      return () => timers.forEach(clearTimeout);
-    } else {
-      // Complete the animation when loading finishes
-      setLoadingProgress(100);
-      setLoadingStage("Complete!");
-    }
-  }, [isLoading]);
 
   // Group jobs by section
   const groupedJobs = useMemo(() => {
@@ -202,9 +164,8 @@ export default function ProjectDetails() {
   };
 
   useEffect(() => {
-    checkAuth();
     fetchProjectData();
-    
+
     // Set up realtime subscription
     const channel = supabase
       .channel('job-changes')
@@ -221,28 +182,6 @@ export default function ProjectDetails() {
       supabase.removeChannel(channel);
     };
   }, [projectId]);
-
-  const checkAuth = async () => {
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        navigate("/auth");
-        return;
-      }
-
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userData.user.id)
-        .single();
-
-      if (roleData) {
-        setUserRole(roleData.role as "manager" | "builder");
-      }
-    } catch (error: any) {
-      console.error("Error checking auth:", error);
-    }
-  };
 
   const fetchProjectData = async () => {
     try {
@@ -537,149 +476,61 @@ export default function ProjectDetails() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      approved: { label: "To Do", variant: "secondary" as const, icon: AlertCircle },
-      in_progress: { label: "In Progress", variant: "default" as const, icon: PlayCircle },
-      pending: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
-      waiting_review: { label: "Waiting for Review", variant: "warning" as const, icon: Clock },
-      needs_correction: { label: "Needs Correction", variant: "destructive" as const, icon: AlertCircle },
-      completed: { label: "Job Done", variant: "default" as const, icon: CheckCircle2 },
-    };
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.approved;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {config.label}
-      </Badge>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="w-full max-w-md px-8 space-y-8">
-          {/* Animated Icon */}
-          <div className="flex justify-center">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" style={{ animationDuration: '2s' }} />
-              <div className="absolute inset-0 rounded-full bg-primary/10 animate-pulse" />
-              <div className="relative flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 backdrop-blur-sm border border-primary/20">
-                <Building2 className="h-10 w-10 text-primary animate-pulse" />
-              </div>
-            </div>
-          </div>
-          
-          {/* Title */}
-          <div className="text-center space-y-2">
-            <h2 className="text-xl font-semibold text-foreground">Loading Project</h2>
-            <p className="text-sm text-muted-foreground">{loadingStage}</p>
-          </div>
-          
-          {/* Progress Bar */}
-          <div className="space-y-3">
-            <div className="relative">
-              <Progress 
-                value={loadingProgress} 
-                className="h-2 bg-muted"
-              />
-              <div 
-                className="absolute top-0 left-0 h-2 bg-gradient-to-r from-primary/50 via-primary to-primary/50 rounded-full opacity-50 blur-sm transition-all duration-500"
-                style={{ width: `${loadingProgress}%` }}
-              />
-            </div>
-            <div className="flex justify-between items-center px-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs text-muted-foreground">Processing...</span>
-              </div>
-              <span className="text-sm font-semibold text-primary tabular-nums">{loadingProgress}%</span>
-            </div>
-          </div>
-          
-          {/* Loading Steps Indicator */}
-          <div className="flex justify-center gap-1.5 pt-4">
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div 
-                key={i}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  loadingProgress >= (i + 1) * 20 
-                    ? 'bg-primary scale-100' 
-                    : 'bg-muted scale-75'
-                }`}
-                style={{ 
-                  animationDelay: `${i * 100}ms`,
-                  transform: loadingProgress >= (i + 1) * 20 ? 'scale(1)' : 'scale(0.75)'
-                }}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+  if (isAuthLoading || isLoading) {
+    return <PageLoader />;
   }
+
+  const homeRoute = homeOf(userRole ?? "builder");
 
   if (!project) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">
-          <p>Project not found</p>
-          <Button onClick={() => navigate(-1)} className="mt-4">
-            Go Back
+      <AppShell role={userRole ?? "builder"} fullName={fullName}>
+        <div className="py-16 text-center">
+          <p className="text-muted-foreground">Project not found</p>
+          <Button onClick={() => navigate(homeRoute)} className="mt-4">
+            Go back
           </Button>
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
-      <div className="flex flex-col gap-4">
-        <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/managers")} className="shrink-0 mt-1">
+    <AppShell role={userRole ?? "builder"} fullName={fullName}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(homeRoute)} className="mt-1 shrink-0" aria-label="Back">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl md:text-3xl font-bold break-words">{project.name}</h1>
-            <p className="text-muted-foreground text-sm md:text-base">{project.description}</p>
+          <div className="min-w-0">
+            <h1 className="break-words text-2xl font-bold">{project.name}</h1>
+            {project.description && <p className="text-sm text-muted-foreground">{project.description}</p>}
           </div>
         </div>
         {userRole === "manager" && (
           <div className="flex flex-wrap gap-2">
-            <Button 
-              variant={selectionMode ? "default" : "outline"} 
-              onClick={toggleSelectionMode}
-              size="sm"
-              className="text-xs md:text-sm"
-            >
+            <Button variant={selectionMode ? "default" : "outline"} onClick={toggleSelectionMode} size="sm">
               {selectionMode ? (
                 <>
-                  <XCircle className="h-4 w-4 mr-1 md:mr-2" />
-                  <span className="hidden sm:inline">Cancel</span>
-                  <span className="sm:hidden">Cancel</span>
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Cancel
                 </>
               ) : (
                 <>
-                  <CheckSquare className="h-4 w-4 mr-1 md:mr-2" />
-                  <span className="hidden sm:inline">Select Jobs</span>
-                  <span className="sm:hidden">Select</span>
+                  <CheckSquare className="mr-2 h-4 w-4" />
+                  Select
                 </>
               )}
             </Button>
             {!selectionMode && (
               <>
-                <Button variant="outline" onClick={() => setShowBulkUpload(true)} size="sm" className="text-xs md:text-sm">
-                  <FileSpreadsheet className="h-4 w-4 mr-1 md:mr-2" />
-                  <span className="hidden sm:inline">Import from Excel</span>
-                  <span className="sm:hidden">Import</span>
+                <Button variant="outline" onClick={() => setShowBulkUpload(true)} size="sm">
+                  <FileSpreadsheet className="mr-2 h-4 w-4" />
+                  Import
                 </Button>
-                <Button onClick={() => setShowCreateJob(true)} size="sm" className="text-xs md:text-sm">
-                  <Plus className="h-4 w-4 mr-1 md:mr-2" />
-                  <span className="hidden sm:inline">Create Job</span>
-                  <span className="sm:hidden">Create</span>
+                <Button variant="brand" onClick={() => setShowCreateJob(true)} size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Job
                 </Button>
               </>
             )}
@@ -962,6 +813,6 @@ export default function ProjectDetails() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </AppShell>
   );
 }
