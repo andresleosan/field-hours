@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ExternalLink, Download, FileText, User, Calendar, Building2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";

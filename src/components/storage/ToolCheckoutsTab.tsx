@@ -189,7 +189,7 @@ const ToolCheckoutsTab = () => {
                       </TableCell>
                       <TableCell>
                         {checkout.returned_at ? (
-                          <Badge className="bg-green-500">
+                          <Badge variant="success">
                             <CheckCircle className="h-3 w-3 mr-1" />
                             Returned
                           </Badge>

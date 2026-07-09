@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, X, FlipHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 
 interface CameraCaptureProps {
   onCapture: (blob: Blob) => void;

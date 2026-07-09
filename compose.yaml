@@ -1,0 +1,8 @@
+services:
+  jobsite-jedi:
+    build: .
+    container_name: jobsite-jedi
+    # Solo loopback: el acceso externo llega vía tailscale serve (HTTPS, tailnet-only)
+    ports:
+      - "127.0.0.1:9454:80"
+    restart: unless-stopped

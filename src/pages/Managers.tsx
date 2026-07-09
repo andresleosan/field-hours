@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { LogOut, Plus, Users, Clock, DollarSign, Package, Loader2, FileText, ShieldCheck, Trash2, Truck, QrCode } from "lucide-react";
+import { Plus, Clock, DollarSign, Package, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import CreateProjectDialog from "@/components/dashboard/CreateProjectDialog";
 import ProjectList from "@/components/dashboard/ProjectList";
@@ -17,6 +18,7 @@ import ManagerRiskAssessmentDialog from "@/components/dashboard/ManagerRiskAsses
 import ManagerRubbishDialog from "@/components/dashboard/ManagerRubbishDialog";
 import ManagerMaterialDeliveryDialog from "@/components/dashboard/ManagerMaterialDeliveryDialog";
 import { ManagerJobsList } from "@/components/dashboard/ManagerJobsList";
+import { StatTile } from "@/components/dashboard/Tiles";
 interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
@@ -29,11 +31,7 @@ interface DashboardStats {
   pendingToolRequests: number;
 }
 const Managers = () => {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{
-    full_name: string;
-    role: string;
-  } | null>(null);
+  const { userId, fullName, isLoading } = useRequireRole("manager");
   const [stats, setStats] = useState<DashboardStats>({
     totalProjects: 0,
     activeProjects: 0,
@@ -52,44 +50,10 @@ const Managers = () => {
   const [isRiskAssessmentsOpen, setIsRiskAssessmentsOpen] = useState(false);
   const [isRubbishRequestsOpen, setIsRubbishRequestsOpen] = useState(false);
   const [isMaterialDeliveryOpen, setIsMaterialDeliveryOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const {
-    toast
-  } = useToast();
   const navigate = useNavigate();
   useEffect(() => {
-    checkAuth();
-  }, []);
-  const checkAuth = async () => {
-    const {
-      data: {
-        session
-      }
-    } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
-    setUserId(session.user.id);
-    const {
-      data: roleData
-    } = await supabase.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle();
-    if (!roleData || roleData.role !== "manager") {
-      navigate("/builders");
-      return;
-    }
-    const {
-      data: profileData
-    } = await supabase.from("profiles").select("full_name").eq("id", session.user.id).single();
-    if (profileData && roleData) {
-      setUserProfile({
-        full_name: profileData.full_name,
-        role: roleData.role
-      });
-    }
-    await fetchDashboardStats();
-    setIsLoading(false);
-  };
+    if (!isLoading) fetchDashboardStats();
+  }, [isLoading]);
   const fetchDashboardStats = async () => {
     try {
       const {
@@ -166,166 +130,78 @@ const Managers = () => {
       console.error("Error fetching stats:", error);
     }
   };
-  const handleSignOut = async () => {
-    // Clear local storage first to ensure clean state
-    localStorage.removeItem('sb-lukmmizugpnecispdzsn-auth-token');
-    try {
-      await supabase.auth.signOut({
-        scope: 'local'
-      });
-    } catch (error) {
-      // Ignore errors - we're forcing sign out anyway
-      console.log('Sign out error (ignored):', error);
-    }
-    toast({
-      title: "Signed out",
-      description: "Successfully signed out"
-    });
-
-    // Force hard redirect to clear all state
-    window.location.href = "/auth";
-  };
   if (isLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>;
+    return <PageLoader />;
   }
-  return <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary p-2">
-              <Users className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">
-                {userProfile?.full_name || "Manager"} - {userProfile?.role || "Manager"}
-              </h1>
-              <p className="text-sm text-muted-foreground">BuildTrack Pro</p>
-            </div>
+  return <AppShell role="manager" fullName={fullName}>
+        <section aria-label="Overview" className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <StatTile
+              label="Active projects"
+              value={stats.activeProjects}
+              caption={`of ${stats.totalProjects} total`}
+              icon={Package}
+            />
+            <StatTile
+              label="Builder hours"
+              value={stats.totalHours.toLocaleString()}
+              caption="across all projects"
+              icon={Clock}
+              onClick={() => setIsTimeTrackingOpen(true)}
+            />
+            <StatTile
+              label="Note collections"
+              value={`$${stats.totalSpent.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}`}
+              caption="from invoices"
+              icon={DollarSign}
+              onClick={() => setIsInvoicesOpen(true)}
+            />
+            <StatTile
+              label="Materials"
+              value={stats.totalMaterials}
+              caption="in inventory"
+              icon={Package}
+              onClick={() => setIsMaterialsOpen(true)}
+            />
+            <StatTile
+              label="Risk assessments"
+              value={stats.totalRiskAssessments}
+              caption="documents uploaded"
+              icon={ShieldCheck}
+              onClick={() => setIsRiskAssessmentsOpen(true)}
+            />
+            <StatTile
+              label="Rubbish requests"
+              value={stats.pendingRubbishRequests}
+              caption="pending collection"
+              icon={Trash2}
+              attention={stats.pendingRubbishRequests > 0}
+              onClick={() => setIsRubbishRequestsOpen(true)}
+            />
+            <StatTile
+              label="Material requests"
+              value={stats.pendingMaterialDeliveries}
+              caption="pending delivery"
+              icon={Truck}
+              attention={stats.pendingMaterialDeliveries > 0}
+              onClick={() => setIsMaterialDeliveryOpen(true)}
+            />
+            <StatTile
+              label="Requested tools"
+              value={stats.pendingToolRequests}
+              caption="waiting to be picked up"
+              icon={Wrench}
+              attention={stats.pendingToolRequests > 0}
+              onClick={() => navigate("/storage")}
+            />
           </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6 space-y-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Active Projects</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.activeProjects}</div>
-              <p className="text-xs text-muted-foreground">of {stats.totalProjects} total</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsTimeTrackingOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Builder Total Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalHours}</div>
-              <p className="text-xs text-muted-foreground">across all projects</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsInvoicesOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Note Collections</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">${stats.totalSpent.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground">from invoices</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialsOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Materials</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalMaterials}</div>
-              <p className="text-xs text-muted-foreground">in inventory</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRiskAssessmentsOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Risk Assessments</CardTitle>
-              <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalRiskAssessments}</div>
-              <p className="text-xs text-muted-foreground">documents uploaded</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsRubbishRequestsOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Rubbish Requests</CardTitle>
-              <Trash2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.pendingRubbishRequests}</div>
-              <p className="text-xs text-muted-foreground">pending collection</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setIsMaterialDeliveryOpen(true)}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Material Requests</CardTitle>
-              <Truck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.pendingMaterialDeliveries}</div>
-              <p className="text-xs text-muted-foreground">pending delivery</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/statements")}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Statements</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">View</div>
-              <p className="text-xs text-muted-foreground">financial reports</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-primary/5 border-primary/20" onClick={() => navigate("/storage")}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Requested Tools</CardTitle>
-              <Package className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.pendingToolRequests}</div>
-              <p className="text-xs text-muted-foreground">waiting to be picked up</p>
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-lg transition-shadow bg-green-500/10 border-green-500/30" onClick={() => navigate("/invite")}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xl font-medium">Invite Team</CardTitle>
-              <QrCode className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">QR Code</div>
-              <p className="text-xs text-muted-foreground">invite builders</p>
-            </CardContent>
-          </Card>
-        </div>
+        </section>
 
         <Tabs defaultValue="projects" className="space-y-4">
-          <TabsList className="flex w-full overflow-x-auto md:grid md:grid-cols-3">
+          <TabsList className="flex w-full overflow-x-auto md:inline-grid md:w-fit md:grid-cols-3">
             <TabsTrigger value="projects" className="flex-shrink-0">Projects</TabsTrigger>
             <TabsTrigger value="finished" className="flex-shrink-0">Finished</TabsTrigger>
             <TabsTrigger value="suppliers" className="flex-shrink-0">Suppliers</TabsTrigger>
@@ -387,14 +263,13 @@ const Managers = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
 
       <CreateProjectDialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen} onProjectCreated={fetchDashboardStats} />
-      
+
       <MaterialsDetailDialog open={isMaterialsOpen} onOpenChange={setIsMaterialsOpen} />
-      
+
       <TimeTrackingDetailDialog open={isTimeTrackingOpen} onOpenChange={setIsTimeTrackingOpen} />
-      
+
       <InvoicesDetailDialog open={isInvoicesOpen} onOpenChange={setIsInvoicesOpen} />
 
       {userId && <ManagerRiskAssessmentDialog open={isRiskAssessmentsOpen} onOpenChange={setIsRiskAssessmentsOpen} userId={userId} />}
@@ -402,6 +277,6 @@ const Managers = () => {
       <ManagerRubbishDialog open={isRubbishRequestsOpen} onOpenChange={setIsRubbishRequestsOpen} />
 
       <ManagerMaterialDeliveryDialog open={isMaterialDeliveryOpen} onOpenChange={setIsMaterialDeliveryOpen} />
-    </div>;
+    </AppShell>;
 };
 export default Managers;

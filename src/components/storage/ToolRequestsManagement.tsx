@@ -225,11 +225,11 @@ const ToolRequestsManagement = () => {
       case "pending":
         return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
       case "picked_up":
-        return <Badge className="bg-orange-500"><Truck className="h-3 w-3 mr-1" />Picked Up</Badge>;
+        return <Badge variant="warning"><Truck className="h-3 w-3 mr-1" />Picked Up</Badge>;
       case "delivered":
-        return <Badge className="bg-blue-500"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
+        return <Badge variant="info"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
       case "returned":
-        return <Badge className="bg-green-500"><CheckCircle className="h-3 w-3 mr-1" />Returned</Badge>;
+        return <Badge variant="success"><CheckCircle className="h-3 w-3 mr-1" />Returned</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

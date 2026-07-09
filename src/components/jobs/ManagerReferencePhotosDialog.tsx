@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Image, X, Loader2, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";

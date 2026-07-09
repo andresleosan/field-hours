@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText, Calendar, DollarSign, Clock, Package, Users, Loader2, Download, Briefcase } from "lucide-react";
+import { FileText, Calendar, DollarSign, Clock, Package, Users, Loader2, Download, Briefcase } from "lucide-react";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from "date-fns";
 import * as XLSX from "xlsx";
 import { useToast } from "@/hooks/use-toast";
@@ -68,9 +69,9 @@ interface Builder {
 }
 
 const Statements = () => {
+  const { fullName, isLoading: isAuthLoading } = useRequireRole("manager");
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("daily");
-  const navigate = useNavigate();
   const { toast } = useToast();
 
   // Data states
@@ -89,44 +90,23 @@ const Statements = () => {
   const [monthRange, setMonthRange] = useState<"this" | "last" | "2monthsago">("this");
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (isAuthLoading) return;
+    (async () => {
+      const [projectsRes, buildersRes] = await Promise.all([
+        supabase.from("projects").select("id, name, client_name").order("name"),
+        supabase.from("profiles").select("id, full_name").order("full_name")
+      ]);
+      if (projectsRes.data) setProjects(projectsRes.data);
+      if (buildersRes.data) setBuilders(buildersRes.data);
+      setIsLoading(false);
+    })();
+  }, [isAuthLoading]);
 
   useEffect(() => {
     if (!isLoading) {
       fetchData();
     }
   }, [isLoading, activeTab, dateRange, weekRange, monthRange, selectedProject, selectedBuilder]);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
-
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-
-    if (!roleData || roleData.role !== "manager") {
-      navigate("/builders");
-      return;
-    }
-
-    // Fetch projects and builders
-    const [projectsRes, buildersRes] = await Promise.all([
-      supabase.from("projects").select("id, name, client_name").order("name"),
-      supabase.from("profiles").select("id, full_name").order("full_name")
-    ]);
-
-    if (projectsRes.data) setProjects(projectsRes.data);
-    if (buildersRes.data) setBuilders(buildersRes.data);
-
-    setIsLoading(false);
-  };
 
   const getDateRange = () => {
     const now = new Date();
@@ -439,35 +419,18 @@ const Statements = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/managers")}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary p-2">
-              <FileText className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">Statements</h1>
-              <p className="text-sm text-muted-foreground">Financial Reports & Summaries</p>
-            </div>
-          </div>
-        </div>
-      </header>
+    <AppShell role="manager" fullName={fullName}>
+      <section className="space-y-1">
+        <h1 className="text-2xl font-bold">Statements</h1>
+        <p className="text-sm text-muted-foreground">Financial reports and summaries</p>
+      </section>
 
-      <main className="container mx-auto px-4 py-6 space-y-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid grid-cols-3 md:grid-cols-5 h-auto gap-1 p-1">
+          <TabsList className="grid w-full grid-cols-3 gap-1 p-1 md:inline-grid md:w-fit md:grid-cols-5 h-auto">
             <TabsTrigger value="daily" className="text-xs sm:text-sm py-2 px-2">Daily</TabsTrigger>
             <TabsTrigger value="weekly" className="text-xs sm:text-sm py-2 px-2">Weekly</TabsTrigger>
             <TabsTrigger value="monthly" className="text-xs sm:text-sm py-2 px-2">Monthly</TabsTrigger>
@@ -973,8 +936,7 @@ const Statements = () => {
             </Card>
           </TabsContent>
         </Tabs>
-      </main>
-    </div>
+    </AppShell>
   );
 };
 

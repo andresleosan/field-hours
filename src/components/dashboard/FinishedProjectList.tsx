@@ -265,7 +265,7 @@ const FinishedProjectList = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "completed":
-        return <CheckCircle2 className="h-3 w-3 text-green-500" />;
+        return <CheckCircle2 className="h-3 w-3 text-success" />;
       case "needs_correction":
         return <XCircle className="h-3 w-3 text-destructive" />;
       case "waiting_review":

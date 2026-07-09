@@ -1,120 +1,59 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Package, Wrench, Loader2, Plus, ClipboardList } from "lucide-react";
+import { Package, Wrench, ClipboardList, Undo2 } from "lucide-react";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import StorageMaterialsTab from "@/components/storage/StorageMaterialsTab";
 import StorageToolsTab from "@/components/storage/StorageToolsTab";
 import ToolCheckoutsTab from "@/components/storage/ToolCheckoutsTab";
 import ToolRequestsManagement from "@/components/storage/ToolRequestsManagement";
 
 const Storage = () => {
-  const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const { toast } = useToast();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
-
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-
-    if (!roleData || roleData.role !== "manager") {
-      toast({
-        title: "Access Denied",
-        description: "Only managers can access storage management",
-        variant: "destructive",
-      });
-      navigate("/builders");
-      return;
-    }
-
-    setUserId(session.user.id);
-    setIsLoading(false);
-  };
+  const { userId, fullName, isLoading } = useRequireRole("manager");
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/managers")}>
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="rounded-lg bg-primary p-2">
-              <Package className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">Storage Management</h1>
-              <p className="text-sm text-muted-foreground">Manage materials and tools inventory</p>
-            </div>
-          </div>
-        </div>
-      </header>
+    <AppShell role="manager" fullName={fullName}>
+      <section className="space-y-1">
+        <h1 className="text-2xl font-bold">Storage</h1>
+        <p className="text-sm text-muted-foreground">Materials and tools inventory</p>
+      </section>
 
-      <main className="container mx-auto px-4 py-6">
-        <Tabs defaultValue="materials" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 max-w-xl">
-            <TabsTrigger value="materials" className="flex items-center gap-2">
-              <Package className="h-4 w-4" />
-              Materials
-            </TabsTrigger>
-            <TabsTrigger value="tools" className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              Tools
-            </TabsTrigger>
-            <TabsTrigger value="requests" className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Requests
-            </TabsTrigger>
-            <TabsTrigger value="checkouts" className="flex items-center gap-2">
-              <Wrench className="h-4 w-4" />
-              Checkouts
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="materials" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 md:inline-grid md:w-fit">
+          <TabsTrigger value="materials" className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Materials</span>
+          </TabsTrigger>
+          <TabsTrigger value="tools" className="flex items-center gap-2">
+            <Wrench className="h-4 w-4" />
+            <span className="hidden sm:inline">Tools</span>
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">Requests</span>
+          </TabsTrigger>
+          <TabsTrigger value="checkouts" className="flex items-center gap-2">
+            <Undo2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Checkouts</span>
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="materials">
-            {userId && <StorageMaterialsTab userId={userId} />}
-          </TabsContent>
+        <TabsContent value="materials">{userId && <StorageMaterialsTab userId={userId} />}</TabsContent>
 
-          <TabsContent value="tools">
-            {userId && <StorageToolsTab userId={userId} />}
-          </TabsContent>
+        <TabsContent value="tools">{userId && <StorageToolsTab userId={userId} />}</TabsContent>
 
-          <TabsContent value="requests">
-            <ToolRequestsManagement />
-          </TabsContent>
+        <TabsContent value="requests">
+          <ToolRequestsManagement />
+        </TabsContent>
 
-          <TabsContent value="checkouts">
-            <ToolCheckoutsTab />
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+        <TabsContent value="checkouts">
+          <ToolCheckoutsTab />
+        </TabsContent>
+      </Tabs>
+    </AppShell>
   );
 };
 

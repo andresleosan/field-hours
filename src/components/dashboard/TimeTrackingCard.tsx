@@ -38,39 +38,42 @@ const TimeTrackingCard = ({ isClockedIn, currentTimeEntry, onClockIn, onClockOut
   }, [isClockedIn, currentTimeEntry]);
 
   return (
-    <Card className={isClockedIn ? "border-primary shadow-lg" : ""}>
+    <Card className="overflow-hidden">
+      {/* The hazard stripe only appears while the clock is running. */}
+      {isClockedIn && <div className="hi-vis-rule h-1" aria-hidden="true" />}
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Clock className="h-5 w-5" />
-          Time Tracking
+          <Clock className="h-5 w-5" strokeWidth={1.75} />
+          Time tracking
         </CardTitle>
         <CardDescription>
           {isClockedIn ? "You are currently clocked in" : "Clock in to start tracking your time"}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5">
         {isClockedIn && elapsedTime && (
-          <div className="text-center py-6">
-            <div className="text-4xl font-bold text-primary font-mono">{elapsedTime}</div>
-            <p className="text-sm text-muted-foreground mt-2">Hours worked today</p>
+          <div className="py-6 text-center">
+            <div className="tabular font-mono text-5xl font-semibold tracking-tight" aria-live="off">
+              {elapsedTime}
+            </div>
+            <p className="label-eyebrow mt-3">Elapsed this shift</p>
           </div>
         )}
 
         <Button
           onClick={isClockedIn ? onClockOut : onClockIn}
-          variant={isClockedIn ? "destructive" : "default"}
-          className="w-full"
-          size="lg"
+          variant={isClockedIn ? "destructive" : "brand"}
+          className="h-14 w-full text-base"
         >
           {isClockedIn ? (
             <>
-              <Square className="h-5 w-5 mr-2" />
-              Clock Out
+              <Square className="!size-5" strokeWidth={1.75} />
+              Clock out
             </>
           ) : (
             <>
-              <Play className="h-5 w-5 mr-2" />
-              Clock In
+              <Play className="!size-5" strokeWidth={1.75} />
+              Clock in
             </>
           )}
         </Button>

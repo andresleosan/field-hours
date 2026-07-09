@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,14 +159,14 @@ const ManagerRubbishDialog = ({ open, onOpenChange }: ManagerRubbishDialogProps)
     switch (status) {
       case "pending":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-warning">
             <Clock className="h-3 w-3" />
             Pending
           </span>
         );
       case "resolved":
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span className="inline-flex items-center gap-1 rounded-full border border-success/20 bg-success/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-success">
             <CheckCircle2 className="h-3 w-3" />
             Resolved
           </span>
@@ -188,10 +188,10 @@ const ManagerRubbishDialog = ({ open, onOpenChange }: ManagerRubbishDialogProps)
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-5 w-5 text-orange-500" />
+              <Trash2 className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
               Rubbish Collection Requests
               {pendingCount > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-orange-100 text-orange-800 rounded-full">
+                <span className="ml-2 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[11px] font-medium tabular text-warning">
                   {pendingCount} pending
                 </span>
               )}
@@ -293,7 +293,7 @@ const ManagerRubbishDialog = ({ open, onOpenChange }: ManagerRubbishDialogProps)
 
                         {/* Resolved info */}
                         {request.resolved_at && (
-                          <p className="text-xs text-green-600">
+                          <p className="text-xs text-success">
                             Resolved on {format(new Date(request.resolved_at), "dd MMM yyyy, HH:mm")}
                           </p>
                         )}

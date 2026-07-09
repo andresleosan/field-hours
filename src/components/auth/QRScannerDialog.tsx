@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Html5Qrcode } from "html5-qrcode";
 import { Camera, Loader2 } from "lucide-react";

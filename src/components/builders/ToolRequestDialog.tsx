@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -156,11 +156,11 @@ const ToolRequestDialog = ({ open, onOpenChange, projectId, userId, projectName 
       case "pending":
         return <Badge variant="secondary"><Clock className="h-3 w-3 mr-1" />Pending</Badge>;
       case "approved":
-        return <Badge className="bg-blue-500"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
+        return <Badge variant="info"><CheckCircle className="h-3 w-3 mr-1" />Approved</Badge>;
       case "picked_up":
-        return <Badge className="bg-orange-500"><Truck className="h-3 w-3 mr-1" />Picked Up</Badge>;
+        return <Badge variant="warning"><Truck className="h-3 w-3 mr-1" />Picked Up</Badge>;
       case "delivered":
-        return <Badge className="bg-green-500"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
+        return <Badge variant="success"><Package className="h-3 w-3 mr-1" />Delivered</Badge>;
       case "rejected":
         return <Badge variant="destructive">Rejected</Badge>;
       default:
@@ -272,7 +272,7 @@ const ToolRequestDialog = ({ open, onOpenChange, projectId, userId, projectName 
                               </p>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Badge variant="outline" className="text-green-600">
+                              <Badge variant="success">
                                 Available
                               </Badge>
                             </div>

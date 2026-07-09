@@ -1,16 +1,17 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, QrCode, Users, HardHat, Clock, Loader2, Copy, Check, RefreshCw } from "lucide-react";
+import { QrCode, Users, HardHat, Clock, Copy, Check, RefreshCw } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 
 const Invite = () => {
-  const [isLoading, setIsLoading] = useState(true);
+  const { fullName, isLoading } = useRequireRole("manager");
   const [isGenerating, setIsGenerating] = useState(false);
   const [role, setRole] = useState<"builder" | "manager">("builder");
   const [invitationCode, setInvitationCode] = useState<string | null>(null);
@@ -18,33 +19,6 @@ const Invite = () => {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
-
-  // Check auth and role
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        navigate("/auth");
-        return;
-      }
-
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
-
-      if (!roleData || roleData.role !== "manager") {
-        navigate("/builders");
-        return;
-      }
-
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, [navigate]);
 
   // Timer countdown
   useEffect(() => {
@@ -130,34 +104,16 @@ const Invite = () => {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/managers")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary p-2">
-              <QrCode className="h-5 w-5 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">Invite Team Members</h1>
-              <p className="text-sm text-muted-foreground">Generate QR codes for secure invitations</p>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-8 max-w-2xl">
+    <AppShell role="manager" fullName={fullName}>
+      <div className="mx-auto w-full max-w-2xl space-y-6">
+        <section className="space-y-1">
+          <h1 className="text-2xl font-bold">Invite team members</h1>
+          <p className="text-sm text-muted-foreground">Single-use QR invitations that expire in 5 minutes</p>
+        </section>
         <Card className="shadow-lg">
           <CardHeader className="text-center">
             <CardTitle className="flex items-center justify-center gap-2">
@@ -236,7 +192,7 @@ const Invite = () => {
                       {invitationCode}
                     </code>
                     <Button variant="outline" size="icon" onClick={copyToClipboard}>
-                      {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                      {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                     </Button>
                   </div>
                 </div>
@@ -296,8 +252,8 @@ const Invite = () => {
             )}
           </CardContent>
         </Card>
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 };
 

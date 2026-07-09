@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -152,12 +152,12 @@ const RiskAssessmentDialog = ({ open, onOpenChange, projectId, userId }: RiskAss
                     </p>
                   </div>
                   {assessment.signed ? (
-                    <Badge variant="secondary" className="bg-green-100 text-green-700">
+                    <Badge variant="success">
                       <Check className="h-3 w-3 mr-1" />
                       Agreed
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-orange-600 border-orange-300">
+                    <Badge variant="warning">
                       Pending
                     </Badge>
                   )}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -211,9 +211,9 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pending":
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Pending</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full border border-warning/25 bg-warning/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-warning">Pending</span>;
       case "resolved":
-        return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle2 className="h-3 w-3" /> Resolved</span>;
+        return <span className="inline-flex items-center gap-1 rounded-full border border-success/20 bg-success/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-success"><CheckCircle2 className="h-3 w-3" /> Resolved</span>;
       default:
         return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">{status}</span>;
     }
@@ -234,7 +234,7 @@ const RubbishCollectionDialog = ({ open, onOpenChange, projectId, userId }: Rubb
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Trash2 className="h-5 w-5 text-orange-500" />
+            <Trash2 className="h-5 w-5 text-muted-foreground" strokeWidth={1.75} />
             Request Rubbish Collection
           </DialogTitle>
         </DialogHeader>

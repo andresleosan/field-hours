@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,10 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, HardHat, QrCode, AlertTriangle, Camera } from "lucide-react";
+import { Loader2, HardHat, QrCode, AlertTriangle, Camera, Check } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
-import { QRScannerDialog } from "@/components/auth/QRScannerDialog";
+// html5-qrcode is ~300 kB and only needed once the camera is actually opened.
+const QRScannerDialog = lazy(() =>
+  import("@/components/auth/QRScannerDialog").then((m) => ({ default: m.QRScannerDialog })),
+);
 
 // Validation schemas
 const signInSchema = z.object({
@@ -223,18 +226,18 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-4">
+      <div className="blueprint-grid pointer-events-none absolute inset-0" aria-hidden="true" />
+      <Card className="reveal relative w-full max-w-md overflow-hidden shadow-md">
+        <div className="hi-vis-rule h-1" aria-hidden="true" />
         <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-primary p-3">
-              <HardHat className="h-8 w-8 text-primary-foreground" />
+          <div className="mb-4 flex justify-center">
+            <div className="rounded-lg bg-primary p-3">
+              <HardHat className="h-7 w-7 text-primary-foreground" strokeWidth={1.75} />
             </div>
           </div>
           <CardTitle className="text-2xl font-bold">BuildTrack Pro</CardTitle>
-          <CardDescription>
-            Professional construction project management
-          </CardDescription>
+          <CardDescription>Construction project management</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -313,11 +316,10 @@ const Auth = () => {
                   
                   {/* Validation Status */}
                   {invitationData?.valid && (
-                    <div className="flex items-center gap-2 text-sm text-green-600">
-                      <Badge variant="outline" className="border-green-500 text-green-600">
-                        ✓ Valid invitation for {invitationData.role}
-                      </Badge>
-                    </div>
+                    <Badge variant="success">
+                      <Check className="h-3 w-3" strokeWidth={2.25} />
+                      Valid invitation for {invitationData.role}
+                    </Badge>
                   )}
                   {codeError && (
                     <div className="flex items-center gap-2 text-sm text-destructive">
@@ -401,10 +403,10 @@ const Auth = () => {
                     type="button"
                     variant="outline"
                     onClick={() => setShowQRScanner(true)}
-                    className="w-full h-auto py-6 flex flex-col items-center gap-3 border-2 border-dashed border-primary/50 hover:border-primary hover:bg-primary/5 transition-all"
+                    className="flex h-auto w-full flex-col items-center gap-3 border-2 border-dashed border-border py-6 transition-colors hover:border-brand hover:bg-brand/5"
                   >
-                    <div className="rounded-full bg-primary/10 p-3">
-                      <Camera className="h-8 w-8 text-primary" />
+                    <div className="rounded-lg border border-border bg-muted p-3">
+                      <Camera className="h-7 w-7 text-foreground" strokeWidth={1.75} />
                     </div>
                     <div className="text-center">
                       <p className="text-base font-semibold text-foreground">
@@ -418,14 +420,18 @@ const Auth = () => {
                 )}
 
                 {/* QR Scanner Dialog */}
-                <QRScannerDialog
-                  open={showQRScanner}
-                  onClose={() => setShowQRScanner(false)}
-                  onScan={(code) => {
-                    setInvitationCode(code.toUpperCase());
-                    validateInvitationCode(code);
-                  }}
-                />
+                {showQRScanner && (
+                  <Suspense fallback={null}>
+                    <QRScannerDialog
+                      open={showQRScanner}
+                      onClose={() => setShowQRScanner(false)}
+                      onScan={(code) => {
+                        setInvitationCode(code.toUpperCase());
+                        validateInvitationCode(code);
+                      }}
+                    />
+                  </Suspense>
+                )}
               </form>
             </TabsContent>
           </Tabs>

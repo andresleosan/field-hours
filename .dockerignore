@@ -1,0 +1,6 @@
+node_modules
+dist
+.git
+*.md
+playwright.config.ts
+playwright-fixture.ts

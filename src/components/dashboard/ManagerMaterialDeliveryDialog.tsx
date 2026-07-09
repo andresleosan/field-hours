@@ -7,7 +7,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/ui/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Loader2, Package, Clock, CheckCircle, Trash2, User } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -156,9 +156,9 @@ const ManagerMaterialDeliveryDialog = ({
       case "pending":
         return <Badge variant="secondary">Pending</Badge>;
       case "in_progress":
-        return <Badge className="bg-blue-500">In Progress</Badge>;
+        return <Badge variant="info">In Progress</Badge>;
       case "delivered":
-        return <Badge className="bg-green-500">Delivered</Badge>;
+        return <Badge variant="success">Delivered</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }

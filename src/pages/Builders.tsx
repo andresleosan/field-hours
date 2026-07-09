@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Clock, MapPin, Package, FileText, Loader2, FileImage, Repeat, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
+import { MapPin, Package, FileText, FileImage, Repeat, ShieldCheck, Trash2, Truck, Wrench } from "lucide-react";
+import { useRequireRole, signOutAndRedirect } from "@/hooks/useRequireRole";
+import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TimeTrackingCard from "@/components/dashboard/TimeTrackingCard";
 import EnhancedMaterialDialog from "@/components/dashboard/EnhancedMaterialDialog";
@@ -25,8 +26,7 @@ interface Project {
 }
 
 const Builders = () => {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userProfile, setUserProfile] = useState<{ full_name: string; role: string } | null>(null);
+  const { userId, fullName, isLoading } = useRequireRole("builder");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [isClockedIn, setIsClockedIn] = useState(false);
@@ -40,52 +40,18 @@ const Builders = () => {
   const [isRubbishDialogOpen, setIsRubbishDialogOpen] = useState(false);
   const [isMaterialDeliveryDialogOpen, setIsMaterialDeliveryDialogOpen] = useState(false);
   const [isToolRequestDialogOpen, setIsToolRequestDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isReady, setIsReady] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
-      navigate("/auth");
-      return;
-    }
-
-    setUserId(session.user.id);
-
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", session.user.id)
-      .maybeSingle();
-
-    if (!roleData || roleData.role !== "builder") {
-      navigate("/managers");
-      return;
-    }
-
-    const { data: profileData } = await supabase
-      .from("profiles")
-      .select("full_name")
-      .eq("id", session.user.id)
-      .single();
-
-    if (profileData && roleData) {
-      setUserProfile({
-        full_name: profileData.full_name,
-        role: roleData.role,
-      });
-    }
-
-    await fetchProjects();
-    await checkClockInStatus(session.user.id);
-    setIsLoading(false);
-  };
+    if (isLoading || !userId) return;
+    (async () => {
+      await fetchProjects();
+      await checkClockInStatus(userId);
+      setIsReady(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, userId]);
 
   const fetchProjects = async () => {
     const { data } = await supabase
@@ -282,7 +248,7 @@ const Builders = () => {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOut = () => {
     if (isClockedIn) {
       toast({
         title: "Clock out first",
@@ -291,59 +257,23 @@ const Builders = () => {
       });
       return;
     }
-
-    // Clear local storage first to ensure clean state
-    localStorage.removeItem('sb-lukmmizugpnecispdzsn-auth-token');
-    
-    try {
-      await supabase.auth.signOut({ scope: 'local' });
-    } catch (error) {
-      // Ignore errors - we're forcing sign out anyway
-      console.log('Sign out error (ignored):', error);
-    }
-    
-    toast({
-      title: "Signed out",
-      description: "Successfully signed out",
-    });
-    
-    // Force hard redirect to clear all state
-    window.location.href = "/auth";
+    signOutAndRedirect();
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+  if (isLoading || !isReady) {
+    return <PageLoader />;
   }
 
   const selectedProject = projects.find(p => p.id === selectedProjectId);
 
   return (
-    <div className="min-h-screen bg-muted/30">
-      <header className="bg-card border-b shadow-sm sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-secondary p-2">
-              <Clock className="h-5 w-5 text-secondary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">
-                {userProfile?.full_name || "Builder"} - {userProfile?.role || "Builder"}
-              </h1>
-              <p className="text-sm text-muted-foreground">BuildTrack Pro</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto px-4 py-6 space-y-6">
+    <AppShell
+      role="builder"
+      fullName={fullName}
+      eyebrow={isClockedIn ? "On the clock" : undefined}
+      live={isClockedIn}
+      onSignOut={handleSignOut}
+    >
         <Card>
           <CardHeader>
             <CardTitle>Current Project</CardTitle>
@@ -394,93 +324,78 @@ const Builders = () => {
           onConfirm={confirmClockInWithJob}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsMaterialDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-primary" />
-                Log Material Usage
-              </CardTitle>
-              <CardDescription>Record materials used today</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsInvoiceDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5 text-secondary" />
-                Add Invoice
-              </CardTitle>
-              <CardDescription>Upload a new invoice</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsDailyReportDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileImage className="h-5 w-5 text-accent" />
-                Add Day Report
-              </CardTitle>
-              <CardDescription>Submit photos and work description</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card 
-            className={`transition-shadow ${isClockedIn ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-50'}`}
-            onClick={() => isClockedIn && setIsChangeProjectDialogOpen(true)}
-          >
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Repeat className="h-5 w-5 text-primary" />
-                Change Project
-              </CardTitle>
-              <CardDescription>
-                {isClockedIn ? "Switch to another project" : "Clock in first"}
-              </CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsRiskAssessmentDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ShieldCheck className="h-5 w-5 text-orange-500" />
-                Risk Assessment
-              </CardTitle>
-              <CardDescription>View and sign safety documents</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsRubbishDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5 text-amber-600" />
-                Request Rubbish Collection
-              </CardTitle>
-              <CardDescription>Ask manager to collect rubbish</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsMaterialDeliveryDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Truck className="h-5 w-5 text-indigo-500" />
-                Request Material Delivery
-              </CardTitle>
-              <CardDescription>Ask for materials to be delivered</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsToolRequestDialogOpen(true)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wrench className="h-5 w-5 text-teal-500" />
-                Request Tools
-              </CardTitle>
-              <CardDescription>Request tools from the yard</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </main>
+        <section aria-label="Site actions" className="space-y-4">
+          <h2 className="label-eyebrow font-mono">On site</h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {[
+              {
+                icon: Package,
+                title: "Log material usage",
+                description: "Record materials used today",
+                onClick: () => setIsMaterialDialogOpen(true),
+              },
+              {
+                icon: FileText,
+                title: "Add invoice",
+                description: "Upload a new invoice",
+                onClick: () => setIsInvoiceDialogOpen(true),
+              },
+              {
+                icon: FileImage,
+                title: "Add day report",
+                description: "Submit photos and work description",
+                onClick: () => setIsDailyReportDialogOpen(true),
+              },
+              {
+                icon: Repeat,
+                title: "Change project",
+                description: isClockedIn ? "Switch to another project" : "Clock in first",
+                onClick: () => setIsChangeProjectDialogOpen(true),
+                disabled: !isClockedIn,
+              },
+              {
+                icon: ShieldCheck,
+                title: "Risk assessment",
+                description: "View and sign safety documents",
+                onClick: () => setIsRiskAssessmentDialogOpen(true),
+              },
+              {
+                icon: Trash2,
+                title: "Request rubbish collection",
+                description: "Ask manager to collect rubbish",
+                onClick: () => setIsRubbishDialogOpen(true),
+              },
+              {
+                icon: Truck,
+                title: "Request material delivery",
+                description: "Ask for materials to be delivered",
+                onClick: () => setIsMaterialDeliveryDialogOpen(true),
+              },
+              {
+                icon: Wrench,
+                title: "Request tools",
+                description: "Request tools from the yard",
+                onClick: () => setIsToolRequestDialogOpen(true),
+              },
+            ].map(({ icon: Icon, title, description, onClick, disabled }) => (
+              <button
+                key={title}
+                type="button"
+                onClick={onClick}
+                disabled={disabled}
+                className="group flex items-start gap-4 rounded-lg border border-border bg-card p-5 text-left shadow-xs transition-[box-shadow,border-color] duration-200 hover:border-foreground/20 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-45"
+              >
+                <span className="shrink-0 rounded-md border border-border bg-muted p-2.5 transition-colors group-hover:bg-accent">
+                  <Icon className="h-5 w-5 text-foreground" strokeWidth={1.75} aria-hidden="true" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-base font-semibold leading-tight">{title}</span>
+                  <span className="mt-1 block text-sm text-muted-foreground">{description}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
 
       {userId && (
         <>
@@ -489,7 +404,7 @@ const Builders = () => {
             onOpenChange={setIsMaterialDialogOpen}
             projectId={selectedProjectId}
             userId={userId}
-            userRole={userProfile?.role}
+            userRole="builder"
           />
 
           <EnhancedInvoiceDialog
@@ -546,7 +461,7 @@ const Builders = () => {
           />
         </>
       )}
-    </div>
+    </AppShell>
   );
 };
 

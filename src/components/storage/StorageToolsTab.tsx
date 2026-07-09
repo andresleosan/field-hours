@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/responsive-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Pencil, Trash2, Loader2, Search, Wrench } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -192,11 +192,11 @@ const StorageToolsTab = ({ userId }: StorageToolsTabProps) => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "available":
-        return <Badge className="bg-green-500">Available</Badge>;
+        return <Badge variant="success">Available</Badge>;
       case "checked_out":
         return <Badge variant="destructive">Checked Out</Badge>;
       case "maintenance":
-        return <Badge className="bg-yellow-500">Maintenance</Badge>;
+        return <Badge variant="warning">Maintenance</Badge>;
       case "retired":
         return <Badge variant="secondary">Retired</Badge>;
       default:
@@ -207,11 +207,11 @@ const StorageToolsTab = ({ userId }: StorageToolsTabProps) => {
   const getConditionBadge = (condition: string) => {
     switch (condition) {
       case "new":
-        return <Badge className="bg-blue-500">New</Badge>;
+        return <Badge variant="info">New</Badge>;
       case "good":
         return <Badge variant="secondary">Good</Badge>;
       case "fair":
-        return <Badge className="bg-yellow-500">Fair</Badge>;
+        return <Badge variant="warning">Fair</Badge>;
       case "needs_repair":
         return <Badge variant="destructive">Needs Repair</Badge>;
       default:
