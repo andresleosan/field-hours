@@ -643,6 +643,7 @@ export default function ProjectDetails() {
                         onDownloadPhoto={downloadPhoto}
                         calculateTotalTime={calculateTotalTime}
                         formatTime={formatTime}
+                        currentUserId={userId ?? undefined}
                         selectionMode={selectionMode}
                         isSelected={selectedJobs.has(job.id)}
                         onToggleSelect={toggleJobSelection}
@@ -700,6 +701,7 @@ export default function ProjectDetails() {
                       onDownloadPhoto={downloadPhoto}
                       calculateTotalTime={calculateTotalTime}
                       formatTime={formatTime}
+                      currentUserId={userId ?? undefined}
                       selectionMode={selectionMode}
                       isSelected={selectedJobs.has(job.id)}
                       onToggleSelect={toggleJobSelection}

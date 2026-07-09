@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Clock, CheckCircle2, AlertCircle, PlayCircle, Users, Package, Download, XCircle, Edit } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, PlayCircle, Download, XCircle, Edit } from "lucide-react";
 
 interface JobCardProps {
   job: any;
@@ -20,6 +20,7 @@ interface JobCardProps {
   onDownloadPhoto: (photoPath: string, bucket?: string) => void;
   calculateTotalTime: (timeTracking: any[]) => number;
   formatTime: (minutes: number) => string;
+  currentUserId?: string;
   // Selection mode props
   selectionMode?: boolean;
   isSelected?: boolean;
@@ -40,6 +41,7 @@ export const JobCard = ({
   onDownloadPhoto,
   calculateTotalTime,
   formatTime,
+  currentUserId,
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
@@ -49,6 +51,10 @@ export const JobCard = ({
   const workers = activeWorkers || [];
   const materials = job.job_materials || [];
   const photos = photoUrls || [];
+  const materialsCost = materials.reduce((sum: number, m: any) => {
+    const usage = m.material_usage;
+    return sum + (usage?.quantity_used * usage?.materials?.cost_per_unit || 0);
+  }, 0);
 
   const getStatusBadge = (status: string) => {
     const statusConfig = {
@@ -112,73 +118,31 @@ export const JobCard = ({
       </CardHeader>
       <CardContent className="pt-4 px-3 sm:px-6">
         <div className="grid gap-4">
-          {/* Quick Stats Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Currently Working */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-2 px-3 pt-3">
-                <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="truncate">Currently Working</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                {workers.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {workers.map((worker: any) => (
-                      <Badge key={worker.id} variant="secondary" className="animate-pulse text-xs">
-                        {worker.profiles?.full_name}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">No one working</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Time Worked */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-2 px-3 pt-3">
-                <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                  <Clock className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="truncate">Time Worked</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <div className="text-xl sm:text-2xl font-bold">
-                  {totalTime > 0 ? formatTime(totalTime) : "0h 0m"}
-                </div>
-                {job.job_time_tracking && job.job_time_tracking.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    {job.job_time_tracking.length} session(s)
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Materials */}
-            <Card className="shadow-sm">
-              <CardHeader className="pb-2 px-3 pt-3">
-                <CardTitle className="text-xs sm:text-sm flex items-center gap-1.5">
-                  <Package className="h-3.5 w-3.5 text-primary shrink-0" />
-                  <span className="truncate">Materials Used</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <div className="text-xl sm:text-2xl font-bold">{materials.length}</div>
-                {materials.length > 0 && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    £{materials.reduce((sum: number, m: any) => {
-                      const usage = m.material_usage;
-                      const material = usage?.materials;
-                      return sum + (usage?.quantity_used * material?.cost_per_unit || 0);
-                    }, 0).toFixed(2)} total
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+          {/* Stats strip */}
+          <dl className="grid grid-cols-3 divide-x divide-border overflow-hidden rounded-lg border border-border bg-muted/30 text-center">
+            <div className="px-2 py-3">
+              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Working now</dt>
+              <dd className="mt-1 truncate px-1 text-sm font-semibold">
+                {workers.length > 0
+                  ? workers.map((w: any) => w.profiles?.full_name?.split(" ")[0] ?? "?").join(", ")
+                  : "—"}
+              </dd>
+            </div>
+            <div className="px-2 py-3">
+              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Time</dt>
+              <dd className="mt-1 text-sm font-semibold tabular-nums">
+                {totalTime > 0 ? formatTime(totalTime) : "0h 0m"}
+              </dd>
+            </div>
+            <div className="px-2 py-3">
+              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Materials</dt>
+              <dd className="mt-1 text-sm font-semibold tabular-nums">
+                {materials.length}
+                {/* ponytail: sub-£1 costs round to "£0" and read as free — hide them */}
+                {materialsCost >= 1 && <span className="text-muted-foreground"> · £{materialsCost.toFixed(0)}</span>}
+              </dd>
+            </div>
+          </dl>
 
           {/* Submission Details for Waiting Review and Completed */}
           {(job.status === "pending" || job.status === "waiting_review" || job.status === "completed") && completion && (
@@ -326,40 +290,36 @@ export const JobCard = ({
           )}
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap gap-2 pt-4 border-t">
+          <div className="flex flex-wrap gap-2 border-t pt-4">
             {userRole === "builder" && job.status === "approved" && (
               <>
-                {!workers.some(w => w.user_id === userRole) && (
-                  <Button
-                    variant="outline"
-                    onClick={() => onStartTracking(job.id)}
-                  >
-                    <PlayCircle className="h-4 w-4 mr-2" />
-                    Start Working
+                {!workers.some((w: any) => w.user_id === currentUserId) && (
+                  <Button onClick={() => onStartTracking(job.id)}>
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                    Start working
                   </Button>
                 )}
-                <Button onClick={() => onSubmitForReview(job.id)}>
-                  Submit for Review
+                <Button variant="outline" onClick={() => onSubmitForReview(job.id)}>
+                  Submit for review
                 </Button>
               </>
             )}
             {userRole === "builder" && job.status === "needs_correction" && (
-              <Button onClick={() => onSubmitForReview(job.id)}>
-                Resubmit Job
-              </Button>
+              <Button onClick={() => onSubmitForReview(job.id)}>Resubmit job</Button>
             )}
             {userRole === "manager" && (job.status === "pending" || job.status === "waiting_review") && (
               <>
+                <Button onClick={() => onJobDone(job.id)}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  Job done
+                </Button>
                 <Button
-                  variant="destructive"
+                  variant="outline"
+                  className="border-destructive/40 text-destructive hover:bg-destructive/10"
                   onClick={() => onNeedsCorrection(job.id)}
                 >
-                  <XCircle className="h-4 w-4 mr-2" />
-                  Needs Correction
-                </Button>
-                <Button onClick={() => onJobDone(job.id)}>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Job Done
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Needs correction
                 </Button>
               </>
             )}
