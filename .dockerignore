@@ -1,6 +1,6 @@
 node_modules
-dist
+dist/**/*.map
 .git
-*.md
-playwright.config.ts
-playwright-fixture.ts
+.build-loop
+.env
+.env.*

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4/config-schema.json",
+  "name": "field-hours-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://field-hours.vercel.app,http://localhost:5173,http://127.0.0.1:5173",
+    "SESSION_TTL_SECONDS": "43200",
+    "INVITE_TTL_SECONDS": "1800",
+    "ENVIRONMENT": "production"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "field-hours-prod",
+      "database_id": "9eeb9537-38e7-4e79-b4a2-96d581f2c213",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

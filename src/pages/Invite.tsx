@@ -100,7 +100,7 @@ const Invite = () => {
   const generateQRCodeUrl = (code: string) => {
     const signupUrl = `${window.location.origin}/auth?code=${code}`;
     // Using QR Code API
-    return `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(signupUrl)}&bgcolor=ffffff&color=000000&format=svg`;
+    return `data:text/plain;charset=utf-8,${encodeURIComponent(signupUrl)}`;
   };
 
   if (isLoading) {

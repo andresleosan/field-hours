@@ -8,9 +8,10 @@ interface TimeTrackingCardProps {
   currentTimeEntry: any;
   onClockIn: () => void;
   onClockOut: () => void;
+  weekMinutes?: number;
 }
 
-const TimeTrackingCard = ({ isClockedIn, currentTimeEntry, onClockIn, onClockOut }: TimeTrackingCardProps) => {
+const TimeTrackingCard = ({ isClockedIn, currentTimeEntry, onClockIn, onClockOut, weekMinutes = 0 }: TimeTrackingCardProps) => {
   const [elapsedTime, setElapsedTime] = useState("");
 
   useEffect(() => {
@@ -77,6 +78,10 @@ const TimeTrackingCard = ({ isClockedIn, currentTimeEntry, onClockIn, onClockOut
             </>
           )}
         </Button>
+
+        <p className="text-center font-mono text-xs tabular-nums text-muted-foreground">
+          This week: {Math.floor(weekMinutes / 60)}h {weekMinutes % 60}m
+        </p>
       </CardContent>
     </Card>
   );

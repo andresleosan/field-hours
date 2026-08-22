@@ -25,6 +25,11 @@ interface Project {
   status: string;
 }
 
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+};
+
 const Builders = () => {
   const { userId, fullName, isLoading } = useRequireRole("builder");
   const [projects, setProjects] = useState<Project[]>([]);
@@ -41,6 +46,7 @@ const Builders = () => {
   const [isMaterialDeliveryDialogOpen, setIsMaterialDeliveryDialogOpen] = useState(false);
   const [isToolRequestDialogOpen, setIsToolRequestDialogOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [weekMinutes, setWeekMinutes] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -48,6 +54,7 @@ const Builders = () => {
     (async () => {
       await fetchProjects();
       await checkClockInStatus(userId);
+      await fetchWeekMinutes(userId);
       setIsReady(true);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,6 +90,22 @@ const Builders = () => {
       setCurrentTimeEntry(data);
       setSelectedProjectId(data.project_id);
     }
+  };
+
+  const fetchWeekMinutes = async (uid: string) => {
+    const monday = new Date();
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const { data } = await supabase
+      .from("time_tracking")
+      .select("clock_in, clock_out")
+      .eq("user_id", uid)
+      .gte("clock_in", monday.toISOString());
+    const mins = (data || []).reduce((sum, e: any) => {
+      const end = e.clock_out ? new Date(e.clock_out) : new Date();
+      return sum + Math.max(0, (end.getTime() - new Date(e.clock_in).getTime()) / 60000);
+    }, 0);
+    setWeekMinutes(Math.round(mins));
   };
 
   const getLocation = (): Promise<{ lat: number; lng: number }> => {
@@ -213,6 +236,7 @@ const Builders = () => {
 
       setIsClockedIn(false);
       setCurrentTimeEntry(null);
+      await fetchWeekMinutes(userId);
 
       // Calculate hours worked
       const hoursWorked = ((new Date(clockOutTime).getTime() - new Date(clockInTime).getTime()) / (1000 * 60 * 60)).toFixed(2);
@@ -274,6 +298,16 @@ const Builders = () => {
       live={isClockedIn}
       onSignOut={handleSignOut}
     >
+        <section>
+          <p className="text-sm text-muted-foreground">
+            {new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date())}
+          </p>
+          <h1 className="text-2xl font-bold">
+            {greeting()}
+            {fullName ? `, ${fullName.split(" ")[0]}` : ""}
+          </h1>
+        </section>
+
         <Card>
           <CardHeader>
             <CardTitle>Current Project</CardTitle>
@@ -311,6 +345,7 @@ const Builders = () => {
           currentTimeEntry={currentTimeEntry}
           onClockIn={handleClockIn}
           onClockOut={handleClockOut}
+          weekMinutes={weekMinutes}
         />
 
         {selectedProjectId && (
@@ -335,35 +370,10 @@ const Builders = () => {
                 onClick: () => setIsMaterialDialogOpen(true),
               },
               {
-                icon: FileText,
-                title: "Add invoice",
-                description: "Upload a new invoice",
-                onClick: () => setIsInvoiceDialogOpen(true),
-              },
-              {
                 icon: FileImage,
                 title: "Add day report",
                 description: "Submit photos and work description",
                 onClick: () => setIsDailyReportDialogOpen(true),
-              },
-              {
-                icon: Repeat,
-                title: "Change project",
-                description: isClockedIn ? "Switch to another project" : "Clock in first",
-                onClick: () => setIsChangeProjectDialogOpen(true),
-                disabled: !isClockedIn,
-              },
-              {
-                icon: ShieldCheck,
-                title: "Risk assessment",
-                description: "View and sign safety documents",
-                onClick: () => setIsRiskAssessmentDialogOpen(true),
-              },
-              {
-                icon: Trash2,
-                title: "Request rubbish collection",
-                description: "Ask manager to collect rubbish",
-                onClick: () => setIsRubbishDialogOpen(true),
               },
               {
                 icon: Truck,
@@ -376,6 +386,31 @@ const Builders = () => {
                 title: "Request tools",
                 description: "Request tools from the yard",
                 onClick: () => setIsToolRequestDialogOpen(true),
+              },
+              {
+                icon: Trash2,
+                title: "Request rubbish collection",
+                description: "Ask manager to collect rubbish",
+                onClick: () => setIsRubbishDialogOpen(true),
+              },
+              {
+                icon: FileText,
+                title: "Add invoice",
+                description: "Upload a new invoice",
+                onClick: () => setIsInvoiceDialogOpen(true),
+              },
+              {
+                icon: ShieldCheck,
+                title: "Risk assessment",
+                description: "View and sign safety documents",
+                onClick: () => setIsRiskAssessmentDialogOpen(true),
+              },
+              {
+                icon: Repeat,
+                title: "Change project",
+                description: isClockedIn ? "Switch to another project" : "Clock in first",
+                onClick: () => setIsChangeProjectDialogOpen(true),
+                disabled: !isClockedIn,
               },
             ].map(({ icon: Icon, title, description, onClick, disabled }) => (
               <button
