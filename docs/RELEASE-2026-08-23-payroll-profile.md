@@ -1,7 +1,7 @@
 # Release: Jersey payroll profile
 
-Fecha: 2026-08-23  
-Worker version: `11e1276a-6270-4c2b-8b33-abe194dfc1fb`  
+Fecha: 2026-08-23
+Worker version: `11e1276a-6270-4c2b-8b33-abe194dfc1fb`
 Git feature commit: `60335f6`
 
 ## Cambios
