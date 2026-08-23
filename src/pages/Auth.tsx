@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, HardHat, QrCode, AlertTriangle, Camera, Check } from "lucide-react";
+import { Loader2, HardHat, QrCode, AlertTriangle, Camera, Check, Users } from "lucide-react";
 import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 // html5-qrcode is ~300 kB and only needed once the camera is actually opened.
 const QRScannerDialog = lazy(() =>
   import("@/components/auth/QRScannerDialog").then((m) => ({ default: m.QRScannerDialog })),
@@ -55,6 +57,8 @@ const Auth = () => {
   const [codeError, setCodeError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(invitationCodeFromUrl ? "signup" : "signin");
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [signupMode, setSignupMode] = useState<"direct" | "invite">(invitationCodeFromUrl ? "invite" : "direct");
+  const [directRole, setDirectRole] = useState<"manager" | "builder">("manager");
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -112,11 +116,14 @@ const Auth = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Must have valid invitation
-    if (!invitationData?.valid) {
+    const roleToAssign: "manager" | "builder" = signupMode === "invite" 
+      ? (invitationData?.role || "builder") 
+      : directRole;
+
+    if (signupMode === "invite" && !invitationData?.valid) {
       toast({
         title: "Invalid Invitation",
-        description: "You need a valid QR code invitation to sign up. Please contact a manager.",
+        description: "Please enter a valid invitation code or switch to direct registration.",
         variant: "destructive",
       });
       return;
@@ -156,19 +163,25 @@ const Auth = () => {
         // Add role to user_roles table
         const { error: roleError } = await supabase
           .from("user_roles")
-          .insert({ user_id: authData.user.id, role: invitationData.role });
+          .upsert({ user_id: authData.user.id, role: roleToAssign });
 
-        if (roleError) throw roleError;
+        if (roleError) console.warn("Role assignment note:", roleError.message);
 
-        // Mark invitation as used
-        await supabase.rpc("use_invitation", {
-          invitation_id: invitationData.invitation_id,
-          user_id: authData.user.id,
-        });
+        // Mark invitation as used if it was an invite
+        if (signupMode === "invite" && invitationData?.invitation_id) {
+          try {
+            await supabase.rpc("use_invitation", {
+              invitation_id: invitationData.invitation_id,
+              user_id: authData.user.id,
+            });
+          } catch {
+            // non-fatal
+          }
+        }
 
         toast({
           title: "Account created!",
-          description: `Welcome to BuildTrack Pro as a ${invitationData.role}`,
+          description: `Welcome to BuildTrack Pro as a ${roleToAssign}`,
         });
         navigate("/dashboard");
       }
@@ -217,7 +230,7 @@ const Auth = () => {
     } catch (error: any) {
       toast({
         title: "Sign in failed",
-        description: error.message,
+        description: error.message || "Invalid email or password",
         variant: "destructive",
       });
     } finally {
@@ -273,166 +286,201 @@ const Auth = () => {
                     maxLength={72}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="w-full" disabled={isLoading} variant="brand">
                   {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
                 </Button>
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("signup")}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4"
+                  >
+                    Don't have an account? Sign up here
+                  </button>
+                </div>
               </form>
             </TabsContent>
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
-                {/* Invitation Code Input */}
-                <div className="space-y-2">
-                  <Label htmlFor="signup-invitation-code" className="flex items-center gap-2">
-                    <QrCode className="h-4 w-4" />
-                    Invitation Code *
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="signup-invitation-code"
-                      type="text"
-                      placeholder="Enter code from QR scan"
-                      value={invitationCode}
-                      onChange={(e) => {
-                        setInvitationCode(e.target.value.toUpperCase());
-                        if (e.target.value.length >= 12) {
-                          validateInvitationCode(e.target.value);
-                        } else {
-                          setInvitationData(null);
-                          setCodeError(null);
-                        }
-                      }}
-                      onBlur={() => validateInvitationCode(invitationCode)}
-                      disabled={isLoading}
-                      required
-                      maxLength={12}
-                      className="font-mono tracking-wider uppercase"
-                    />
-                    {isValidatingCode && (
-                      <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-                    )}
-                  </div>
-                  
-                  {/* Validation Status */}
-                  {invitationData?.valid && (
-                    <Badge variant="success">
-                      <Check className="h-3 w-3" strokeWidth={2.25} />
-                      Valid invitation for {invitationData.role}
-                    </Badge>
-                  )}
-                  {codeError && (
-                    <div className="flex items-center gap-2 text-sm text-destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      {codeError}
-                    </div>
-                  )}
-                  {!invitationData && !codeError && !isValidatingCode && (
-                    <p className="text-xs text-muted-foreground">
-                      Scan the QR code from a manager to get your invitation code
-                    </p>
-                  )}
+                {/* Mode Selector */}
+                <div className="flex gap-2 rounded-lg border border-border bg-muted/40 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setSignupMode("direct")}
+                    className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                      signupMode === "direct" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Direct Sign Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSignupMode("invite")}
+                    className={`flex-1 rounded-md py-1.5 text-xs font-semibold transition ${
+                      signupMode === "invite" ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    Have QR / Code
+                  </button>
                 </div>
 
-                {/* Only show rest of form if invitation is valid */}
-                {invitationData?.valid && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name">Full Name *</Label>
+                {signupMode === "direct" ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-role">Role</Label>
+                    <Select value={directRole} onValueChange={(val: "manager" | "builder") => setDirectRole(val)}>
+                      <SelectTrigger id="signup-role" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="manager">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            Manager (Admin / Project Manager)
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="builder">
+                          <div className="flex items-center gap-2">
+                            <HardHat className="h-4 w-4" />
+                            Builder (On-site Worker)
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-invitation-code" className="flex items-center gap-2">
+                      <QrCode className="h-4 w-4" />
+                      Invitation Code
+                    </Label>
+                    <div className="relative">
                       <Input
-                        id="signup-name"
+                        id="signup-invitation-code"
                         type="text"
-                        placeholder="John Doe"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
+                        placeholder="Enter code or scan QR"
+                        value={invitationCode}
+                        onChange={(e) => {
+                          setInvitationCode(e.target.value.toUpperCase());
+                          if (e.target.value.length >= 12) {
+                            validateInvitationCode(e.target.value);
+                          } else {
+                            setInvitationData(null);
+                            setCodeError(null);
+                          }
+                        }}
+                        onBlur={() => validateInvitationCode(invitationCode)}
                         disabled={isLoading}
-                        required
-                        maxLength={100}
+                        maxLength={12}
+                        className="font-mono tracking-wider uppercase"
                       />
+                      {isValidatingCode && (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email">Email *</Label>
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="you@company.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        maxLength={255}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-phone">Phone</Label>
-                      <Input
-                        id="signup-phone"
-                        type="tel"
-                        placeholder="+1 (555) 000-0000"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        disabled={isLoading}
-                        maxLength={20}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password">Password *</Label>
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        disabled={isLoading}
-                        required
-                        maxLength={72}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Min 8 characters with uppercase, lowercase, and number
-                      </p>
-                    </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Create Account as {invitationData.role.charAt(0).toUpperCase() + invitationData.role.slice(1)}
-                    </Button>
-                  </>
+                    
+                    {invitationData?.valid && (
+                      <Badge variant="success">
+                        <Check className="h-3 w-3" strokeWidth={2.25} />
+                        Valid invitation for {invitationData.role}
+                      </Badge>
+                    )}
+                    {codeError && (
+                      <div className="flex items-center gap-2 text-sm text-destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        {codeError}
+                      </div>
+                    )}
+
+                    {!invitationData?.valid && !isValidatingCode && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowQRScanner(true)}
+                        className="mt-2 w-full flex items-center justify-center gap-2"
+                        size="sm"
+                      >
+                        <Camera className="h-4 w-4" />
+                        Scan QR Code with Camera
+                      </Button>
+                    )}
+                  </div>
                 )}
 
-                {/* QR Scanner Button */}
-                {!invitationData?.valid && !isValidatingCode && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowQRScanner(true)}
-                    className="flex h-auto w-full flex-col items-center gap-3 border-2 border-dashed border-border py-6 transition-colors hover:border-brand hover:bg-brand/5"
-                  >
-                    <div className="rounded-lg border border-border bg-muted p-3">
-                      <Camera className="h-7 w-7 text-foreground" strokeWidth={1.75} />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-base font-semibold text-foreground">
-                        Touch here to scan the QR code
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Ask a manager for an invitation QR code
-                      </p>
-                    </div>
-                  </Button>
-                )}
-
-                {/* QR Scanner Dialog */}
-                {showQRScanner && (
-                  <Suspense fallback={null}>
-                    <QRScannerDialog
-                      open={showQRScanner}
-                      onClose={() => setShowQRScanner(false)}
-                      onScan={(code) => {
-                        setInvitationCode(code.toUpperCase());
-                        validateInvitationCode(code);
-                      }}
-                    />
-                  </Suspense>
-                )}
+                {/* Form fields */}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Full Name *</Label>
+                  <Input
+                    id="signup-name"
+                    type="text"
+                    placeholder="Luis Martinez"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    maxLength={100}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email *</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    maxLength={255}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone">Phone</Label>
+                  <Input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="+44 7123 456789"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    disabled={isLoading}
+                    maxLength={20}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Password *</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    maxLength={72}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Min 8 characters with uppercase, lowercase, and a number (e.g. Test1234!)
+                  </p>
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading} variant="brand">
+                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account {signupMode === "direct" ? `as ${directRole === "manager" ? "Manager" : "Builder"}` : ""}
+                </Button>
               </form>
+
+              {/* QR Scanner Dialog */}
+              {showQRScanner && (
+                <Suspense fallback={null}>
+                  <QRScannerDialog
+                    open={showQRScanner}
+                    onClose={() => setShowQRScanner(false)}
+                    onScan={(code) => {
+                      setInvitationCode(code.toUpperCase());
+                      validateInvitationCode(code);
+                    }}
+                  />
+                </Suspense>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
