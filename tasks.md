@@ -12,6 +12,12 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [ ] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes.
 - [ ] Permitir al administrador exportar payslips / recibos de salario con el formato de Salary Advice proporcionado.
 - [ ] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip.
+- [ ] Crear un perfil de nómina de captura única por trabajador: nombre legal, dirección, número de empleado, número de seguro social, Tax Reference, Social Reference, porcentaje ITIS y datos bancarios si el negocio los necesita.
+- [ ] Proteger los datos sensibles de nómina con cifrado, acceso restringido al dueño/admin, enmascarado en pantalla, auditoría y opción de actualización controlada.
+- [ ] Permitir que el administrador configure tarifa por hora, periodo de pago, datos del negocio y reglas aplicables antes de calcular la nómina.
+- [ ] Calcular automáticamente el primer día de cada mes: horas aprobadas, salario bruto, seguro social del trabajador, ITIS/impuestos, deducciones, salario neto y totales acumulados.
+- [ ] Crear un proceso de revisión y aprobación de nómina antes de marcar el pago como listo; no ejecutar transferencias bancarias automáticamente sin confirmación del administrador.
+- [ ] Generar y exportar el payslip de cada trabajador con el formato Salary Advice, incluyendo Allowances, Deductions, Net Pay, Gross Taxable Pay, Tax Paid, Tax Ref y Social Ref.
 
 ## 📊 Estado General del Proyecto
 - **Fase Actual**: Fase 5 — Verificación Fotográfica Selfie y Multi-idioma (COMPLETADA)
