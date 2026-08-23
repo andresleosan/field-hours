@@ -16,6 +16,7 @@ import {
   completePasswordReset,
   issuePasswordReset,
   listPasswordResetRequests,
+  rejectPasswordReset,
   requestPasswordReset,
 } from "./passwordReset";
 import {
@@ -150,6 +151,19 @@ async function route(request: Request, env: Env): Promise<Response> {
       env,
       auth,
       decodeURIComponent(passwordResetRequestMatch[1] ?? ""),
+    ));
+  }
+
+  const passwordResetRejectMatch = path.match(/^\/api\/admin\/password-reset-requests\/([^/]+)\/reject$/);
+  if (request.method === "POST" && passwordResetRejectMatch) {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const body = await readJson<{ reason?: unknown }>(request);
+    return json(request, env, await rejectPasswordReset(
+      env,
+      auth,
+      decodeURIComponent(passwordResetRejectMatch[1] ?? ""),
+      body.reason,
     ));
   }
 

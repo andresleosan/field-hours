@@ -141,6 +141,38 @@ export async function issuePasswordReset(
   return { resetUrl: `${appOrigin(env)}/?reset=${encodeURIComponent(token)}`, expiresAt };
 }
 
+export async function rejectPasswordReset(
+  env: Env,
+  auth: AuthContext,
+  requestIdValue: string,
+  reasonValue?: unknown,
+): Promise<{ ok: true }> {
+  requireRole(auth, "admin");
+  const requestId = requireString(requestIdValue, "Request", 36, 36);
+  const pending = await env.DB.prepare(
+    `SELECT id, user_id AS userId, organization_id AS organizationId
+     FROM workforce_password_reset_requests
+     WHERE id = ?1 AND organization_id = ?2 AND status = 'pending' LIMIT 1`,
+  ).bind(requestId, auth.user.organizationId).first<{ id: string; userId: string; organizationId: string }>();
+  if (!pending) throw new ApiError(404, "RESET_REQUEST_NOT_FOUND", "The password reset request is no longer pending.");
+  const reason = typeof reasonValue === "string" ? reasonValue.trim().slice(0, 300) : "";
+  const reviewedAt = new Date().toISOString();
+  const updated = await env.DB.prepare(
+    `UPDATE workforce_password_reset_requests
+     SET status = 'rejected', reviewed_at = ?1, reviewed_by = ?2
+     WHERE id = ?3 AND organization_id = ?4 AND status = 'pending'`,
+  ).bind(reviewedAt, auth.user.id, requestId, auth.user.organizationId).run();
+  if (Number(updated.meta.changes ?? 0) !== 1) {
+    throw new ApiError(409, "RESET_REQUEST_REVIEWED", "The password reset request was already reviewed.");
+  }
+  await env.DB.prepare(
+    `INSERT INTO workforce_audit_events
+     (organization_id, actor_user_id, action, subject_id, metadata_json)
+     VALUES (?1, ?2, 'account.password.reset_rejected', ?3, ?4)`,
+  ).bind(pending.organizationId, auth.user.id, pending.userId, JSON.stringify({ reason })).run();
+  return { ok: true };
+}
+
 export async function completePasswordReset(
   env: Env,
   body: { token?: unknown; password?: unknown },

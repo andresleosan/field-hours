@@ -213,6 +213,14 @@ export async function issuePasswordReset(requestId: string): Promise<{ resetUrl:
   );
 }
 
+export async function rejectPasswordReset(requestId: string, reason?: string): Promise<void> {
+  await backend.post<{ ok: true }>(
+    `/api/admin/password-reset-requests/${encodeURIComponent(requestId)}/reject`,
+    reason ? { reason } : {},
+    true,
+  );
+}
+
 export async function loadProjects(): Promise<Project[]> {
   return backend.get<Project[]>("/api/projects");
 }

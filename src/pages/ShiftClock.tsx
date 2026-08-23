@@ -72,6 +72,7 @@ import {
   issuePasswordReset,
   reviewGoogleAuthRequest,
   requestPasswordReset,
+  rejectPasswordReset,
   completePasswordReset,
   startGoogleSignIn,
   type AdminSnapshot,
@@ -1503,6 +1504,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [reviewingGoogleRequest, setReviewingGoogleRequest] = useState<string | null>(null);
   const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
   const [issuingPasswordReset, setIssuingPasswordReset] = useState<string | null>(null);
+  const [rejectingPasswordReset, setRejectingPasswordReset] = useState<string | null>(null);
   const [passwordResetLink, setPasswordResetLink] = useState("");
 
   const refreshToday = useCallback(async () => {
@@ -1683,6 +1685,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }
 
+  async function rejectPasswordResetRequest(request: PasswordResetRequest) {
+    setRejectingPasswordReset(request.id);
+    setMessage("");
+    try {
+      await rejectPasswordReset(request.id, "Rejected by administrator");
+      await refreshPasswordResetRequests();
+      setMessage("Password reset request rejected.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The password reset request could not be rejected."));
+    } finally {
+      setRejectingPasswordReset(null);
+    }
+  }
+
   async function copyPasswordResetLink() {
     try {
       await navigator.clipboard.writeText(passwordResetLink);
@@ -1849,14 +1865,24 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <p className="truncate text-xs text-muted-foreground">{request.email}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{request.requestedAt ? new Date(request.requestedAt).toLocaleString() : ""}</p>
                     </div>
-                    <button
-                      type="button"
-                      disabled={issuingPasswordReset === request.id}
-                      onClick={() => void generatePasswordResetLink(request)}
-                      className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-                    >
-                      {issuingPasswordReset === request.id ? "Generating…" : "Generate link"}
-                    </button>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        disabled={issuingPasswordReset === request.id || rejectingPasswordReset === request.id}
+                        onClick={() => void rejectPasswordResetRequest(request)}
+                        className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
+                      >
+                        {rejectingPasswordReset === request.id ? "Rejecting…" : "Reject"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={issuingPasswordReset === request.id || rejectingPasswordReset === request.id}
+                        onClick={() => void generatePasswordResetLink(request)}
+                        className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                      >
+                        {issuingPasswordReset === request.id ? "Generating…" : "Generate link"}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
