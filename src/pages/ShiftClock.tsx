@@ -68,10 +68,15 @@ import {
   signIn,
   signOut,
   loadGoogleAuthRequests,
+  loadPasswordResetRequests,
+  issuePasswordReset,
   reviewGoogleAuthRequest,
+  requestPasswordReset,
+  completePasswordReset,
   startGoogleSignIn,
   type AdminSnapshot,
   type GoogleAuthRequest,
+  type PasswordResetRequest,
   type LocationEvidence,
   type Project,
   type ShiftAction,
@@ -252,6 +257,10 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteToken, setInviteToken] = useState(initialToken);
+  const [showResetRequest, setShowResetRequest] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
   const [error, setError] = useState(
     googleStatus === "pending"
       ? "Your Google request is waiting for administrator approval. Try again after it is approved."
@@ -281,6 +290,20 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
       setError(messageFrom(caught, "We could not sign you in. Check your credentials."));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function submitResetRequest(event: FormEvent) {
+    event.preventDefault();
+    setResetBusy(true);
+    setResetMessage("");
+    try {
+      await requestPasswordReset(resetEmail);
+      setResetMessage("Solicitud enviada. Un administrador debe generar y compartir contigo un enlace de restablecimiento.");
+    } catch (caught) {
+      setResetMessage(messageFrom(caught, "No se pudo solicitar el restablecimiento."));
+    } finally {
+      setResetBusy(false);
     }
   }
 
@@ -419,6 +442,47 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
             >
               {registration ? t("backToSignIn") : t("haveInvitation")}
             </button>
+            {!registration && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetRequest((current) => !current);
+                    setResetEmail(email);
+                    setResetMessage("");
+                  }}
+                  className="mt-3 w-full text-center text-sm font-medium text-brand underline-offset-4 hover:underline"
+                >
+                  {showResetRequest ? "Cancelar restablecimiento" : "¿Olvidaste tu contraseña?"}
+                </button>
+                {showResetRequest && (
+                  <form onSubmit={submitResetRequest} className="mt-5 space-y-3 rounded-2xl border border-border bg-muted/40 p-4">
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Escribe tu correo. Por seguridad, la respuesta será la misma exista o no una cuenta.
+                    </p>
+                    <input
+                      required
+                      type="email"
+                      maxLength={254}
+                      value={resetEmail}
+                      onChange={(event) => setResetEmail(event.target.value)}
+                      className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      placeholder="Correo de la cuenta"
+                      autoComplete="email"
+                    />
+                    <button
+                      type="submit"
+                      disabled={resetBusy}
+                      className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted disabled:opacity-60"
+                    >
+                      {resetBusy && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Solicitar restablecimiento
+                    </button>
+                    {resetMessage && <p role="status" className="text-xs leading-5 text-muted-foreground">{resetMessage}</p>}
+                  </form>
+                )}
+              </>
+            )}
           </div>
         </section>
       </div>
@@ -512,6 +576,82 @@ function PasswordChangeScreen({
         <button type="button" onClick={onSignOut} className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground">
           {t("signOut")} ({user.email})
         </button>
+      </section>
+    </main>
+  );
+}
+
+function PasswordResetScreen({ token, onDone }: { token: string; onDone: () => void }) {
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    if (password !== confirmation) {
+      setError("Las contraseñas no coinciden.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await completePasswordReset(token, password);
+      onDone();
+    } catch (caught) {
+      setError(messageFrom(caught, "El enlace no es válido o ya expiró."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-background px-5 py-8">
+      <section className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-lg sm:p-8">
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/15 text-brand">
+          <ShieldCheck className="h-6 w-6" />
+        </div>
+        <p className="label-eyebrow mt-7">Field Hours</p>
+        <h1 className="mt-2 text-2xl font-semibold">Restablecer contraseña</h1>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Define una contraseña nueva de al menos 12 caracteres. Este enlace solo puede usarse una vez.
+        </p>
+        <form onSubmit={submit} className="mt-7 space-y-5">
+          <label className="block text-sm font-medium">
+            Nueva contraseña
+            <input
+              required
+              minLength={12}
+              maxLength={128}
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="mt-2 h-12 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              autoComplete="new-password"
+            />
+          </label>
+          <label className="block text-sm font-medium">
+            Confirmar contraseña
+            <input
+              required
+              minLength={12}
+              maxLength={128}
+              type="password"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              className="mt-2 h-12 w-full rounded-xl border border-input bg-background px-3 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              autoComplete="new-password"
+            />
+          </label>
+          {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+          <button
+            disabled={busy}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-60"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            Guardar contraseña
+          </button>
+        </form>
       </section>
     </main>
   );
@@ -1353,6 +1493,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [googleRequests, setGoogleRequests] = useState<GoogleAuthRequest[]>([]);
   const [reviewingGoogleRequest, setReviewingGoogleRequest] = useState<string | null>(null);
+  const [passwordResetRequests, setPasswordResetRequests] = useState<PasswordResetRequest[]>([]);
+  const [issuingPasswordReset, setIssuingPasswordReset] = useState<string | null>(null);
+  const [passwordResetLink, setPasswordResetLink] = useState("");
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1380,6 +1523,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setGoogleRequests(await loadGoogleAuthRequests());
     } catch {
       // The request panel is supplementary to the time clock.
+    }
+  }, []);
+
+  const refreshPasswordResetRequests = useCallback(async () => {
+    try {
+      setPasswordResetRequests(await loadPasswordResetRequests());
+    } catch {
+      // The password reset panel is supplementary to the time clock.
     }
   }, []);
 
@@ -1442,13 +1593,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   useEffect(() => {
     void refreshToday();
     void refreshGoogleRequests();
+    void refreshPasswordResetRequests();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
       void refreshGoogleRequests();
+      void refreshPasswordResetRequests();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -1504,6 +1657,30 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setMessage(messageFrom(caught, "The Google sign-in request could not be updated."));
     } finally {
       setReviewingGoogleRequest(null);
+    }
+  }
+
+  async function generatePasswordResetLink(request: PasswordResetRequest) {
+    setIssuingPasswordReset(request.id);
+    setMessage("");
+    try {
+      const result = await issuePasswordReset(request.id);
+      setPasswordResetLink(result.resetUrl);
+      await refreshPasswordResetRequests();
+      setMessage("Enlace de restablecimiento generado. Compártelo directamente con el trabajador; caduca en 30 minutos.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "No se pudo generar el enlace de restablecimiento."));
+    } finally {
+      setIssuingPasswordReset(null);
+    }
+  }
+
+  async function copyPasswordResetLink() {
+    try {
+      await navigator.clipboard.writeText(passwordResetLink);
+      setMessage("Enlace copiado.");
+    } catch {
+      setMessage("No se pudo copiar el enlace; selecciónalo manualmente.");
     }
   }
 
@@ -1642,6 +1819,49 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 </div>
               ))}
             </div>
+          </section>
+        )}
+
+        {(passwordResetRequests.length > 0 || passwordResetLink) && (
+          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="password-reset-title">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="label-eyebrow">Account recovery</p>
+                <h2 id="password-reset-title" className="mt-1 text-lg font-semibold">Password reset requests</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Generate a one-time link and share it privately with the worker.</p>
+              </div>
+              <ShieldCheck className="h-5 w-5 text-brand" />
+            </div>
+            {passwordResetRequests.length > 0 && (
+              <div className="mt-5 divide-y divide-border rounded-2xl border border-border">
+                {passwordResetRequests.map((request) => (
+                  <div key={request.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold">{request.displayName}</p>
+                      <p className="truncate text-xs text-muted-foreground">{request.email}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{request.requestedAt ? new Date(request.requestedAt).toLocaleString() : ""}</p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={issuingPasswordReset === request.id}
+                      onClick={() => void generatePasswordResetLink(request)}
+                      className="shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {issuingPasswordReset === request.id ? "Generating…" : "Generate link"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {passwordResetLink && (
+              <div className="mt-5 rounded-2xl border border-brand/30 bg-brand/10 p-4">
+                <p className="text-xs font-semibold text-foreground">One-time reset link</p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input readOnly value={passwordResetLink} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs" />
+                  <button type="button" onClick={() => void copyPasswordResetLink()} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"><Copy className="h-3.5 w-3.5" /> Copy link</button>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -2288,6 +2508,7 @@ function LoadingScreen() {
 
 export default function ShiftClock() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  const resetToken = new URLSearchParams(window.location.search).get("reset") ?? "";
 
   useEffect(() => {
     let active = true;
@@ -2318,6 +2539,17 @@ export default function ShiftClock() {
     }
   }
 
+  if (resetToken) {
+    return (
+      <PasswordResetScreen
+        token={resetToken}
+        onDone={() => {
+          window.history.replaceState({}, "", "/");
+          setUser(null);
+        }}
+      />
+    );
+  }
   if (user === undefined) return <LoadingScreen />;
   if (user === null) return <LoginScreen onLogin={setUser} />;
   if (user.mustChangePassword) {

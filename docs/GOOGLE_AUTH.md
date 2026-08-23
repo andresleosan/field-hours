@@ -1,5 +1,12 @@
 # Google Sign-In para Field Hours
 
+## Password reset
+
+- The worker selects **Forgot your password?** and submits the account email.
+- The request appears in the administrator panel. The administrator generates a one-time link and shares it privately.
+- The link expires after 30 minutes, only its hash is stored, account existence is not disclosed, and existing sessions are invalidated after the new password is saved.
+- This flow does not require a transactional email provider yet.
+
 La aplicación principal (`/`, `/join`, `/clock`) mantiene la sesión HttpOnly del Worker de Cloudflare. Google solo verifica la identidad; no se guardan tokens de Google ni se sustituye la sesión local.
 
 ## Configuración de Google Cloud

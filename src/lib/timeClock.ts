@@ -14,6 +14,15 @@ export interface GoogleAuthRequest {
   requestedAt: string;
 }
 
+export interface PasswordResetRequest {
+  id: string;
+  userId: string;
+  organizationId: string;
+  email: string;
+  displayName: string;
+  requestedAt: string;
+}
+
 export interface LocationEvidence {
   latitude: number;
   longitude: number;
@@ -119,6 +128,14 @@ export async function signIn(email: string, password: string): Promise<SessionUs
   return result.user;
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  await backend.post<{ ok: true }>("/api/auth/password-reset/request", { email });
+}
+
+export async function completePasswordReset(token: string, password: string): Promise<void> {
+  await backend.post<{ ok: true }>("/api/auth/password-reset/complete", { token, password });
+}
+
 export function startGoogleSignIn(mode: "signin" | "link" = "signin"): void {
   window.location.assign(`/api/auth/google/start?mode=${mode}`);
 }
@@ -180,6 +197,18 @@ export async function reviewGoogleAuthRequest(
   await backend.post<{ ok: true }>(
     `/api/admin/auth-requests/${encodeURIComponent(requestId)}/${decision}`,
     reason ? { reason } : {},
+    true,
+  );
+}
+
+export async function loadPasswordResetRequests(): Promise<PasswordResetRequest[]> {
+  return backend.get<PasswordResetRequest[]>("/api/admin/password-reset-requests");
+}
+
+export async function issuePasswordReset(requestId: string): Promise<{ resetUrl: string; expiresAt: string }> {
+  return backend.post<{ resetUrl: string; expiresAt: string }>(
+    `/api/admin/password-reset-requests/${encodeURIComponent(requestId)}/issue`,
+    {},
     true,
   );
 }

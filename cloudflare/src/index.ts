@@ -13,6 +13,12 @@ import {
   startGoogleAuth,
 } from "./googleAuth";
 import {
+  completePasswordReset,
+  issuePasswordReset,
+  listPasswordResetRequests,
+  requestPasswordReset,
+} from "./passwordReset";
+import {
   ApiError,
   assertAllowedOrigin,
   assertCsrf,
@@ -68,6 +74,21 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, { user: result.user }, 200, result.cookies);
   }
 
+  if (request.method === "POST" && path === "/api/auth/password-reset/request") {
+    return json(request, env, await requestPasswordReset(
+      env,
+      request,
+      await readJson<{ email?: unknown }>(request),
+    ));
+  }
+
+  if (request.method === "POST" && path === "/api/auth/password-reset/complete") {
+    return json(request, env, await completePasswordReset(
+      env,
+      await readJson<{ token?: unknown; password?: unknown }>(request),
+    ));
+  }
+
   if (request.method === "POST" && path === "/api/auth/register") {
     const result = await registerWorker(
       env,
@@ -114,6 +135,22 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/auth-requests") {
     const auth = await getAuth(request, env);
     return json(request, env, await listGoogleAuthRequests(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/admin/password-reset-requests") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listPasswordResetRequests(env, auth));
+  }
+
+  const passwordResetRequestMatch = path.match(/^\/api\/admin\/password-reset-requests\/([^/]+)\/issue$/);
+  if (request.method === "POST" && passwordResetRequestMatch) {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, await issuePasswordReset(
+      env,
+      auth,
+      decodeURIComponent(passwordResetRequestMatch[1] ?? ""),
+    ));
   }
 
   const authRequestMatch = path.match(/^\/api\/admin\/auth-requests\/([^/]+)\/(approve|reject)$/);
