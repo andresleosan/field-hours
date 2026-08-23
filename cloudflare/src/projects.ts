@@ -1,5 +1,5 @@
 import { ApiError, requireString } from "./http";
-import { requireRole, requireReady } from "./auth";
+import { requireRole } from "./auth";
 import type { AuthContext, Project } from "./types";
 
 interface ProjectRow {
@@ -66,7 +66,6 @@ async function ensureProjectsTable(env: Env): Promise<void> {
 }
 
 export async function listProjects(env: Env, auth: AuthContext): Promise<Project[]> {
-  requireReady(auth);
   try {
     await ensureProjectsTable(env);
     const rows = await env.DB.prepare(

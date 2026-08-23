@@ -313,14 +313,7 @@ export async function logout(env: Env, auth: AuthContext): Promise<string[]> {
   return clearAuthCookies();
 }
 
-export function requireReady(auth: AuthContext): void {
-  if (auth.user.mustChangePassword) {
-    throw new ApiError(403, "MUST_CHANGE_PASSWORD", "Change the temporary password to continue.");
-  }
-}
-
 export function requireRole(auth: AuthContext, role: Role): void {
-  requireReady(auth);
   if (auth.user.role !== role) {
     throw new ApiError(403, "FORBIDDEN", "You do not have access to this action.");
   }

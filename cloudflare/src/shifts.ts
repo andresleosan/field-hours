@@ -1,5 +1,5 @@
 import { ApiError, requireString } from "./http";
-import { requireRole, requireReady } from "./auth";
+import { requireRole } from "./auth";
 import { haversineDistanceMeters } from "./projects";
 import type {
   AuthContext,
@@ -217,7 +217,6 @@ async function snapshotFromRow(env: Env, row: ShiftRow | null): Promise<ShiftSna
 }
 
 export async function workerToday(env: Env, auth: AuthContext): Promise<ShiftSnapshot> {
-  requireReady(auth);
   return snapshotFromRow(env, await shiftForToday(env, auth));
 }
 
@@ -302,7 +301,6 @@ export async function performShiftAction(
     photo?: unknown;
   },
 ): Promise<ShiftSnapshot> {
-  requireReady(auth);
   const action = parseAction(body.action);
   const location = parseLocation(body.location);
   const idempotencyKey = requireString(body.idempotencyKey, "Idempotency key", 16, 80);
@@ -652,7 +650,6 @@ export async function workerShiftHistory(
   auth: AuthContext,
   params: URLSearchParams,
 ): Promise<ShiftHistoryRecord[]> {
-  requireReady(auth);
   const startDate = params.get("start_date");
   const endDate = params.get("end_date");
 

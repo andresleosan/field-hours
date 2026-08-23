@@ -11,7 +11,6 @@ import {
   createSession,
   getAuth,
   passwordPepper,
-  requireReady,
   requireRole,
 } from "./auth";
 import type { AuthContext, SessionUser } from "./types";
@@ -175,7 +174,6 @@ export async function startGoogleAuth(env: Env, request: Request, modeValue: str
   let userId: string | null = null;
   if (mode === "link") {
     const auth = await getAuth(request, env);
-    requireReady(auth);
     userId = auth.user.id;
   }
   const now = new Date();

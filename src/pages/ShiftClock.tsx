@@ -493,10 +493,12 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
 function PasswordChangeScreen({
   user,
   onChanged,
+  onCancel,
   onSignOut,
 }: {
   user: SessionUser;
   onChanged: (user: SessionUser) => void;
+  onCancel: () => void;
   onSignOut: () => void;
 }) {
   const { t } = useI18n();
@@ -573,6 +575,12 @@ function PasswordChangeScreen({
             {t("savePassword")}
           </button>
         </form>
+        <button type="button" onClick={onCancel} className="mt-4 w-full rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-muted">
+          Continuar sin cambiar la contraseÃ±a
+        </button>
+        <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+          PodrÃ¡s seguir usando el sistema y cambiarla mÃ¡s adelante.
+        </p>
         <button type="button" onClick={onSignOut} className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground">
           {t("signOut")} ({user.email})
         </button>
@@ -2508,6 +2516,7 @@ function LoadingScreen() {
 
 export default function ShiftClock() {
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  const [passwordPromptDismissed, setPasswordPromptDismissed] = useState(false);
   const resetToken = new URLSearchParams(window.location.search).get("reset") ?? "";
 
   useEffect(() => {
@@ -2552,8 +2561,15 @@ export default function ShiftClock() {
   }
   if (user === undefined) return <LoadingScreen />;
   if (user === null) return <LoginScreen onLogin={setUser} />;
-  if (user.mustChangePassword) {
-    return <PasswordChangeScreen user={user} onChanged={setUser} onSignOut={() => void handleSignOut()} />;
+  if (user.mustChangePassword && !passwordPromptDismissed) {
+    return (
+      <PasswordChangeScreen
+        user={user}
+        onChanged={setUser}
+        onCancel={() => setPasswordPromptDismissed(true)}
+        onSignOut={() => void handleSignOut()}
+      />
+    );
   }
   return user.role === "admin"
     ? <AdminView user={user} onSignOut={() => void handleSignOut()} />
