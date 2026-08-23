@@ -1791,6 +1791,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [payrollReviewing, setPayrollReviewing] = useState<string | null>(null);
   const [payrollRevealBusy, setPayrollRevealBusy] = useState<string | null>(null);
   const [revealedPayrollProfile, setRevealedPayrollProfile] = useState<PayrollProfileDetails | null>(null);
+  const [salaryAdviceProfile, setSalaryAdviceProfile] = useState<PayrollProfile | null>(null);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -2325,6 +2326,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         {profile.status !== "not_started" && (
                           <button type="button" onClick={() => void revealPayrollProfile(profile)} disabled={payrollRevealBusy === profile.userId} className="rounded-xl border border-border px-3 py-2 font-semibold hover:bg-muted disabled:opacity-60">
                             {payrollRevealBusy === profile.userId ? "Opening…" : "View details"}
+                          </button>
+                        )}
+                        {profile.status === "approved" && (
+                          <button type="button" onClick={() => setSalaryAdviceProfile(profile)} className="rounded-xl bg-brand px-3 py-2 font-semibold text-brand-foreground hover:bg-brand/90">
+                            Salary Advice
                           </button>
                         )}
                         {profile.status === "pending_review" && (
@@ -2917,9 +2923,225 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             </section>
           </div>
         )}
+
+        {salaryAdviceProfile && (
+          <SalaryAdviceModal
+            profile={salaryAdviceProfile}
+            organizationName={user.organizationName}
+            timezone={user.timezone}
+            onClose={() => setSalaryAdviceProfile(null)}
+            onMessage={setMessage}
+          />
+        )}
       </div>
     </Shell>
   );
+}
+
+function SalaryAdviceModal({
+  profile,
+  organizationName,
+  timezone,
+  onClose,
+  onMessage,
+}: {
+  profile: PayrollProfile;
+  organizationName: string;
+  timezone: string;
+  onClose: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const [details, setDetails] = useState<PayrollProfileDetails | null>(null);
+  const [records, setRecords] = useState<ShiftHistoryRecord[]>([]);
+  const [periodStart, setPeriodStart] = useState(() => firstOfMonthInTimezone(timezone));
+  const [periodEnd, setPeriodEnd] = useState(() => todayInTimezone(timezone));
+  const [payDate, setPayDate] = useState(() => firstOfNextMonth(periodStart));
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [incomeTax, setIncomeTax] = useState("0");
+  const [socialSecurity, setSocialSecurity] = useState("0");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setError("");
+    Promise.all([
+      revealAdminPayrollProfile(profile.userId),
+      loadAdminHistory({ userId: profile.userId, startDate: periodStart, endDate: periodEnd }),
+    ]).then(([loadedDetails, loadedRecords]) => {
+      if (!active) return;
+      setDetails(loadedDetails);
+      setRecords(loadedRecords);
+    }).catch((caught) => {
+      if (active) setError(messageFrom(caught, "The Salary Advice data could not be loaded."));
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [periodEnd, periodStart, profile.userId]);
+
+  const hours = records.reduce((total, record) => total + record.net_minutes, 0) / 60;
+  const rate = Number(hourlyRate);
+  const tax = Number(incomeTax);
+  const social = Number(socialSecurity);
+  const gross = Number.isFinite(rate) && rate >= 0 ? hours * rate : 0;
+  const deductions = (Number.isFinite(tax) ? Math.max(0, tax) : 0) + (Number.isFinite(social) ? Math.max(0, social) : 0);
+  const net = gross - deductions;
+
+  function exportSalaryAdvice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!details) return;
+    if (!Number.isFinite(rate) || rate <= 0) {
+      setError("Enter a valid hourly rate before exporting.");
+      return;
+    }
+    if (net < 0) {
+      setError("Deductions cannot be greater than gross pay.");
+      return;
+    }
+    const opened = printSalaryAdvice({
+      organizationName,
+      details,
+      periodStart,
+      periodEnd,
+      payDate,
+      hours,
+      hourlyRate: rate,
+      incomeTax: Math.max(0, tax),
+      socialSecurity: Math.max(0, social),
+      gross,
+      net,
+    });
+    if (!opened) {
+      setError("The print window was blocked. Allow pop-ups for this site and try again.");
+      return;
+    }
+    onMessage("Salary Advice opened. Use the browser print dialog to save it as PDF.");
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/30 p-3 sm:items-center sm:p-4" role="presentation" onClick={onClose}>
+      <section role="dialog" aria-modal="true" aria-labelledby="salary-advice-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-4 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
+          <div>
+            <p className="label-eyebrow">Salary Advice · draft</p>
+            <h2 id="salary-advice-title" className="mt-1 text-xl font-semibold">Export worker payslip</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{profile.displayName}. Values marked manual will be replaced by configured Jersey payroll rules later.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close Salary Advice"><X className="h-5 w-5" /></button>
+        </div>
+        {loading ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading hours and payroll details…</p>
+        ) : error && !details ? (
+          <p role="alert" className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>
+        ) : (
+          <form className="mt-5 space-y-5" onSubmit={exportSalaryAdvice}>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium">Period start<input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+              <label className="text-sm font-medium">Period end<input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+              <label className="text-sm font-medium">Payment date<input type="date" value={payDate} onChange={(event) => setPayDate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+              <label className="text-sm font-medium">Hourly rate (£)<input type="number" min="0.01" step="0.01" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Manual for now" required /></label>
+              <label className="text-sm font-medium">Income Tax / ITIS (£)<input type="number" min="0" step="0.01" value={incomeTax} onChange={(event) => setIncomeTax(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+              <label className="text-sm font-medium">Worker Social Security (£)<input type="number" min="0" step="0.01" value={socialSecurity} onChange={(event) => setSocialSecurity(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+            </div>
+            <div className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/40 p-4 sm:grid-cols-4">
+              <SalaryMetric label="Hours" value={hours.toFixed(2)} />
+              <SalaryMetric label="Gross" value={formatPounds(gross)} />
+              <SalaryMetric label="Deductions" value={formatPounds(deductions)} />
+              <SalaryMetric label="Net pay" value={formatPounds(net)} />
+            </div>
+            <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">
+              Draft export: the hourly rate, ITIS amount and Social Security amount are manual inputs until the Jersey payroll configuration and statutory calculations are implemented.
+            </div>
+            {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">Cancel</button>
+              <button type="submit" disabled={!details || loading} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"><Download className="h-4 w-4" /> Print / save Salary Advice</button>
+            </div>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SalaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function formatPounds(value: number): string {
+  return `£${value.toFixed(2)}`;
+}
+
+function todayInTimezone(timezone: string): string {
+  return calendarDateInTimezone(new Date(), timezone);
+}
+
+function firstOfMonthInTimezone(timezone: string): string {
+  return `${todayInTimezone(timezone).slice(0, 7)}-01`;
+}
+
+function firstOfNextMonth(periodStart: string): string {
+  const [year, month] = periodStart.split("-").map(Number);
+  if (!year || !month) return periodStart;
+  return month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
+}
+
+function calendarDateInTimezone(value: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(value);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "'": "&#39;",
+    '"': "&quot;",
+  })[character] ?? character);
+}
+
+function printSalaryAdvice(input: {
+  organizationName: string;
+  details: PayrollProfileDetails;
+  periodStart: string;
+  periodEnd: string;
+  payDate: string;
+  hours: number;
+  hourlyRate: number;
+  incomeTax: number;
+  socialSecurity: number;
+  gross: number;
+  net: number;
+}): boolean {
+  // The same-origin popup is required so the browser can render the generated
+  // document before opening its print dialog. All user-controlled values are
+  // escaped below, and the action is only available to an authenticated admin.
+  const printWindow = window.open("", "_blank");
+  if (!printWindow) return false;
+  const details = input.details;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(details.legalName ?? details.displayName)}</title><style>
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.draft{border:2px solid #b45309;color:#92400e;padding:7px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta strong{display:block}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f4f4;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:145px}.lower>div+div{border-left:1px solid #222}.line{margin:0 0 10px}.line strong{display:inline-block;min-width:145px}.notice{margin-top:16px;font-size:10px;color:#555}@media print{.draft{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  </style></head><body><main class="sheet"><div class="draft">Draft · manual payroll inputs</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.organizationName)}</strong><span>Pay date: ${escapeHtml(input.payDate)}</span></div><div><strong>${escapeHtml(input.periodStart)} to ${escapeHtml(input.periodEnd)}</strong><span>Payment period</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody><tr><td>Basic Hourly Pay<br><small>£${input.hourlyRate.toFixed(2)} / hour</small></td><td>${input.hours.toFixed(2)}</td><td>${formatPounds(input.gross)}</td></tr></tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.gross)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS</td><td>${formatPounds(input.incomeTax)}</td></tr><tr><td>Social Security</td><td>${formatPounds(input.socialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.incomeTax + input.socialSecurity)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong>${escapeHtml(details.legalName ?? details.displayName)}</p><p class="line"><strong>Employee No.</strong>${escapeHtml(details.employeeNumber ?? "")}</p><p class="line"><strong>Address</strong>${escapeHtml(details.address ?? "")}</p><p class="line"><strong>Tax Ref</strong>${escapeHtml(details.taxReference)}</p><p class="line"><strong>Social Ref</strong>${escapeHtml(details.socialReference)}</p></div><div><p class="line"><strong>BACS · Net Pay</strong>${formatPounds(input.net)}</p><p class="line"><strong>Gross Taxable Pay</strong>${formatPounds(input.gross)}</p><p class="line"><strong>Tax Paid</strong>${formatPounds(input.incomeTax)}</p></div></div><p class="notice">This document is a draft Salary Advice generated from approved attendance and manual payroll inputs. Statutory Jersey tax and social security calculations will be applied after payroll rules are configured.</p></main><script>window.onload=()=>window.print();</script></body></html>`;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  return true;
 }
 
 function PayrollDetail({ label, value }: { label: string; value: string | null }) {
