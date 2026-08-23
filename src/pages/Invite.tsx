@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Users, HardHat, Clock, Copy, Check, RefreshCw, Loader2 } from "lucide-react";
+import { QrCode, Users, HardHat, Clock, Copy, Check, RefreshCw, Loader2, Link2, ShieldCheck } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { AppShell, PageLoader } from "@/components/layout/AppShell";
+import { QRCodeSVG } from "qrcode.react";
 
 const Invite = () => {
   const { fullName, isLoading } = useRequireRole("manager");
@@ -69,7 +70,7 @@ const Invite = () => {
     } catch (error: any) {
       toast({
         title: "Failed to generate invitation",
-        description: error.message,
+        description: error.message || "Could not create invitation",
         variant: "destructive",
       });
     } finally {
@@ -77,11 +78,12 @@ const Invite = () => {
     }
   };
 
+  const inviteLink = invitationCode ? `${window.location.origin}/auth?code=${invitationCode}` : "";
+
   const copyToClipboard = async () => {
-    if (!invitationCode) return;
+    if (!inviteLink) return;
     
-    const signupUrl = `${window.location.origin}/auth?code=${invitationCode}`;
-    await navigator.clipboard.writeText(signupUrl);
+    await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     
@@ -97,32 +99,27 @@ const Invite = () => {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const generateQRCodeUrl = (code: string) => {
-    const signupUrl = `${window.location.origin}/auth?code=${code}`;
-    // Using QR Code API
-    return `data:text/plain;charset=utf-8,${encodeURIComponent(signupUrl)}`;
-  };
-
   if (isLoading) {
     return <PageLoader />;
   }
 
   return (
     <AppShell role="manager" fullName={fullName}>
-      <div className="mx-auto w-full max-w-2xl space-y-6">
+      <div className="mx-auto w-full max-w-xl space-y-6">
         <section className="space-y-1">
           <h1 className="text-2xl font-bold">Invite team members</h1>
-          <p className="text-sm text-muted-foreground">Single-use QR invitations that expire in 5 minutes</p>
+          <p className="text-sm text-muted-foreground">Single-use secure invitations with QR code and link</p>
         </section>
-        <Card className="shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="flex items-center justify-center gap-2">
-              <QrCode className="h-6 w-6 text-primary" />
-              Generate Invitation QR Code
-            </CardTitle>
-            <CardDescription>
-              Create a secure, single-use invitation that expires in 5 minutes
-            </CardDescription>
+
+        <Card className="border border-border shadow-xs">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg">Staff Invitation</CardTitle>
+                <CardDescription>Generate an expiring pass for a builder or manager</CardDescription>
+              </div>
+              <QrCode className="h-5 w-5 text-brand" />
+            </div>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Role Selection */}
@@ -131,7 +128,7 @@ const Invite = () => {
               <Select 
                 value={role} 
                 onValueChange={(value: "builder" | "manager") => setRole(value)}
-                disabled={!!invitationCode}
+                disabled={Boolean(invitationCode)}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -140,13 +137,13 @@ const Invite = () => {
                   <SelectItem value="builder">
                     <div className="flex items-center gap-2">
                       <HardHat className="h-4 w-4" />
-                      Builder
+                      Builder (Worker)
                     </div>
                   </SelectItem>
                   <SelectItem value="manager">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4" />
-                      Manager
+                      Manager (Admin)
                     </div>
                   </SelectItem>
                 </SelectContent>
@@ -156,97 +153,94 @@ const Invite = () => {
             {/* QR Code Display */}
             {invitationCode ? (
               <div className="space-y-6">
-                {/* Timer */}
-                <div className="flex items-center justify-center gap-2">
-                  <Clock className={`h-5 w-5 ${timeRemaining <= 60 ? 'text-destructive' : 'text-primary'}`} />
-                  <span className={`text-2xl font-mono font-bold ${timeRemaining <= 60 ? 'text-destructive' : 'text-primary'}`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                  <Badge variant={timeRemaining <= 60 ? "destructive" : "secondary"}>
-                    {timeRemaining <= 60 ? "Expiring soon!" : "Active"}
-                  </Badge>
-                </div>
-
-                {/* QR Code */}
-                <div className="flex justify-center">
-                  <div className="relative p-4 bg-white rounded-2xl shadow-lg">
-                    <img
-                      src={generateQRCodeUrl(invitationCode)}
-                      alt="Invitation QR Code"
-                      className="w-64 h-64"
-                    />
-                    {/* Overlay when expired */}
-                    {timeRemaining === 0 && (
-                      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center rounded-2xl">
-                        <span className="text-destructive font-semibold">Expired</span>
-                      </div>
-                    )}
+                {/* Timer Banner */}
+                <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                  timeRemaining <= 60
+                    ? "border-destructive/30 bg-destructive/10 text-destructive"
+                    : "border-border bg-muted/40 text-foreground"
+                }`}>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Clock className="h-4 w-4" />
+                    <span>Active countdown:</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-lg font-bold tabular-nums">
+                      {formatTime(timeRemaining)}
+                    </span>
+                    <Badge variant={timeRemaining <= 60 ? "destructive" : "secondary"}>
+                      {timeRemaining <= 60 ? "Expiring soon" : "Valid"}
+                    </Badge>
                   </div>
                 </div>
 
-                {/* Invitation Code Display */}
-                <div className="text-center space-y-2">
-                  <p className="text-sm text-muted-foreground">Invitation Code</p>
-                  <div className="flex items-center justify-center gap-2">
-                    <code className="px-4 py-2 bg-muted rounded-lg font-mono text-lg tracking-wider">
+                {/* QR Code Vector SVG */}
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-white p-6 shadow-xs">
+                  <div className="relative">
+                    <QRCodeSVG
+                      value={inviteLink}
+                      size={220}
+                      level="M"
+                      includeMargin
+                    />
+                    {timeRemaining === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-background/80 backdrop-blur-xs">
+                        <span className="font-semibold text-destructive">Expired</span>
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-3 text-xs text-muted-foreground">Scan with phone camera or QR reader</p>
+                </div>
+
+                {/* Code & Copy Button */}
+                <div className="space-y-2">
+                  <Label>Invitation Code</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 rounded-xl border border-input bg-muted/50 px-4 py-2.5 font-mono text-base font-semibold tracking-wider">
                       {invitationCode}
                     </code>
-                    <Button variant="outline" size="icon" onClick={copyToClipboard}>
+                    <Button variant="outline" onClick={copyToClipboard} className="shrink-0 gap-2">
                       {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+                      {copied ? "Copied" : "Copy Link"}
                     </Button>
                   </div>
                 </div>
 
-                {/* Role Badge */}
-                <div className="flex justify-center">
-                  <Badge variant="outline" className="text-base px-4 py-2">
-                    {role === "builder" ? (
-                      <><HardHat className="h-4 w-4 mr-2" /> Builder Invitation</>
-                    ) : (
-                      <><Users className="h-4 w-4 mr-2" /> Manager Invitation</>
-                    )}
-                  </Badge>
-                </div>
-
-                {/* Generate New Button */}
+                {/* Generate New */}
                 <Button 
                   onClick={() => {
                     setInvitationCode(null);
                     setExpiresAt(null);
                   }}
-                  variant="outline"
-                  className="w-full"
+                  variant="ghost"
+                  className="w-full text-muted-foreground hover:text-foreground"
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Generate New Code
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Generate a different invitation
                 </Button>
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Instructions */}
-                <div className="rounded-lg border bg-muted/50 p-4 space-y-3">
-                  <h4 className="font-medium">How it works:</h4>
-                  <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-                    <li>Select the role for the new team member</li>
-                    <li>Generate a QR code invitation</li>
-                    <li>Share the QR code with the new member</li>
-                    <li>They scan it to sign up within 5 minutes</li>
-                    <li>Each code can only be used once</li>
-                  </ol>
+                <div className="rounded-xl border border-border bg-muted/30 p-4 text-xs leading-relaxed text-muted-foreground space-y-2">
+                  <p className="font-semibold text-foreground flex items-center gap-1.5">
+                    <ShieldCheck className="h-4 w-4 text-success" /> How invitations work:
+                  </p>
+                  <p>1. Choose the role (Builder or Manager) and tap Generate.</p>
+                  <p>2. The code & QR expire automatically after 5 minutes.</p>
+                  <p>3. Once used by the team member, it cannot be reused.</p>
                 </div>
 
-                {/* Generate Button */}
                 <Button 
                   onClick={generateInvitation} 
-                  className="w-full h-12 text-lg"
+                  className="w-full h-11"
                   disabled={isGenerating}
+                  variant="brand"
                 >
                   {isGenerating ? (
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <QrCode className="h-5 w-5 mr-2" />
+                    <QrCode className="mr-2 h-4 w-4" />
                   )}
-                  Generate QR Code
+                  {isGenerating ? "Creating..." : "Generate Invitation QR Code"}
                 </Button>
               </div>
             )}

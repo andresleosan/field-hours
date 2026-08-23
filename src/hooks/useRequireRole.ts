@@ -49,13 +49,20 @@ export function useRequireRole(required?: AppRole) {
   return state;
 }
 
-/** Forced local sign-out with a hard redirect, exactly as the pages did it. */
+/** Forced local sign-out with a hard redirect, ensuring full token cleanup. */
 export async function signOutAndRedirect() {
-  localStorage.removeItem("sb-lukmmizugpnecispdzsn-auth-token");
   try {
     await supabase.auth.signOut({ scope: "local" });
   } catch {
     // forcing sign-out anyway
+  }
+  if (typeof window !== "undefined") {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith("sb-") || key.includes("supabase.auth.token"))) {
+        localStorage.removeItem(key);
+      }
+    }
   }
   window.location.href = "/auth";
 }

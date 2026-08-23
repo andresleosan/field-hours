@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Calendar, PoundSterling, Clock, Package, Users, Loader2, Download, Briefcase } from "lucide-react";
+import { FileText, Calendar, Users, Download } from "lucide-react";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { AppShell, PageLoader } from "@/components/layout/AppShell";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, subWeeks, subMonths } from "date-fns";
@@ -68,6 +68,17 @@ interface Builder {
   full_name: string;
 }
 
+const SummaryBand = ({ items }: { items: { label: string; value: string }[] }) => (
+  <div className="flex flex-wrap items-stretch gap-x-8 gap-y-3 rounded-lg border border-border bg-card px-5 py-4 shadow-xs">
+    {items.map(({ label, value }) => (
+      <div key={label} className="min-w-[7rem]">
+        <p className="label-eyebrow font-mono">{label}</p>
+        <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{value}</p>
+      </div>
+    ))}
+  </div>
+);
+
 const Statements = () => {
   const { fullName, isLoading: isAuthLoading } = useRequireRole("manager");
   const [isLoading, setIsLoading] = useState(true);
@@ -98,102 +109,88 @@ const Statements = () => {
       ]);
       if (projectsRes.data) setProjects(projectsRes.data);
       if (buildersRes.data) setBuilders(buildersRes.data);
+      await fetchData();
       setIsLoading(false);
     })();
-  }, [isAuthLoading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthLoading, activeTab, dateRange, weekRange, monthRange, selectedProject, selectedBuilder]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      fetchData();
-    }
-  }, [isLoading, activeTab, dateRange, weekRange, monthRange, selectedProject, selectedBuilder]);
-
-  const getDateRange = () => {
+  const getDateFilter = () => {
     const now = new Date();
-    
-    if (activeTab === "daily") {
-      if (dateRange === "today") {
-        return { start: startOfDay(now), end: endOfDay(now) };
-      } else if (dateRange === "yesterday") {
-        const yesterday = subDays(now, 1);
-        return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
-      } else {
+    switch (activeTab) {
+      case "daily":
+        if (dateRange === "today") return { start: startOfDay(now), end: endOfDay(now) };
+        if (dateRange === "yesterday") {
+          const yesterday = subDays(now, 1);
+          return { start: startOfDay(yesterday), end: endOfDay(yesterday) };
+        }
         return { start: startOfDay(subDays(now, 7)), end: endOfDay(now) };
-      }
-    } else if (activeTab === "weekly") {
-      if (weekRange === "this") {
-        return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-      } else if (weekRange === "last") {
-        const lastWeek = subWeeks(now, 1);
-        return { start: startOfWeek(lastWeek, { weekStartsOn: 1 }), end: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
-      } else {
-        const twoWeeksAgo = subWeeks(now, 2);
-        return { start: startOfWeek(twoWeeksAgo, { weekStartsOn: 1 }), end: endOfWeek(twoWeeksAgo, { weekStartsOn: 1 }) };
-      }
-    } else if (activeTab === "monthly") {
-      if (monthRange === "this") {
+      case "weekly":
+        if (weekRange === "this") return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
+        if (weekRange === "last") {
+          const lastWeek = subWeeks(now, 1);
+          return { start: startOfWeek(lastWeek, { weekStartsOn: 1 }), end: endOfWeek(lastWeek, { weekStartsOn: 1 }) };
+        }
+        const twoWeeks = subWeeks(now, 2);
+        return { start: startOfWeek(twoWeeks, { weekStartsOn: 1 }), end: endOfWeek(twoWeeks, { weekStartsOn: 1 }) };
+      case "monthly":
+        if (monthRange === "this") return { start: startOfMonth(now), end: endOfMonth(now) };
+        if (monthRange === "last") {
+          const lastMonth = subMonths(now, 1);
+          return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+        }
+        const twoMonths = subMonths(now, 2);
+        return { start: startOfMonth(twoMonths), end: endOfMonth(twoMonths) };
+      default:
         return { start: startOfMonth(now), end: endOfMonth(now) };
-      } else if (monthRange === "last") {
-        const lastMonth = subMonths(now, 1);
-        return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
-      } else {
-        const twoMonthsAgo = subMonths(now, 2);
-        return { start: startOfMonth(twoMonthsAgo), end: endOfMonth(twoMonthsAgo) };
-      }
     }
-    
-    // For project and builder tabs, fetch all data
-    return { start: subMonths(now, 12), end: endOfDay(now) };
   };
 
   const fetchData = async () => {
-    const { start, end } = getDateRange();
-    const startISO = start.toISOString();
-    const endISO = end.toISOString();
+    const { start, end } = getDateFilter();
+    const startStr = start.toISOString();
+    const endStr = end.toISOString();
+    const startDateStr = format(start, "yyyy-MM-dd");
+    const endDateStr = format(end, "yyyy-MM-dd");
 
-    // Build queries with date filters
+    // Fetch time entries
     let timeQuery = supabase
       .from("time_tracking")
       .select("*, projects(name)")
-      .gte("clock_in", startISO)
-      .lte("clock_in", endISO)
-      .order("clock_in", { ascending: false });
+      .gte("clock_in", startStr)
+      .lte("clock_in", endStr);
+    
+    if (selectedProject !== "all") timeQuery = timeQuery.eq("project_id", selectedProject);
+    if (selectedBuilder !== "all") timeQuery = timeQuery.eq("user_id", selectedBuilder);
 
+    // Fetch invoices
     let invoiceQuery = supabase
       .from("invoices")
       .select("*, projects(name), suppliers(name)")
-      .gte("date", format(start, "yyyy-MM-dd"))
-      .lte("date", format(end, "yyyy-MM-dd"))
-      .order("date", { ascending: false });
+      .gte("date", startDateStr)
+      .lte("date", endDateStr);
+    
+    if (selectedProject !== "all") invoiceQuery = invoiceQuery.eq("project_id", selectedProject);
+    if (selectedBuilder !== "all") invoiceQuery = invoiceQuery.eq("uploaded_by", selectedBuilder);
 
+    // Fetch materials
     let materialQuery = supabase
       .from("material_usage")
       .select("*, materials(name, unit, cost_per_unit), projects(name)")
-      .gte("date", format(start, "yyyy-MM-dd"))
-      .lte("date", format(end, "yyyy-MM-dd"))
-      .order("date", { ascending: false });
+      .gte("date", startDateStr)
+      .lte("date", endDateStr);
+    
+    if (selectedProject !== "all") materialQuery = materialQuery.eq("project_id", selectedProject);
+    if (selectedBuilder !== "all") materialQuery = materialQuery.eq("used_by", selectedBuilder);
 
+    // Fetch jobs completed
     let jobQuery = supabase
       .from("job_completions")
       .select("*, jobs(title, project_id, projects(name))")
-      .gte("completed_at", startISO)
-      .lte("completed_at", endISO)
-      .order("completed_at", { ascending: false });
-
-    // Apply project filter
-    if (selectedProject !== "all") {
-      timeQuery = timeQuery.eq("project_id", selectedProject);
-      invoiceQuery = invoiceQuery.eq("project_id", selectedProject);
-      materialQuery = materialQuery.eq("project_id", selectedProject);
-    }
-
-    // Apply builder filter
-    if (selectedBuilder !== "all") {
-      timeQuery = timeQuery.eq("user_id", selectedBuilder);
-      invoiceQuery = invoiceQuery.eq("uploaded_by", selectedBuilder);
-      materialQuery = materialQuery.eq("used_by", selectedBuilder);
-      jobQuery = jobQuery.eq("completed_by", selectedBuilder);
-    }
+      .gte("completed_at", startStr)
+      .lte("completed_at", endStr);
+    
+    if (selectedBuilder !== "all") jobQuery = jobQuery.eq("completed_by", selectedBuilder);
 
     const [timeRes, invoiceRes, materialRes, jobRes] = await Promise.all([
       timeQuery,
@@ -267,7 +264,7 @@ const Statements = () => {
       "Supplier": i.suppliers?.name || "N/A",
       "Project": i.projects?.name || "Unknown",
       "Uploaded By": i.profiles?.full_name || "Unknown",
-      "Amount": Number(i.total_amount).toFixed(2)
+      "Amount (£)": Number(i.total_amount).toFixed(2)
     }));
     if (invoiceData.length > 0) {
       const ws2 = XLSX.utils.json_to_sheet(invoiceData);
@@ -280,8 +277,8 @@ const Statements = () => {
       "Material": m.materials?.name || "Unknown",
       "Quantity": m.quantity_used,
       "Unit": m.materials?.unit || "",
-      "Unit Cost": m.materials?.cost_per_unit || 0,
-      "Total Cost": (Number(m.quantity_used) * (m.materials?.cost_per_unit || 0)).toFixed(2),
+      "Unit Cost (£)": m.materials?.cost_per_unit || 0,
+      "Total Cost (£)": (Number(m.quantity_used) * (m.materials?.cost_per_unit || 0)).toFixed(2),
       "Project": m.projects?.name || "Unknown",
       "Used By": m.profiles?.full_name || "Unknown",
       "Notes": m.notes || ""
@@ -304,24 +301,10 @@ const Statements = () => {
       XLSX.utils.book_append_sheet(wb, ws4, "Job Completions");
     }
 
-    // Summary Sheet
-    const summaryData = [{
-      "Total Hours": getTotalHours().toFixed(2),
-      "Total Invoices": `$${getTotalExpenses().toFixed(2)}`,
-      "Total Materials Cost": `$${getTotalMaterialsCost().toFixed(2)}`,
-      "Jobs Completed": jobCompletions.length,
-      "Report Generated": format(new Date(), "yyyy-MM-dd HH:mm")
-    }];
-    const wsSummary = XLSX.utils.json_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(wb, wsSummary, "Summary");
-
-    // Download
-    const fileName = `Statement_${tabName}_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    
+    XLSX.writeFile(wb, `Statement_${tabName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
     toast({
-      title: "Export Complete",
-      description: `${fileName} has been downloaded.`
+      title: "Export successful",
+      description: `Downloaded Statement_${tabName}_${format(new Date(), "yyyy-MM-dd")}.xlsx`,
     });
   };
 
@@ -426,516 +409,389 @@ const Statements = () => {
     <AppShell role="manager" fullName={fullName}>
       <section className="space-y-1">
         <h1 className="text-2xl font-bold">Statements</h1>
-        <p className="text-sm text-muted-foreground">Financial reports and summaries</p>
+        <p className="text-sm text-muted-foreground">Financial reports and operational summaries</p>
       </section>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 gap-1 p-1 md:inline-grid md:w-fit md:grid-cols-5 h-auto">
-            <TabsTrigger value="daily" className="text-xs sm:text-sm py-2 px-2">Daily</TabsTrigger>
-            <TabsTrigger value="weekly" className="text-xs sm:text-sm py-2 px-2">Weekly</TabsTrigger>
-            <TabsTrigger value="monthly" className="text-xs sm:text-sm py-2 px-2">Monthly</TabsTrigger>
-            <TabsTrigger value="project" className="text-xs sm:text-sm py-2 px-2">Project</TabsTrigger>
-            <TabsTrigger value="builder" className="text-xs sm:text-sm py-2 px-2">Builder</TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3 gap-1 p-1 md:inline-grid md:w-fit md:grid-cols-5 h-auto">
+          <TabsTrigger value="daily" className="text-xs sm:text-sm py-2 px-2">Daily</TabsTrigger>
+          <TabsTrigger value="weekly" className="text-xs sm:text-sm py-2 px-2">Weekly</TabsTrigger>
+          <TabsTrigger value="monthly" className="text-xs sm:text-sm py-2 px-2">Monthly</TabsTrigger>
+          <TabsTrigger value="project" className="text-xs sm:text-sm py-2 px-2">Project</TabsTrigger>
+          <TabsTrigger value="builder" className="text-xs sm:text-sm py-2 px-2">Builder</TabsTrigger>
+        </TabsList>
 
-          {/* Daily Statement */}
-          <TabsContent value="daily" className="space-y-4">
+        {/* Daily Statement */}
+        <TabsContent value="daily" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Daily Statement</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={dateRange} onValueChange={(v: any) => setDateRange(v)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="yesterday">Yesterday</SelectItem>
+                  <SelectItem value="last7">Last 7 Days</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => exportToExcel("Daily")} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          <SummaryBand
+            items={[
+              { label: "Hours", value: `${getTotalHours().toFixed(1)}h` },
+              { label: "Invoiced", value: `£${getTotalExpenses().toFixed(2)}` },
+              { label: "Materials", value: `£${getTotalMaterialsCost().toFixed(2)}` },
+              { label: "Entries", value: `${timeEntries.length}` },
+            ]}
+          />
+
+          {timeEntries.length > 0 && (
             <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Daily Statement
-                    </CardTitle>
-                    <CardDescription>Daily breakdown of hours, materials, and expenses</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={dateRange} onValueChange={(v: any) => setDateRange(v)}>
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="today">Today</SelectItem>
-                        <SelectItem value="yesterday">Yesterday</SelectItem>
-                        <SelectItem value="last7">Last 7 Days</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => exportToExcel("Daily")} size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Hours Worked
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">{getTotalHours().toFixed(1)}</p>
-                      <p className="text-xs text-muted-foreground">{timeEntries.length} entries</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <PoundSterling className="h-4 w-4" />
-                        Expenses
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalExpenses().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{invoices.length} invoices</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        Materials Cost
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalMaterialsCost().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{materialUsage.length} items</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Time Entries Table */}
-                {timeEntries.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Time Entries</h3>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Builder</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Clock In</TableHead>
-                            <TableHead>Clock Out</TableHead>
-                            <TableHead>Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {timeEntries.slice(0, 10).map(t => (
-                            <TableRow key={t.id}>
-                              <TableCell>{t.profiles?.full_name || "Unknown"}</TableCell>
-                              <TableCell>{t.projects?.name || "Unknown"}</TableCell>
-                              <TableCell>{format(new Date(t.clock_in), "HH:mm")}</TableCell>
-                              <TableCell>{t.clock_out ? format(new Date(t.clock_out), "HH:mm") : "Active"}</TableCell>
-                              <TableCell>{calculateHours(t.clock_in, t.clock_out).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-
-                {/* Invoices Table */}
-                {invoices.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Invoices</h3>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Invoice #</TableHead>
-                            <TableHead>Supplier</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Amount</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {invoices.slice(0, 10).map(i => (
-                            <TableRow key={i.id}>
-                              <TableCell>{i.invoice_number}</TableCell>
-                              <TableCell>{i.suppliers?.name || "N/A"}</TableCell>
-                              <TableCell>{i.projects?.name || "Unknown"}</TableCell>
-                              <TableCell>${Number(i.total_amount).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Weekly Statement */}
-          <TabsContent value="weekly" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Weekly Statement
-                    </CardTitle>
-                    <CardDescription>Weekly summary of all activities and costs</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={weekRange} onValueChange={(v: any) => setWeekRange(v)}>
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="this">This Week</SelectItem>
-                        <SelectItem value="last">Last Week</SelectItem>
-                        <SelectItem value="2weeksago">2 Weeks Ago</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => exportToExcel("Weekly")} size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Total Hours
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">{getTotalHours().toFixed(1)}</p>
-                      <p className="text-xs text-muted-foreground">{timeEntries.length} entries</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <PoundSterling className="h-4 w-4" />
-                        Total Expenses
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalExpenses().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{invoices.length} invoices</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        Materials Cost
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalMaterialsCost().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{materialUsage.length} items</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Briefcase className="h-4 w-4" />
-                        Jobs Completed
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">{jobCompletions.length}</p>
-                      <p className="text-xs text-muted-foreground">This week</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Time Entries Table */}
-                {timeEntries.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Time Entries ({timeEntries.length})</h3>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Builder</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Hours</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {timeEntries.slice(0, 15).map(t => (
-                            <TableRow key={t.id}>
-                              <TableCell>{format(new Date(t.clock_in), "EEE, MMM d")}</TableCell>
-                              <TableCell>{t.profiles?.full_name || "Unknown"}</TableCell>
-                              <TableCell>{t.projects?.name || "Unknown"}</TableCell>
-                              <TableCell>{calculateHours(t.clock_in, t.clock_out).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Monthly Statement */}
-          <TabsContent value="monthly" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Monthly Statement
-                    </CardTitle>
-                    <CardDescription>Monthly overview for accounting purposes</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={monthRange} onValueChange={(v: any) => setMonthRange(v)}>
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="this">This Month</SelectItem>
-                        <SelectItem value="last">Last Month</SelectItem>
-                        <SelectItem value="2monthsago">2 Months Ago</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => exportToExcel("Monthly")} size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Labor Hours
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">{getTotalHours().toFixed(1)}</p>
-                      <p className="text-xs text-muted-foreground">{timeEntries.length} entries</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <PoundSterling className="h-4 w-4" />
-                        Total Invoices
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalExpenses().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{invoices.length} invoices</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        Materials
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">${getTotalMaterialsCost().toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">{materialUsage.length} items</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="bg-muted/50">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <Users className="h-4 w-4" />
-                        Jobs Completed
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-2xl font-bold text-primary">{jobCompletions.length}</p>
-                      <p className="text-xs text-muted-foreground">This month</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                {/* Materials Summary */}
-                {materialUsage.length > 0 && (
-                  <div>
-                    <h3 className="font-semibold mb-2">Materials Used ({materialUsage.length})</h3>
-                    <div className="rounded-md border overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Material</TableHead>
-                            <TableHead>Qty</TableHead>
-                            <TableHead>Project</TableHead>
-                            <TableHead>Cost</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {materialUsage.slice(0, 15).map(m => (
-                            <TableRow key={m.id}>
-                              <TableCell>{m.date}</TableCell>
-                              <TableCell>{m.materials?.name || "Unknown"}</TableCell>
-                              <TableCell>{m.quantity_used} {m.materials?.unit}</TableCell>
-                              <TableCell>{m.projects?.name || "Unknown"}</TableCell>
-                              <TableCell>${(Number(m.quantity_used) * (m.materials?.cost_per_unit || 0)).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Project Statement */}
-          <TabsContent value="project" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      Project Statements
-                    </CardTitle>
-                    <CardDescription>Cost breakdown per project for billing</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={selectedProject} onValueChange={setSelectedProject}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="All Projects" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
-                        {projects.map(p => (
-                          <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => exportToExcel("Project")} size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {getProjectSummaries().length > 0 ? (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Project</TableHead>
-                          <TableHead>Hours</TableHead>
-                          <TableHead>Expenses</TableHead>
-                          <TableHead>Materials</TableHead>
-                          <TableHead>Jobs</TableHead>
-                          <TableHead>Total Cost</TableHead>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Time Entries</h3>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Builder</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Clock In</TableHead>
+                        <TableHead>Clock Out</TableHead>
+                        <TableHead>Hours</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {timeEntries.slice(0, 10).map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell>{t.profiles?.full_name || "Unknown"}</TableCell>
+                          <TableCell>{t.projects?.name || "Unknown"}</TableCell>
+                          <TableCell>{format(new Date(t.clock_in), "HH:mm")}</TableCell>
+                          <TableCell>{t.clock_out ? format(new Date(t.clock_out), "HH:mm") : "Active"}</TableCell>
+                          <TableCell className="font-mono">{calculateHours(t.clock_in, t.clock_out).toFixed(2)}</TableCell>
                         </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getProjectSummaries().map((s, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">{s.projectName}</TableCell>
-                            <TableCell>{s.hours.toFixed(1)}</TableCell>
-                            <TableCell>${s.expenses.toFixed(2)}</TableCell>
-                            <TableCell>${s.materialsCost.toFixed(2)}</TableCell>
-                            <TableCell>{s.jobsCompleted}</TableCell>
-                            <TableCell className="font-bold">${(s.expenses + s.materialsCost).toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No project data available for the selected period
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Builder Statement */}
-          <TabsContent value="builder" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Builder Statements
-                    </CardTitle>
-                    <CardDescription>Hours and activity per builder for payroll</CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Select value={selectedBuilder} onValueChange={setSelectedBuilder}>
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="All Builders" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Builders</SelectItem>
-                        {builders.map(b => (
-                          <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button onClick={() => exportToExcel("Builder")} size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Export
-                    </Button>
-                  </div>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {getBuilderSummaries().length > 0 ? (
-                  <div className="rounded-md border overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Builder</TableHead>
-                          <TableHead>Hours</TableHead>
-                          <TableHead>Invoices</TableHead>
-                          <TableHead>Materials</TableHead>
-                          <TableHead>Jobs Done</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {getBuilderSummaries().map((s, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell className="font-medium">{s.builderName}</TableCell>
-                            <TableCell>{s.hours.toFixed(1)}</TableCell>
-                            <TableCell>{s.invoicesUploaded}</TableCell>
-                            <TableCell>{s.materialsLogged}</TableCell>
-                            <TableCell>{s.jobsCompleted}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">
-                    No builder data available for the selected period
-                  </p>
-                )}
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          )}
+
+          {invoices.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Invoices</h3>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Invoice #</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Amount</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {invoices.slice(0, 10).map(i => (
+                        <TableRow key={i.id}>
+                          <TableCell className="font-mono">{i.invoice_number}</TableCell>
+                          <TableCell>{i.suppliers?.name || "N/A"}</TableCell>
+                          <TableCell>{i.projects?.name || "Unknown"}</TableCell>
+                          <TableCell className="font-semibold">£{Number(i.total_amount).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Weekly Statement */}
+        <TabsContent value="weekly" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Weekly Statement</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={weekRange} onValueChange={(v: any) => setWeekRange(v)}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="this">This Week</SelectItem>
+                  <SelectItem value="last">Last Week</SelectItem>
+                  <SelectItem value="2weeksago">2 Weeks Ago</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => exportToExcel("Weekly")} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          <SummaryBand
+            items={[
+              { label: "Total Hours", value: `${getTotalHours().toFixed(1)}h` },
+              { label: "Invoiced", value: `£${getTotalExpenses().toFixed(2)}` },
+              { label: "Materials", value: `£${getTotalMaterialsCost().toFixed(2)}` },
+              { label: "Jobs Done", value: `${jobCompletions.length}` },
+            ]}
+          />
+
+          {timeEntries.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Time Entries ({timeEntries.length})</h3>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Builder</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Hours</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {timeEntries.slice(0, 15).map(t => (
+                        <TableRow key={t.id}>
+                          <TableCell>{format(new Date(t.clock_in), "EEE, MMM d")}</TableCell>
+                          <TableCell>{t.profiles?.full_name || "Unknown"}</TableCell>
+                          <TableCell>{t.projects?.name || "Unknown"}</TableCell>
+                          <TableCell className="font-mono">{calculateHours(t.clock_in, t.clock_out).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Monthly Statement */}
+        <TabsContent value="monthly" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Monthly Statement</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={monthRange} onValueChange={(v: any) => setMonthRange(v)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="this">This Month</SelectItem>
+                  <SelectItem value="last">Last Month</SelectItem>
+                  <SelectItem value="2monthsago">2 Months Ago</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={() => exportToExcel("Monthly")} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          <SummaryBand
+            items={[
+              { label: "Labor Hours", value: `${getTotalHours().toFixed(1)}h` },
+              { label: "Total Invoices", value: `£${getTotalExpenses().toFixed(2)}` },
+              { label: "Materials", value: `£${getTotalMaterialsCost().toFixed(2)}` },
+              { label: "Jobs Done", value: `${jobCompletions.length}` },
+            ]}
+          />
+
+          {materialUsage.length > 0 && (
+            <Card>
+              <CardContent className="pt-6">
+                <h3 className="font-semibold mb-3">Materials Used ({materialUsage.length})</h3>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Material</TableHead>
+                        <TableHead>Qty</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {materialUsage.slice(0, 15).map(m => (
+                        <TableRow key={m.id}>
+                          <TableCell>{m.date}</TableCell>
+                          <TableCell>{m.materials?.name || "Unknown"}</TableCell>
+                          <TableCell>{m.quantity_used} {m.materials?.unit}</TableCell>
+                          <TableCell>{m.projects?.name || "Unknown"}</TableCell>
+                          <TableCell className="font-mono font-medium">£{(Number(m.quantity_used) * (m.materials?.cost_per_unit || 0)).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        {/* Project Statement */}
+        <TabsContent value="project" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Project Statements</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Projects" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Projects</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={() => exportToExcel("Project")} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          <SummaryBand
+            items={[
+              { label: "Active Projects", value: `${getProjectSummaries().length}` },
+              { label: "Total Hours", value: `${getTotalHours().toFixed(1)}h` },
+              { label: "Total Cost", value: `£${(getTotalExpenses() + getTotalMaterialsCost()).toFixed(2)}` },
+            ]}
+          />
+
+          <Card>
+            <CardContent className="pt-6">
+              {getProjectSummaries().length > 0 ? (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Hours</TableHead>
+                        <TableHead>Expenses</TableHead>
+                        <TableHead>Materials</TableHead>
+                        <TableHead>Jobs</TableHead>
+                        <TableHead>Total Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getProjectSummaries().map((s, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{s.projectName}</TableCell>
+                          <TableCell className="font-mono">{s.hours.toFixed(1)}</TableCell>
+                          <TableCell>£{s.expenses.toFixed(2)}</TableCell>
+                          <TableCell>£{s.materialsCost.toFixed(2)}</TableCell>
+                          <TableCell>{s.jobsCompleted}</TableCell>
+                          <TableCell className="font-bold">£{(s.expenses + s.materialsCost).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">
+                  No project data available for the selected period
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Builder Statement */}
+        <TabsContent value="builder" className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-muted-foreground" />
+              <h2 className="text-lg font-semibold">Builder Statements</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={selectedBuilder} onValueChange={setSelectedBuilder}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Builders" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Builders</SelectItem>
+                  {builders.map(b => (
+                    <SelectItem key={b.id} value={b.id}>{b.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={() => exportToExcel("Builder")} size="sm" variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            </div>
+          </div>
+
+          <SummaryBand
+            items={[
+              { label: "Active Builders", value: `${getBuilderSummaries().length}` },
+              { label: "Logged Hours", value: `${getTotalHours().toFixed(1)}h` },
+              { label: "Jobs Completed", value: `${jobCompletions.length}` },
+            ]}
+          />
+
+          <Card>
+            <CardContent className="pt-6">
+              {getBuilderSummaries().length > 0 ? (
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Builder</TableHead>
+                        <TableHead>Hours</TableHead>
+                        <TableHead>Invoices</TableHead>
+                        <TableHead>Materials</TableHead>
+                        <TableHead>Jobs Done</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getBuilderSummaries().map((s, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell className="font-medium">{s.builderName}</TableCell>
+                          <TableCell className="font-mono">{s.hours.toFixed(1)}</TableCell>
+                          <TableCell>{s.invoicesUploaded}</TableCell>
+                          <TableCell>{s.materialsLogged}</TableCell>
+                          <TableCell>{s.jobsCompleted}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">
+                  No builder data available for the selected period
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </AppShell>
   );
 };
