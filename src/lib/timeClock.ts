@@ -36,6 +36,18 @@ export interface PayrollProfileDetails extends PayrollProfile {
   bankAccountNumber: string | null;
 }
 
+export interface WorkerPayrollSummary {
+  timezone: string;
+  asOfDate: string;
+  currentPeriodStart: string;
+  currentPeriodMinutes: number;
+  currentPeriodShifts: number;
+  totalCompletedMinutes: number;
+  totalCompletedShifts: number;
+  lastPayDate: string;
+  nextPayDate: string;
+}
+
 export type Role = "admin" | "worker";
 export type ShiftState = "off_shift" | "working" | "on_break" | "complete";
 export type ShiftAction = "clock_in" | "start_break" | "end_break" | "clock_out";
@@ -217,6 +229,10 @@ export async function changePassword(password: string): Promise<SessionUser> {
 export async function loadWorkerPayrollProfile(): Promise<WorkerPayrollProfile | null> {
   const result = await backend.get<{ profile: WorkerPayrollProfile | null }>("/api/worker/payroll-profile");
   return result.profile;
+}
+
+export async function loadWorkerPayrollSummary(): Promise<WorkerPayrollSummary> {
+  return backend.get<WorkerPayrollSummary>("/api/worker/payroll-summary");
 }
 
 export async function saveWorkerPayrollProfile(input: {
@@ -402,6 +418,19 @@ export function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}h ${String(m).padStart(2, "0")}m`;
+}
+
+export function formatCalendarDate(value: string, timezone: string): string {
+  const date = new Date(`${value}T12:00:00Z`);
+  if (!Number.isFinite(date.getTime())) return value;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      dateStyle: "medium",
+    }).format(date);
+  } catch {
+    return value;
+  }
 }
 
 export function formatRecordedTime(

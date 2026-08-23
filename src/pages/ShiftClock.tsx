@@ -51,6 +51,7 @@ import {
   changePassword,
   createInvitation,
   formatMinutes,
+  formatCalendarDate,
   formatRecordedDateTime,
   formatRecordedTime,
   formatWorkedDuration,
@@ -61,6 +62,7 @@ import {
   loadSession,
   loadWorkerPayrollProfile,
   loadWorkerHistory,
+  loadWorkerPayrollSummary,
   loadWorkerShift,
   nextState,
   registerWorker,
@@ -89,6 +91,7 @@ import {
   type PayrollProfile,
   type PayrollProfileDetails,
   type WorkerPayrollProfile,
+  type WorkerPayrollSummary,
   type Project,
   type ShiftAction,
   type ShiftEvent,
@@ -679,6 +682,7 @@ function PasswordResetScreen({ token, onDone }: { token: string; onDone: () => v
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const { t } = useI18n();
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
+  const [payrollSummary, setPayrollSummary] = useState<WorkerPayrollSummary | null>(null);
   const [payrollProfile, setPayrollProfile] = useState<WorkerPayrollProfile | null>(null);
   const [payrollProfileLoading, setPayrollProfileLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -732,6 +736,12 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       // Non-fatal while the payroll profile migration is being rolled out.
     } finally {
       setPayrollProfileLoading(false);
+    }
+
+    try {
+      setPayrollSummary(await loadWorkerPayrollSummary());
+    } catch {
+      // Non-fatal while the payroll summary endpoint is being rolled out.
     }
   }, []);
 
@@ -877,6 +887,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             )}
           </div>
         )}
+
+        <WorkerPayrollSummaryCard summary={payrollSummary} timezone={user.timezone} />
 
         <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
@@ -1085,6 +1097,48 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
       </div>
     </Shell>
+  );
+}
+
+function WorkerPayrollSummaryCard({
+  summary,
+  timezone,
+}: {
+  summary: WorkerPayrollSummary | null;
+  timezone: string;
+}) {
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="hours-pay-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label-eyebrow">Payroll overview · Jersey</p>
+          <h2 id="hours-pay-title" className="mt-1 text-lg font-semibold">Hours and pay schedule</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Completed shifts only. Final payroll remains subject to administrator review.</p>
+        </div>
+        <Calendar className="h-5 w-5 text-muted-foreground" />
+      </div>
+      {!summary ? (
+        <p className="mt-5 rounded-2xl bg-muted/50 px-4 py-4 text-sm text-muted-foreground">Payroll summary is not available yet.</p>
+      ) : (
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border bg-muted/30 p-4">
+            <p className="text-xs font-semibold text-muted-foreground">This month</p>
+            <p className="mt-2 font-mono text-2xl font-semibold">{formatMinutes(summary.currentPeriodMinutes)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{summary.currentPeriodShifts} completed shift{summary.currentPeriodShifts === 1 ? "" : "s"} since {formatCalendarDate(summary.currentPeriodStart, timezone)}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-muted/30 p-4">
+            <p className="text-xs font-semibold text-muted-foreground">All completed shifts</p>
+            <p className="mt-2 font-mono text-2xl font-semibold">{formatMinutes(summary.totalCompletedMinutes)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{summary.totalCompletedShifts} recorded shift{summary.totalCompletedShifts === 1 ? "" : "s"}</p>
+          </div>
+          <div className="rounded-2xl border border-brand/30 bg-brand/10 p-4">
+            <p className="text-xs font-semibold text-muted-foreground">Next scheduled pay date</p>
+            <p className="mt-2 text-lg font-semibold">{formatCalendarDate(summary.nextPayDate, timezone)}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Monthly payment on the first day</p>
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 

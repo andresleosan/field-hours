@@ -27,6 +27,7 @@ import {
   reviewAdminPayrollProfile,
   saveWorkerPayrollProfile,
 } from "./payrollProfiles";
+import { getWorkerPayrollSummary } from "./payrollSummary";
 import {
   ApiError,
   assertAllowedOrigin,
@@ -154,6 +155,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/worker/payroll-profile") {
     const auth = await getAuth(request, env);
     return json(request, env, { profile: await getWorkerPayrollProfile(env, auth) });
+  }
+
+  if (request.method === "GET" && path === "/api/worker/payroll-summary") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await getWorkerPayrollSummary(env, auth));
   }
 
   if (request.method === "POST" && path === "/api/worker/payroll-profile") {
