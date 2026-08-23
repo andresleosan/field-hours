@@ -8,6 +8,13 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "127.0.0.1",
     port: 8080,
+    proxy: {
+      "/api": {
+        target: "https://field-hours-api.field-hours-jedi-9f716a.workers.dev",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
