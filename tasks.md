@@ -13,7 +13,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.
 - [ ] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes.
 - [ ] Permitir al administrador exportar payslips / recibos de salario con el formato de Salary Advice proporcionado.
-- [ ] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip.
+- [x] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip. Validado con formulario de captura, actualización y revisión administrativa.
 - [x] Crear un perfil de nómina de captura única por trabajador: nombre legal, dirección, número de empleado, número de seguro social, Tax Reference, Social Reference, porcentaje ITIS y datos bancarios si el negocio los necesita. Validado con migración D1 0006 y smoke checks de producción.
 - [x] Proteger los datos sensibles de nómina con cifrado, acceso restringido al dueño/admin, enmascarado en pantalla, auditoría y opción de actualización controlada. AES-256-GCM, clave secreta de Worker, CSRF, ruta de revelado admin auditada y backup verificado.
 - [ ] Permitir que el administrador configure tarifa por hora, periodo de pago, datos del negocio y reglas fiscales de Jersey antes de calcular la nómina.
