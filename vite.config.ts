@@ -7,12 +7,15 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   server: {
     host: "127.0.0.1",
-    port: 8080,
+    port: 5173,
     proxy: {
       "/api": {
         target: "https://field-hours-api.field-hours-jedi-9f716a.workers.dev",
         changeOrigin: true,
         secure: true,
+        headers: {
+          origin: "https://field-hours.vercel.app",
+        },
       },
     },
   },
