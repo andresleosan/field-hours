@@ -6,7 +6,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ## Fase 7: Payroll, historial administrativo y experiencia móvil (Planificada)
 
-- [ ] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha.
+- [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
 - [ ] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo.
 - [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.
 - [ ] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes.
