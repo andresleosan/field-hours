@@ -112,29 +112,39 @@ function invitationFromLocation(): string {
   return new URLSearchParams(fragment).get("invite") ?? "";
 }
 
-function stateCopy(state: ShiftState): { label: string; detail: string; tone: string } {
+function stateCopy(state: ShiftState, t: (key: any) => string): { label: string; detail: string; tone: string } {
   return {
     off_shift: {
-      label: "Off shift",
-      detail: "Your next action records the place you start work.",
+      label: t("stateOffShift"),
+      detail: t("stateOffShiftDetail"),
       tone: "neutral",
     },
     working: {
-      label: "Working",
-      detail: "Your shift is live. Take a break or finish when you are done.",
+      label: t("stateWorking"),
+      detail: t("stateWorkingDetail"),
       tone: "live",
     },
     on_break: {
-      label: "On break",
-      detail: "Your paid-time clock is paused until you return.",
+      label: t("stateOnBreak"),
+      detail: t("stateOnBreakDetail"),
       tone: "break",
     },
     complete: {
-      label: "Shift complete",
-      detail: "Your worked time and location evidence are saved for today.",
+      label: t("stateComplete"),
+      detail: t("stateCompleteDetail"),
       tone: "complete",
     },
   }[state];
+}
+
+function getActionLabel(action: ShiftAction, t: (key: any) => string): string {
+  switch (action) {
+    case "clock_in": return t("clockIn");
+    case "start_break": return t("startBreak");
+    case "end_break": return t("endBreak");
+    case "clock_out": return t("finishShift");
+    default: return action;
+  }
 }
 
 function locationLink(location: LocationEvidence): string {
@@ -149,39 +159,42 @@ function LanguageSwitcher() {
   const { lang, setLang } = useI18n();
 
   return (
-    <div className="flex items-center rounded-xl border border-border bg-muted/60 p-1 text-xs font-semibold">
+    <div className="inline-flex items-center rounded-xl border border-border bg-muted/60 p-1 text-xs font-semibold">
       <button
         type="button"
         onClick={() => setLang("es")}
-        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
-          lang === "es" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+          lang === "es"
+            ? "bg-background text-foreground shadow-xs font-bold"
+            : "text-muted-foreground hover:text-foreground"
         }`}
         title="Español"
       >
-        <span>🇪🇸</span>
-        <span className="text-[11px]">ES</span>
+        ES
       </button>
       <button
         type="button"
         onClick={() => setLang("en")}
-        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
-          lang === "en" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+          lang === "en"
+            ? "bg-background text-foreground shadow-xs font-bold"
+            : "text-muted-foreground hover:text-foreground"
         }`}
         title="English"
       >
-        <span>🇺🇸</span>
-        <span className="text-[11px]">EN</span>
+        EN
       </button>
       <button
         type="button"
         onClick={() => setLang("pt")}
-        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
-          lang === "pt" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+          lang === "pt"
+            ? "bg-background text-foreground shadow-xs font-bold"
+            : "text-muted-foreground hover:text-foreground"
         }`}
         title="Português"
       >
-        <span>🇧🇷</span>
-        <span className="text-[11px]">PT</span>
+        PT
       </button>
     </div>
   );
@@ -226,6 +239,7 @@ function PhotoEvidenceModal({
 }
 
 function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
+  const { t } = useI18n();
   const initialToken = invitationFromLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -264,7 +278,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
           <div className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
             <div>
               <div className="flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase">
-                <Crosshair className="h-5 w-5 text-brand" /> Field hours
+                <Crosshair className="h-5 w-5 text-brand" /> {t("appTitle")}
               </div>
               <p className="mt-8 max-w-md text-4xl font-semibold leading-[1.05]">Time that follows the workday.</p>
               <p className="mt-6 max-w-sm text-sm leading-6 text-primary-foreground/70">
@@ -272,34 +286,34 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs text-primary-foreground/60">
-              <ShieldCheck className="h-4 w-4" /> Server-authorized. Location only when you act.
+              <ShieldCheck className="h-4 w-4" /> {t("locationFooterNotice")}
             </div>
           </div>
           <div className="p-6 sm:p-10">
             <div className="mb-6 flex items-center justify-between">
               <div className="flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase lg:hidden">
-                <Crosshair className="h-5 w-5 text-brand" /> Field hours
+                <Crosshair className="h-5 w-5 text-brand" /> {t("appTitle")}
               </div>
               <div className="ml-auto">
                 <LanguageSwitcher />
               </div>
             </div>
             <div className="mb-8">
-              <p className="label-eyebrow">Secure access</p>
+              <p className="label-eyebrow">{t("secureAccess")}</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-                {registration ? "Join your team" : "Welcome back"}
+                {registration ? t("joinTeam") : t("welcomeBack")}
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 {registration
-                  ? "Your one-time invitation decides your worker access."
-                  : "Sign in to clock time or see today’s team."}
+                  ? t("joinTeamSubtitle")
+                  : t("welcomeBackSubtitle")}
               </p>
             </div>
             <form onSubmit={submit} className="space-y-5">
               {registration && (
                 <>
                   <label className="block text-sm font-medium">
-                    Full name
+                    {t("fullName")}
                     <input
                       required
                       minLength={2}
@@ -311,7 +325,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                     />
                   </label>
                   <label className="block text-sm font-medium">
-                    Invitation token
+                    {t("invitationCode")}
                     <input
                       required
                       pattern="[a-fA-F0-9]{64}"
@@ -324,7 +338,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                 </>
               )}
               <label className="block text-sm font-medium">
-                Email
+                {t("email")}
                 <input
                   required
                   type="email"
@@ -336,7 +350,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                 />
               </label>
               <label className="block text-sm font-medium">
-                Password
+                {t("password")}
                 <input
                   required
                   minLength={8}
@@ -358,7 +372,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
               >
                 {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-                {registration ? "Create worker account" : "Sign in"}
+                {registration ? t("createWorkerAccount") : t("signIn")}
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
@@ -370,7 +384,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
               }}
               className="mt-5 w-full text-center text-sm font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             >
-              {registration ? "Back to sign in" : "I have a staff invitation"}
+              {registration ? t("backToSignIn") : t("haveInvitation")}
             </button>
           </div>
         </section>
@@ -388,6 +402,7 @@ function PasswordChangeScreen({
   onChanged: (user: SessionUser) => void;
   onSignOut: () => void;
 }) {
+  const { t } = useI18n();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
@@ -397,7 +412,7 @@ function PasswordChangeScreen({
     event.preventDefault();
     setError("");
     if (password !== confirmation) {
-      setError("The passwords do not match.");
+      setError(t("passwordsDoNotMatch"));
       return;
     }
     setBusy(true);
@@ -416,14 +431,14 @@ function PasswordChangeScreen({
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-success/15 text-success">
           <ShieldCheck className="h-6 w-6" />
         </div>
-        <p className="label-eyebrow mt-7">First sign-in</p>
-        <h1 className="mt-2 text-2xl font-semibold">Choose your permanent password</h1>
+        <p className="label-eyebrow mt-7">{t("firstSignIn")}</p>
+        <h1 className="mt-2 text-2xl font-semibold">{t("choosePermanentPassword")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">
-          The temporary administrator password can only open this screen. Use at least 12 characters.
+          {t("changePasswordDetail")}
         </p>
         <form onSubmit={submit} className="mt-7 space-y-5">
           <label className="block text-sm font-medium">
-            New password
+            {t("newPassword")}
             <input
               required
               minLength={12}
@@ -436,7 +451,7 @@ function PasswordChangeScreen({
             />
           </label>
           <label className="block text-sm font-medium">
-            Confirm password
+            {t("confirmPassword")}
             <input
               required
               minLength={12}
@@ -448,14 +463,21 @@ function PasswordChangeScreen({
               autoComplete="new-password"
             />
           </label>
-          {error && <p role="alert" className="rounded-xl bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
-          <button disabled={busy} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground disabled:opacity-60">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-            Save password
+          {error && (
+            <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <button
+            disabled={busy}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-wait disabled:opacity-60"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {t("savePassword")}
           </button>
         </form>
         <button type="button" onClick={onSignOut} className="mt-4 w-full text-sm text-muted-foreground hover:text-foreground">
-          Sign out of {user.email}
+          {t("signOut")} ({user.email})
         </button>
       </section>
     </main>
@@ -543,7 +565,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     return () => window.clearInterval(timer);
   }, []);
 
-  const copy = stateCopy(shift.state);
+  const copy = stateCopy(shift.state, t);
   const action = shift.state === "off_shift"
     ? "clock_in"
     : shift.state === "working"
@@ -622,16 +644,16 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
   if (loading) {
     return (
-      <Shell title="My shift" user={user} onSignOut={onSignOut}>
+      <Shell title={t("workerHeaderTitle")} user={user} onSignOut={onSignOut}>
         <div className="mx-auto max-w-3xl rounded-3xl border border-border bg-card p-7 text-sm text-muted-foreground" role="status">
-          Loading today’s shift…
+          {t("saving")}
         </div>
       </Shell>
     );
   }
 
   return (
-    <Shell title="My shift" user={user} onSignOut={onSignOut}>
+    <Shell title={t("workerHeaderTitle")} user={user} onSignOut={onSignOut}>
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Offline & Queue Status Banner */}
         {(!online || pendingQueueCount > 0) && (
@@ -639,7 +661,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             <div className="flex items-center gap-2">
               {!online ? <WifiOff className="h-4 w-4 text-warning" /> : <RefreshCw className="h-4 w-4 animate-spin text-warning" />}
               <span>
-                {!online ? "Working Offline" : "Network restored"} — {pendingQueueCount} action(s) pending sync.
+                {!online ? t("offline") : t("online")} — {pendingQueueCount} {t("syncPending")}
               </span>
             </div>
             {online && (
@@ -657,17 +679,17 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
             <div>
-              <p className="label-eyebrow">Today · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
-              <h1 className="mt-1 text-2xl font-semibold">Hi, {user.displayName.split(" ")[0]}</h1>
+              <p className="label-eyebrow">{new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
+              <h1 className="mt-1 text-2xl font-semibold">{t("hiUser")}, {user.displayName.split(" ")[0]}</h1>
             </div>
             <div className="flex items-center gap-2">
               {online ? (
                 <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
-                  <Wifi className="h-3 w-3" /> Online
+                  <Wifi className="h-3 w-3" /> {t("online")}
                 </span>
               ) : (
                 <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
-                  <WifiOff className="h-3 w-3" /> Offline
+                  <WifiOff className="h-3 w-3" /> {t("offline")}
                 </span>
               )}
               <div className={`rounded-full px-3 py-1 text-xs font-semibold ${copy.tone === "live" ? "bg-success/15 text-success" : copy.tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
@@ -678,7 +700,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           <div className="px-5 py-7 sm:px-7 sm:py-10">
             <div className="flex items-end justify-between gap-5">
               <div>
-                <p className="label-eyebrow">Worked today</p>
+                <p className="label-eyebrow">{t("workedToday")}</p>
                 <p className="mt-2 font-mono text-5xl font-semibold tracking-tight sm:text-6xl">{duration}</p>
               </div>
               <Clock3 className="mb-2 h-9 w-9 text-brand" aria-hidden="true" />
@@ -689,10 +711,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               {shift.state === "off_shift" ? (
                 <div>
                   <label className="block text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-brand" /> Select Job Site / Project
+                    <Building2 className="h-3.5 w-3.5 text-brand" /> {t("assignedProject")}
                   </label>
                   {projects.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">No active projects configured by admin.</p>
+                    <p className="text-xs text-muted-foreground">{t("noProjectsAvailable")}</p>
                   ) : (
                     <select
                       value={selectedProjectId}
@@ -708,16 +730,16 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                   )}
                   {selectedProject && selectedProject.latitude !== null && (
                     <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Navigation className="h-3 w-3 text-info" /> Geofence perimeter active: {selectedProject.radius_m}m tolerance.
+                      <Navigation className="h-3 w-3 text-info" /> {t("geofenceActive")} {selectedProject.radius_m}m.
                     </p>
                   )}
                 </div>
               ) : (
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-muted-foreground font-medium">Assigned Project</p>
+                    <p className="text-xs text-muted-foreground font-medium">{t("assignedProject")}</p>
                     <p className="text-sm font-bold text-foreground mt-0.5">
-                      {shift.projectName || selectedProject?.name || "General Work"}
+                      {shift.projectName || selectedProject?.name || t("generalWork")}
                     </p>
                   </div>
                   <Briefcase className="h-5 w-5 text-muted-foreground" />
@@ -732,14 +754,14 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               {finishRequested ? (
                 <div className="flex w-full flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-semibold">Finish your shift?</p>
-                    <p className="mt-1 text-xs text-muted-foreground">This records the current time and a fresh location check.</p>
+                    <p className="text-sm font-semibold">{t("finishPromptTitle")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{t("finishPromptDetail")}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setFinishRequested(false)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-background">Cancel</button>
+                    <button type="button" onClick={() => setFinishRequested(false)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-background">{t("cancel")}</button>
                     <button type="button" onClick={() => act("clock_out")} disabled={Boolean(busy)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">
                       {busy === "clock_out" && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {busy === "clock_out" ? "Saving…" : "Confirm finish"}
+                      {busy === "clock_out" ? t("saving") : t("confirmFinish")}
                     </button>
                   </div>
                 </div>
@@ -763,12 +785,12 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                       ) : (
                         <ArrowRight className="h-5 w-5" />
                       )}
-                      {busy === action ? "Saving…" : actionLabel(action)}
+                      {busy === action ? t("saving") : getActionLabel(action, t)}
                     </button>
                   )}
                   {shift.state === "working" && (
                     <button type="button" onClick={() => setFinishRequested(true)} disabled={Boolean(busy)} className="flex min-h-14 items-center justify-center gap-3 rounded-2xl border border-border px-5 text-base font-semibold transition hover:bg-muted disabled:opacity-60">
-                      <LogOut className="h-5 w-5" /> Finish shift
+                      <LogOut className="h-5 w-5" /> {t("finishShift")}
                     </button>
                   )}
                 </>
@@ -782,7 +804,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           onViewPhoto={(photo, ev) =>
             setPhotoModal({
               photo,
-              title: `${user.displayName} — ${actionLabel(ev.type)}`,
+              title: `${user.displayName} — ${getActionLabel(ev.type, t)}`,
               subtitle: new Date(ev.at).toLocaleString(),
             })
           }
@@ -792,15 +814,15 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="flex items-center justify-between border-b border-border pb-4">
             <div>
-              <p className="label-eyebrow">Work Log</p>
-              <h2 className="mt-1 text-lg font-semibold">My Past Shifts</h2>
+              <p className="label-eyebrow">{t("historyTab")}</p>
+              <h2 className="mt-1 text-lg font-semibold">{t("myPastShifts")}</h2>
             </div>
             <History className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="mt-4 divide-y divide-border">
-            {historyLoading && <p className="py-4 text-sm text-muted-foreground">Loading past shifts…</p>}
+            {historyLoading && <p className="py-4 text-center text-xs text-muted-foreground">{t("saving")}</p>}
             {!historyLoading && history.length === 0 && (
-              <p className="py-6 text-sm text-muted-foreground text-center">No completed shifts recorded yet.</p>
+              <p className="py-6 text-center text-xs text-muted-foreground">{t("noPastShiftsYet")}</p>
             )}
             {history.map((record) => (
               <div key={record.id} className="flex items-center justify-between py-3">
@@ -814,14 +836,14 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    In: {new Date(record.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {record.clock_out_at ? ` · Out: ${new Date(record.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " · In Progress"}
-                    {record.break_minutes > 0 && ` · Break: ${formatMinutes(record.break_minutes)}`}
+                    {t("colClockIn")}: {new Date(record.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {record.clock_out_at ? ` · ${t("colClockOut")}: ${new Date(record.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ` · ${t("inProgress")}`}
+                    {record.break_minutes > 0 && ` · ${t("colBreak")}: ${formatMinutes(record.break_minutes)}`}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-sm font-bold text-foreground">{formatMinutes(record.net_minutes)}</p>
-                  <p className="text-[11px] text-success font-medium">Logged</p>
+                  <p className="text-[11px] text-success font-medium">{t("logged")}</p>
                 </div>
               </div>
             ))}
@@ -860,17 +882,18 @@ function LocationEvidenceList({
   events: ShiftEvent[];
   onViewPhoto?: (photo: string, event: ShiftEvent) => void;
 }) {
+  const { t } = useI18n();
   return (
     <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
       <div className="flex items-center justify-between">
         <div>
-          <p className="label-eyebrow">Location & Photo evidence</p>
-          <h2 className="mt-1 text-lg font-semibold">Captured upon action</h2>
+          <p className="label-eyebrow">{t("locationEvidenceTitle")}</p>
+          <h2 className="mt-1 text-lg font-semibold">{t("locationEvidenceSubtitle")}</h2>
         </div>
         <MapPin className="h-5 w-5 text-muted-foreground" />
       </div>
       <div className="mt-5 space-y-3">
-        {events.length === 0 && <p className="rounded-2xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground">No clock events recorded today.</p>}
+        {events.length === 0 && <p className="rounded-2xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground">{t("noClockEventsToday")}</p>}
         {events.slice().reverse().map((event) => (
           <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3">
             <div className="flex items-center gap-3">
@@ -879,7 +902,7 @@ function LocationEvidenceList({
                   type="button"
                   onClick={() => onViewPhoto?.(event.photo!, event)}
                   className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm"
-                  title="View Photo Evidence"
+                  title={t("viewPhoto")}
                 >
                   <img src={event.photo} alt="Selfie" className="h-full w-full object-cover transition group-hover:scale-110" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 transition group-hover:opacity-100">
@@ -889,15 +912,15 @@ function LocationEvidenceList({
               )}
               <div>
                 <p className="text-sm font-semibold flex items-center gap-1.5">
-                  {actionLabel(event.type)}
+                  {getActionLabel(event.type, t)}
                   {event.photo && (
                     <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand flex items-center gap-1">
-                      <Camera className="h-3 w-3" /> Photo verified
+                      <Camera className="h-3 w-3" /> {t("photoVerified")}
                     </span>
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ±{event.location.accuracy}m accuracy
+                  {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ±{event.location.accuracy}m
                 </p>
               </div>
             </div>
@@ -908,11 +931,11 @@ function LocationEvidenceList({
                   onClick={() => onViewPhoto?.(event.photo!, event)}
                   className="text-xs font-semibold text-brand underline-offset-4 hover:underline flex items-center gap-1"
                 >
-                  <Camera className="h-3 w-3" /> View Photo
+                  <Camera className="h-3 w-3" /> {t("viewPhoto")}
                 </button>
               )}
               <a href={locationLink(event.location)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-info underline-offset-4 hover:underline">
-                Open map
+                {t("openMap")}
               </a>
             </div>
           </div>
@@ -922,7 +945,7 @@ function LocationEvidenceList({
   );
 }
 
-function toPerson(row: AdminSnapshot): Person {
+function toPerson(row: AdminSnapshot, t: (key: any) => string): Person {
   const latest = row.events.at(-1);
   return {
     id: row.user_id,
@@ -935,8 +958,8 @@ function toPerson(row: AdminSnapshot): Person {
     projectName: row.project_name,
     events: row.events,
     lastEvent: latest
-      ? `${actionLabel(latest.type)} at ${new Date(latest.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-      : "Not clocked in",
+      ? `${getActionLabel(latest.type, t)} · ${new Date(latest.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      : t("stateOffShift"),
   };
 }
 
@@ -949,6 +972,7 @@ function ProjectEditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [name, setName] = useState(project?.name || "");
   const [code, setCode] = useState(project?.code || "");
   const [address, setAddress] = useState(project?.address || "");
@@ -1012,8 +1036,8 @@ function ProjectEditModal({
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-brand font-semibold">Job Site Management</p>
-            <h2 className="mt-1 text-xl font-bold">{project ? "Edit Project / Site" : "New Project / Site"}</h2>
+            <p className="label-eyebrow text-brand font-semibold">{t("projectsSubtitle")}</p>
+            <h2 className="mt-1 text-xl font-bold">{project ? t("editProject") : t("newProject")}</h2>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
             <X className="h-4 w-4" />
@@ -1022,7 +1046,7 @@ function ProjectEditModal({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">Project / Site Name *</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("projectName")}</label>
             <input
               type="text"
               value={name}
@@ -1035,7 +1059,7 @@ function ProjectEditModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase">Site Code</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("projectCode")}</label>
               <input
                 type="text"
                 value={code}
@@ -1045,7 +1069,7 @@ function ProjectEditModal({
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-muted-foreground uppercase">Geofence Radius (m)</label>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("geofenceRadius")}</label>
               <input
                 type="number"
                 min={20}
@@ -1059,12 +1083,12 @@ function ProjectEditModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">Site Address</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("siteAddress")}</label>
             <input
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g. Av. Principal #450, Santiago"
+              placeholder="e.g. Av. Principal #450"
               className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
@@ -1073,7 +1097,7 @@ function ProjectEditModal({
           <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5 text-brand" /> GPS Coordinates
+                <MapPin className="h-3.5 w-3.5 text-brand" /> {t("gpsCoordinates")}
               </span>
               <button
                 type="button"
@@ -1082,7 +1106,7 @@ function ProjectEditModal({
                 className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
               >
                 {gpsBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Crosshair className="h-3 w-3" />}
-                Use My Location
+                {t("useMyLocation")}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-2 font-mono text-xs">
@@ -1114,7 +1138,7 @@ function ProjectEditModal({
               className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
             />
             <label htmlFor="isActiveCheck" className="text-xs font-medium text-foreground cursor-pointer">
-              Active Project (Available for workers to clock in)
+              {t("activeProjectCheck")}
             </label>
           </div>
 
@@ -1126,7 +1150,7 @@ function ProjectEditModal({
               onClick={onClose}
               className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
             >
-              Cancel
+              {t("cancel")}
             </button>
             <button
               type="submit"
@@ -1134,7 +1158,7 @@ function ProjectEditModal({
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Project
+              {t("saveProject")}
             </button>
           </div>
         </form>
@@ -1152,6 +1176,7 @@ function AdjustShiftModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const [clockIn, setClockIn] = useState(
     shift.clock_in_at ? new Date(shift.clock_in_at).toISOString().slice(0, 16) : ""
   );
@@ -1165,7 +1190,7 @@ function AdjustShiftModal({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!reason.trim()) {
-      setError("Please provide a reason for this audit adjustment.");
+      setError(t("adjustReason"));
       return;
     }
     setError("");
@@ -1196,8 +1221,8 @@ function AdjustShiftModal({
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-warning font-semibold">Audit Adjustment</p>
-            <h2 className="mt-1 text-xl font-bold">Adjust Shift Times</h2>
+            <p className="label-eyebrow text-warning font-semibold">{t("auditAdjustment")}</p>
+            <h2 className="mt-1 text-xl font-bold">{t("adjustShiftTimes")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{shift.display_name} · {shift.work_date}</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
@@ -1207,7 +1232,7 @@ function AdjustShiftModal({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">Clock In Time</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockInTime")}</label>
             <input
               type="datetime-local"
               value={clockIn}
@@ -1218,7 +1243,7 @@ function AdjustShiftModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">Clock Out Time</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockOutTime")}</label>
             <input
               type="datetime-local"
               value={clockOut}
@@ -1229,11 +1254,11 @@ function AdjustShiftModal({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">Reason for Adjustment *</label>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("adjustReason")}</label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Worker forgot to clock out at the end of the shift"
+              placeholder={t("adjustReasonPlaceholder")}
               rows={3}
               required
               className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1248,7 +1273,7 @@ function AdjustShiftModal({
               onClick={onClose}
               className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
             >
-              Cancel
+              {t("cancel")}
             </button>
             <button
               type="submit"
@@ -1256,7 +1281,7 @@ function AdjustShiftModal({
               className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-              Save Adjustment
+              {t("saveAdjustment")}
             </button>
           </div>
         </form>
@@ -1295,7 +1320,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     setLoading(true);
     try {
       const members = await loadAdminToday();
-      setPeople(members.map(toPerson));
+      setPeople(members.map((m) => toPerson(m, t)));
       setUpdatedAt(new Date());
       setMessage("");
     } catch (caught) {
@@ -1310,7 +1335,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     } catch {
       // Non-fatal if projects endpoint is still deploying
     }
-  }, []);
+  }, [t]);
 
   const calculateDateRange = useCallback((period: string) => {
     const today = new Date();
@@ -1423,7 +1448,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   async function copyInvite() {
     try {
       await navigator.clipboard.writeText(inviteLink);
-      setMessage("Invitation link copied.");
+      setMessage(t("copied"));
     } catch {
       setMessage("Your browser could not copy the link. The QR code is still ready to scan.");
     }
@@ -1447,10 +1472,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     const rows = historyRecords.map((r) => ({
       "Date": r.work_date,
       "Worker": r.display_name,
-      "Project / Site": r.project_name || "General Work",
+      "Project / Site": r.project_name || t("generalWork"),
       "Status": r.state,
       "Clock In": r.clock_in_at ? new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-      "Clock Out": r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active",
+      "Clock Out": r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress"),
       "Break (Hours)": (r.break_minutes / 60).toFixed(2),
       "Net Hours Worked": (r.net_minutes / 60).toFixed(2),
       "Duration": formatMinutes(r.net_minutes),
@@ -1462,7 +1487,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   };
 
   return (
-    <Shell title={viewMode === "today" ? "Today" : viewMode === "history" ? "Reports & History" : "Projects & Sites"} user={user} onSignOut={onSignOut}>
+    <Shell title={viewMode === "today" ? t("todayTab") : viewMode === "history" ? t("historyTab") : t("projectsTab")} user={user} onSignOut={onSignOut}>
       <div className="space-y-6">
         {/* Navigation Mode Switcher */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -1472,42 +1497,42 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               onClick={() => setViewMode("today")}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 viewMode === "today"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Activity className="h-4 w-4 text-brand" />
-              Live Today
+              {t("todayTab")}
             </button>
             <button
               type="button"
               onClick={() => setViewMode("history")}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 viewMode === "history"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Calendar className="h-4 w-4 text-info" />
-              History & Reports
+              {t("historyTab")}
             </button>
             <button
               type="button"
               onClick={() => setViewMode("projects")}
               className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
                 viewMode === "projects"
-                  ? "bg-background text-foreground shadow-xs"
+                  ? "bg-background text-foreground shadow-xs font-bold"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <Building2 className="h-4 w-4 text-primary" />
-              Projects & Sites
+              {t("projectsTab")}
             </button>
           </div>
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-success" />
-            {updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Loading"}
+            {updatedAt ? `${t("liveStatus")} ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : t("saving")}
           </div>
         </div>
 
@@ -1518,17 +1543,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             {/* Today's Metrics Banner */}
             <section className="flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:p-7">
               <div>
-                <p className="label-eyebrow">Operations · live snapshot</p>
-                <h1 className="mt-1 text-3xl font-semibold tracking-tight">Good day, {user.displayName.split(" ")[0]}.</h1>
-                <p className="mt-2 text-sm text-muted-foreground">A clear view of the team’s progress and location evidence.</p>
+                <p className="label-eyebrow">Field Hours · Live</p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight">{t("adminGreeting")}, {user.displayName.split(" ")[0]}.</h1>
+                <p className="mt-2 text-sm text-muted-foreground">{t("adminSubtitle")}</p>
               </div>
             </section>
 
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <Metric label="Working" value={counts.working} detail="active shifts" tone="live" icon={<Activity className="h-4 w-4" />} />
-              <Metric label="On break" value={counts.onBreak} detail="paused now" tone="break" icon={<Pause className="h-4 w-4" />} />
-              <Metric label="Finished" value={counts.complete} detail="completed today" tone="neutral" icon={<Check className="h-4 w-4" />} />
-              <Metric label="Team" value={counts.total} detail="staff members" tone="neutral" icon={<Users className="h-4 w-4" />} />
+              <Metric label={t("workingMetric")} value={counts.working} detail={t("activeShifts")} tone="live" icon={<Activity className="h-4 w-4" />} />
+              <Metric label={t("onBreakMetric")} value={counts.onBreak} detail={t("pausedNow")} tone="break" icon={<Pause className="h-4 w-4" />} />
+              <Metric label={t("finishedMetric")} value={counts.complete} detail={t("completedToday")} tone="neutral" icon={<Check className="h-4 w-4" />} />
+              <Metric label={t("teamMetric")} value={counts.total} detail={t("staffMembers")} tone="neutral" icon={<Users className="h-4 w-4" />} />
             </section>
 
             <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
@@ -1536,15 +1561,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               <section className="rounded-3xl border border-border bg-card shadow-sm">
                 <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
                   <div>
-                    <p className="label-eyebrow">Today’s team</p>
-                    <h2 className="mt-1 text-lg font-semibold">Progress at a glance</h2>
+                    <p className="label-eyebrow">{t("todayTab")}</p>
+                    <h2 className="mt-1 text-lg font-semibold">{t("todaysTeam")}</h2>
                   </div>
                   <button type="button" onClick={() => void refreshToday()} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Refresh team">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
                   </button>
                 </div>
                 <div className="divide-y divide-border">
-                  {!loading && people.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground sm:px-7">No staff members have joined yet. Create an invitation to add the first worker.</p>}
+                  {!loading && people.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground sm:px-7">{t("noMembersYet")}</p>}
                   {people.map((person) => (
                     <div key={person.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
                       <div className="flex min-w-0 items-center gap-3">
@@ -1567,11 +1592,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         <div className="text-right">
                           <p className="font-mono text-sm font-semibold">{formatWorkedDuration(person.events, person.state, now)}</p>
                           <p className={`mt-1 text-xs font-semibold ${person.state === "working" ? "text-success" : person.state === "on_break" ? "text-warning" : "text-muted-foreground"}`}>
-                            {stateCopy(person.state).label}
+                            {stateCopy(person.state, t).label}
                           </p>
                         </div>
                         <button type="button" onClick={() => void handleOpenPersonDetails(person)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted" aria-label={`View details for ${person.name}`}>
-                          Details
+                          {t("details")}
                         </button>
                       </div>
                     </div>
@@ -1583,9 +1608,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="label-eyebrow">Invite staff</p>
-                    <h2 className="mt-1 text-lg font-semibold">Scan to join</h2>
-                    <p className="mt-2 text-sm leading-5 text-muted-foreground">The raw token is shown once; D1 stores only its cryptographic hash.</p>
+                    <p className="label-eyebrow">{t("inviteWorkerTitle")}</p>
+                    <h2 className="mt-1 text-lg font-semibold">{t("inviteWorkerSubtitle")}</h2>
+                    <p className="mt-2 text-sm leading-5 text-muted-foreground">{t("oneTimeNotice")}</p>
                   </div>
                   <QrCode className="h-5 w-5 text-brand" />
                 </div>
@@ -1598,19 +1623,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       Expires {new Date(invite.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </p>
                     <button type="button" onClick={() => void copyInvite()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-muted">
-                      <Copy className="h-4 w-4" /> Copy secure link
+                      <Copy className="h-4 w-4" /> {t("copyLink")}
                     </button>
-                    <button type="button" onClick={() => setInvite(null)} className="mt-2 w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground">Hide this invitation</button>
+                    <button type="button" onClick={() => setInvite(null)} className="mt-2 w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground">{t("close")}</button>
                   </div>
                 ) : (
                   <button type="button" disabled={inviteBusy} onClick={() => void generateInvite()} className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
                     {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                    {inviteBusy ? "Creating…" : "Create invitation"}
+                    {inviteBusy ? t("creatingInvitation") : t("createInvitation")}
                   </button>
                 )}
                 <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  Each invitation expires quickly and can register exactly one worker.
+                  {t("qrInstruction")}
                 </div>
               </section>
             </div>
@@ -1622,8 +1647,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                  <p className="label-eyebrow">Timesheets & Audit</p>
-                  <h2 className="mt-1 text-2xl font-bold">Shift History & Reports</h2>
+                  <p className="label-eyebrow">{t("historyTab")}</p>
+                  <h2 className="mt-1 text-2xl font-bold">{t("reportsTitle")}</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   {/* Period Filter */}
@@ -1634,11 +1659,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       onChange={(e: any) => setHistoryFilterPeriod(e.target.value)}
                       className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <option value="today">Today</option>
-                      <option value="this_week">This Week</option>
-                      <option value="last_week">Last Week</option>
-                      <option value="this_month">This Month</option>
-                      <option value="all">All Records</option>
+                      <option value="today">{t("periodToday")}</option>
+                      <option value="this_week">{t("periodThisWeek")}</option>
+                      <option value="last_week">{t("periodLastWeek")}</option>
+                      <option value="this_month">{t("periodThisMonth")}</option>
+                      <option value="all">{t("periodAll")}</option>
                     </select>
                   </div>
 
@@ -1648,7 +1673,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     onChange={(e) => setHistoryFilterWorker(e.target.value)}
                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <option value="all">All Staff Members</option>
+                    <option value="all">{t("allStaff")}</option>
                     {people.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
@@ -1660,7 +1685,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     onChange={(e) => setHistoryFilterProject(e.target.value)}
                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <option value="all">All Projects / Sites</option>
+                    <option value="all">{t("allProjects")}</option>
                     {projects.map((pr) => (
                       <option key={pr.id} value={pr.id}>{pr.name}</option>
                     ))}
@@ -1674,7 +1699,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
                     <Download className="h-4 w-4" />
-                    Export Excel
+                    {t("exportExcel")}
                   </button>
                 </div>
               </div>
@@ -1682,20 +1707,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               {/* Summary Stats Band */}
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-2xl bg-muted/40 p-4">
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Total Worked</p>
+                  <p className="text-xs text-muted-foreground font-medium">{t("totalWorked")}</p>
                   <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.totalHours}h</p>
                   <p className="text-[11px] text-muted-foreground">{formatMinutes(historyTotals.totalNetMinutes)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Break Time</p>
+                  <p className="text-xs text-muted-foreground font-medium">{t("breakTime")}</p>
                   <p className="mt-1 text-2xl font-bold font-mono text-warning">{historyTotals.totalBreakHours}h</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Total Shifts</p>
+                  <p className="text-xs text-muted-foreground font-medium">{t("totalShifts")}</p>
                   <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.shiftsCount}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground font-medium">Active Staff</p>
+                  <p className="text-xs text-muted-foreground font-medium">{t("activeStaff")}</p>
                   <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.workersCount}</p>
                 </div>
               </div>
@@ -1707,15 +1732,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground uppercase">
                     <tr>
-                      <th className="px-6 py-3.5 font-semibold">Date</th>
-                      <th className="px-6 py-3.5 font-semibold">Worker</th>
-                      <th className="px-6 py-3.5 font-semibold">Project / Site</th>
-                      <th className="px-6 py-3.5 font-semibold">Clock In</th>
-                      <th className="px-6 py-3.5 font-semibold">Clock Out</th>
-                      <th className="px-6 py-3.5 font-semibold">Break</th>
-                      <th className="px-6 py-3.5 font-semibold">Net Hours</th>
-                      <th className="px-6 py-3.5 font-semibold">Status</th>
-                      <th className="px-6 py-3.5 font-semibold text-right">Actions</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colDate")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colWorker")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colProject")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colClockIn")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colClockOut")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colBreak")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colNetHours")}</th>
+                      <th className="px-6 py-3.5 font-semibold">{t("colStatus")}</th>
+                      <th className="px-6 py-3.5 font-semibold text-right">{t("colActions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1723,7 +1748,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <tr>
                         <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-brand" />
-                          Loading shifts history…
+                          {t("saving")}
                         </td>
                       </tr>
                     )}
@@ -1731,7 +1756,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <tr>
                         <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Info className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                          No shift records found for this period. Try selecting "All Records".
+                          {t("noShiftsFound")}
                         </td>
                       </tr>
                     )}
@@ -1740,13 +1765,13 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         <td className="px-6 py-4 font-medium whitespace-nowrap">{r.work_date}</td>
                         <td className="px-6 py-4 font-semibold text-foreground">{r.display_name}</td>
                         <td className="px-6 py-4 text-xs font-medium text-muted-foreground">
-                          {r.project_name || "General Work"}
+                          {r.project_name || t("generalWork")}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
                           {new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
-                          {r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In Progress"}
+                          {r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress")}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
                           {r.break_minutes > 0 ? formatMinutes(r.break_minutes) : "—"}
@@ -1777,15 +1802,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                                   if (ev?.photo) {
                                     setPhotoModal({
                                       photo: ev.photo,
-                                      title: `${r.display_name} — Clock In Photo`,
+                                      title: `${r.display_name} — ${t("takeSelfieTitle")}`,
                                       subtitle: `${r.work_date} ${new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
                                     });
                                   }
                                 }}
                                 className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand/20"
-                                title="View Clock-in Photo Evidence"
+                                title={t("viewPhoto")}
                               >
-                                <Camera className="h-3.5 w-3.5" /> Photo
+                                <Camera className="h-3.5 w-3.5" /> {t("viewPhoto")}
                               </button>
                             )}
                             {r.events.length > 0 && (
@@ -1794,18 +1819,18 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-info hover:bg-muted"
-                                title="Open GPS Map"
+                                title={t("openMap")}
                               >
-                                <MapPin className="h-3.5 w-3.5" /> Map ({r.events.length})
+                                <MapPin className="h-3.5 w-3.5" /> {t("mapWithCount")} ({r.events.length})
                               </a>
                             )}
                             <button
                               type="button"
                               onClick={() => setShiftToAdjust(r)}
                               className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
-                              title="Audit Adjust Shift"
+                              title={t("adjustShift")}
                             >
-                              <Edit3 className="h-3.5 w-3.5" /> Adjust
+                              <Edit3 className="h-3.5 w-3.5" /> {t("adjustShift")}
                             </button>
                           </div>
                         </td>
@@ -1822,16 +1847,16 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="label-eyebrow">Job Sites & Geofences</p>
-                  <h2 className="mt-1 text-2xl font-bold">Manage Construction Projects</h2>
-                  <p className="text-xs text-muted-foreground mt-1">Configure site addresses, GPS center coordinates, and tolerance radius in meters.</p>
+                  <p className="label-eyebrow">{t("projectsTab")}</p>
+                  <h2 className="mt-1 text-2xl font-bold">{t("projectsTitle")}</h2>
+                  <p className="text-xs text-muted-foreground mt-1">{t("projectsSubtitle")}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setEditingProject("new")}
                   className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
                 >
-                  <Plus className="h-4 w-4" /> Add Project
+                  <Plus className="h-4 w-4" /> {t("newProjectBtn")}
                 </button>
               </div>
 
@@ -1839,14 +1864,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 {projectsLoading && (
                   <div className="py-8 text-center text-muted-foreground">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-brand" />
-                    Loading projects…
+                    {t("saving")}
                   </div>
                 )}
                 {!projectsLoading && projects.length === 0 && (
                   <div className="py-10 text-center text-muted-foreground">
                     <Building2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="font-semibold text-sm text-foreground">No projects registered yet</p>
-                    <p className="text-xs mt-1">Add your first job site so workers can associate their shifts and verify geofences.</p>
+                    <p className="font-semibold text-sm text-foreground">{t("noProjectsYet")}</p>
+                    <p className="text-xs mt-1">{t("noProjectsPrompt")}</p>
                   </div>
                 )}
                 {projects.map((proj) => (
@@ -1866,7 +1891,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                             proj.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
                           }`}>
-                            {proj.is_active ? "Active" : "Archived"}
+                            {proj.is_active ? t("active") : t("archived")}
                           </span>
                         </div>
                         {proj.address && <p className="text-xs text-muted-foreground mt-1">{proj.address}</p>}
@@ -1876,10 +1901,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                               <span className="flex items-center gap-1">
                                 <MapPin className="h-3.5 w-3.5 text-info" /> {proj.latitude.toFixed(5)}, {proj.longitude.toFixed(5)}
                               </span>
-                              <span>· Geofence: {proj.radius_m}m</span>
+                              <span>· {proj.radius_m}m</span>
                             </>
                           ) : (
-                            <span className="text-warning">No GPS coordinates set (geofence inactive)</span>
+                            <span className="text-warning">{t("noGpsSet")}</span>
                           )}
                         </div>
                       </div>
@@ -1893,7 +1918,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           rel="noopener noreferrer"
                           className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-info hover:bg-muted"
                         >
-                          View Map
+                          {t("viewMap")}
                         </a>
                       )}
                       <button
@@ -1901,7 +1926,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         onClick={() => setEditingProject(proj)}
                         className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
                       >
-                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                        <Edit3 className="h-3.5 w-3.5" /> {t("edit")}
                       </button>
                     </div>
                   </div>
@@ -1917,10 +1942,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             <section role="dialog" aria-modal="true" aria-labelledby="worker-details-title" className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
               <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
                 <div>
-                  <p className="label-eyebrow">Worker Profile & History</p>
+                  <p className="label-eyebrow">{t("workerProfileHistory")}</p>
                   <h2 id="worker-details-title" className="mt-1 text-2xl font-bold">{selectedPerson.name}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Today: {stateCopy(selectedPerson.state).label} · {formatWorkedDuration(selectedPerson.events, selectedPerson.state, now)}
+                    {t("todayTab")}: {stateCopy(selectedPerson.state, t).label} · {formatWorkedDuration(selectedPerson.events, selectedPerson.state, now)}
                   </p>
                 </div>
                 <button type="button" onClick={() => setSelectedPerson(null)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close worker details">
@@ -1930,13 +1955,13 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
               {/* Today's Live Evidence */}
               <div className="mt-6">
-                <h3 className="text-sm font-semibold mb-3">Today's Shift Evidence</h3>
+                <h3 className="text-sm font-semibold mb-3">{t("todaysShiftEvidence")}</h3>
                 <LocationEvidenceList
                   events={selectedPerson.events}
                   onViewPhoto={(photo, ev) =>
                     setPhotoModal({
                       photo,
-                      title: `${selectedPerson.name} — ${actionLabel(ev.type)}`,
+                      title: `${selectedPerson.name} — ${getActionLabel(ev.type, t)}`,
                       subtitle: new Date(ev.at).toLocaleString(),
                     })
                   }
@@ -1946,9 +1971,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               {/* Past Shifts History for this Worker */}
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">Recorded Past Shifts</h3>
+                  <h3 className="text-sm font-semibold">{t("recordedPastShifts")}</h3>
                   <span className="text-xs text-muted-foreground">
-                    {selectedPersonHistory.length} shift(s) found
+                    {selectedPersonHistory.length} {t("shiftsFound")}
                   </span>
                 </div>
 
@@ -1956,39 +1981,39 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                   <table className="w-full text-left text-xs">
                     <thead className="bg-muted/60 text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-2.5">Date</th>
-                        <th className="px-4 py-2.5">Project</th>
-                        <th className="px-4 py-2.5">Clock In</th>
-                        <th className="px-4 py-2.5">Clock Out</th>
-                        <th className="px-4 py-2.5">Break</th>
-                        <th className="px-4 py-2.5">Total Hours</th>
-                        <th className="px-4 py-2.5 text-right">Actions</th>
+                        <th className="px-4 py-2.5">{t("colDate")}</th>
+                        <th className="px-4 py-2.5">{t("colProject")}</th>
+                        <th className="px-4 py-2.5">{t("colClockIn")}</th>
+                        <th className="px-4 py-2.5">{t("colClockOut")}</th>
+                        <th className="px-4 py-2.5">{t("colBreak")}</th>
+                        <th className="px-4 py-2.5">{t("colNetHours")}</th>
+                        <th className="px-4 py-2.5 text-right">{t("colActions")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {selectedPersonLoading && (
                         <tr>
                           <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                            Loading worker past shifts…
+                            {t("saving")}
                           </td>
                         </tr>
                       )}
                       {!selectedPersonLoading && selectedPersonHistory.length === 0 && (
                         <tr>
                           <td colSpan={7} className="py-6 text-center text-muted-foreground">
-                            No past shifts recorded for this worker yet.
+                            {t("noPastShiftsYet")}
                           </td>
                         </tr>
                       )}
                       {selectedPersonHistory.map((s) => (
                         <tr key={s.id} className="hover:bg-muted/20">
                           <td className="px-4 py-2.5 font-medium">{s.work_date}</td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{s.project_name || "General"}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{s.project_name || t("generalWork")}</td>
                           <td className="px-4 py-2.5 font-mono">
                             {new Date(s.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </td>
                           <td className="px-4 py-2.5 font-mono">
-                            {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In progress"}
+                            {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress")}
                           </td>
                           <td className="px-4 py-2.5 font-mono text-muted-foreground">
                             {s.break_minutes > 0 ? formatMinutes(s.break_minutes) : "—"}
@@ -2005,7 +2030,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                               }}
                               className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
                             >
-                              Adjust
+                              {t("adjustShift")}
                             </button>
                           </td>
                         </tr>
@@ -2094,6 +2119,7 @@ function Shell({
   onSignOut: () => void;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   return (
     <div className="min-h-screen bg-background">
@@ -2102,7 +2128,7 @@ function Shell({
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Crosshair className="h-4 w-4" /></div>
             <div>
-              <p className="text-sm font-semibold tracking-tight">Field hours</p>
+              <p className="text-sm font-semibold tracking-tight">{t("appTitle")}</p>
               <p className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">{title}</p>
             </div>
           </div>
@@ -2114,8 +2140,8 @@ function Shell({
               </button>
               {menuOpen && (
                 <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-border bg-card p-2 shadow-lg">
-                  <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> Sign out</button>
-                  <button type="button" onClick={() => setMenuOpen(false)} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> Close</button>
+                  <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> {t("signOut")}</button>
+                  <button type="button" onClick={() => setMenuOpen(false)} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> {t("close")}</button>
                 </div>
               )}
             </div>
@@ -2124,7 +2150,7 @@ function Shell({
       </header>
       <main className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">{children}</main>
       <footer className="mx-auto flex max-w-7xl items-center gap-2 px-5 pb-8 text-xs text-muted-foreground sm:px-8">
-        <ShieldCheck className="h-3.5 w-3.5" /> Location is captured only for a clock action.
+        <ShieldCheck className="h-3.5 w-3.5" /> {t("locationFooterNotice")}
       </footer>
     </div>
   );

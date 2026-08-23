@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 export type Language = "es" | "en" | "pt";
 
@@ -14,17 +14,48 @@ export interface Translations {
   offline: string;
   syncPending: string;
   syncedSuccess: string;
+  locationFooterNotice: string;
+  close: string;
+
+  // Auth & Onboarding
+  secureAccess: string;
+  welcomeBack: string;
+  welcomeBackSubtitle: string;
+  joinTeam: string;
+  joinTeamSubtitle: string;
+  signIn: string;
+  createWorkerAccount: string;
+  email: string;
+  password: string;
+  fullName: string;
+  invitationCode: string;
+  haveInvitation: string;
+  backToSignIn: string;
+  firstSignIn: string;
+  choosePermanentPassword: string;
+  changePasswordDetail: string;
+  newPassword: string;
+  confirmPassword: string;
+  savePassword: string;
+  passwordsDoNotMatch: string;
 
   // Worker View
   workerHeaderTitle: string;
+  hiUser: string;
+  workedToday: string;
   assignedProject: string;
   selectProject: string;
+  noProjectsAvailable: string;
   generalWork: string;
   geofenceActive: string;
   stateOffShift: string;
+  stateOffShiftDetail: string;
   stateWorking: string;
+  stateWorkingDetail: string;
   stateOnBreak: string;
+  stateOnBreakDetail: string;
   stateComplete: string;
+  stateCompleteDetail: string;
   clockIn: string;
   startBreak: string;
   endBreak: string;
@@ -36,6 +67,9 @@ export interface Translations {
   save: string;
   saving: string;
   myPastShifts: string;
+  noPastShiftsYet: string;
+  inProgress: string;
+  logged: string;
   takeSelfiePrompt: string;
   takeSelfieTitle: string;
   takeSelfieSubtitle: string;
@@ -44,6 +78,12 @@ export interface Translations {
   switchCamera: string;
   retake: string;
   confirmPhoto: string;
+  photoVerified: string;
+  viewPhoto: string;
+  openMap: string;
+  locationEvidenceTitle: string;
+  locationEvidenceSubtitle: string;
+  noClockEventsToday: string;
 
   // Admin View
   adminGreeting: string;
@@ -68,6 +108,10 @@ export interface Translations {
   copied: string;
   qrInstruction: string;
   oneTimeNotice: string;
+  workerProfileHistory: string;
+  todaysShiftEvidence: string;
+  recordedPastShifts: string;
+  shiftsFound: string;
 
   // History & Reports
   reportsTitle: string;
@@ -97,18 +141,21 @@ export interface Translations {
   colActions: string;
   noShiftsFound: string;
   adjustShift: string;
-  adjustTitle: string;
+  auditAdjustment: string;
+  adjustShiftTimes: string;
+  clockInTime: string;
+  clockOutTime: string;
   adjustReason: string;
   adjustReasonPlaceholder: string;
-  adjustSave: string;
-  viewPhotoEvidence: string;
-  photoEvidenceTitle: string;
+  saveAdjustment: string;
+  mapWithCount: string;
 
   // Projects View
   projectsTitle: string;
   projectsSubtitle: string;
   newProjectBtn: string;
   noProjectsYet: string;
+  noProjectsPrompt: string;
   editProject: string;
   newProject: string;
   projectName: string;
@@ -117,10 +164,13 @@ export interface Translations {
   geofenceRadius: string;
   gpsCoordinates: string;
   useMyLocation: string;
-  activeStatus: string;
-  inactiveStatus: string;
+  activeProjectCheck: string;
+  saveProject: string;
   active: string;
-  inactive: string;
+  archived: string;
+  noGpsSet: string;
+  viewMap: string;
+  edit: string;
 }
 
 export const translations: Record<Language, Translations> = {
@@ -132,41 +182,80 @@ export const translations: Record<Language, Translations> = {
     signOut: "Cerrar sesión",
     liveStatus: "Actualizado",
     online: "En línea",
-    offline: "Sin conexión (Modo offline)",
+    offline: "Sin conexión",
     syncPending: "pendientes de sincronizar",
     syncedSuccess: "acciones sincronizadas con el servidor.",
+    locationFooterNotice: "La ubicación GPS solo se captura al pulsar una acción de fichaje.",
+    close: "Cerrar",
 
-    workerHeaderTitle: "Registro de Jornada",
-    assignedProject: "Obra / Proyecto Asignado",
-    selectProject: "Seleccionar obra...",
+    secureAccess: "Acceso seguro",
+    welcomeBack: "Bienvenido de nuevo",
+    welcomeBackSubtitle: "Inicia sesión para registrar tu jornada o consultar el equipo.",
+    joinTeam: "Únete a tu equipo",
+    joinTeamSubtitle: "Tu invitación de un solo uso determina tu acceso de trabajador.",
+    signIn: "Iniciar sesión",
+    createWorkerAccount: "Crear cuenta de trabajador",
+    email: "Correo electrónico",
+    password: "Contraseña",
+    fullName: "Nombre completo",
+    invitationCode: "Código de invitación",
+    haveInvitation: "Tengo una invitación de personal",
+    backToSignIn: "Volver a iniciar sesión",
+    firstSignIn: "Primer inicio de sesión",
+    choosePermanentPassword: "Elige tu contraseña definitiva",
+    changePasswordDetail: "La contraseña temporal de administrador solo puede abrir esta pantalla. Usa al menos 12 caracteres.",
+    newPassword: "Nueva contraseña",
+    confirmPassword: "Confirmar nueva contraseña",
+    savePassword: "Guardar contraseña",
+    passwordsDoNotMatch: "Las contraseñas no coinciden.",
+
+    workerHeaderTitle: "Mi Jornada",
+    hiUser: "Hola",
+    workedToday: "Trabajado hoy",
+    assignedProject: "Proyecto / Obra Asignada",
+    selectProject: "Seleccionar obra o proyecto...",
+    noProjectsAvailable: "No hay proyectos activos configurados por el administrador.",
     generalWork: "Trabajo General",
-    geofenceActive: "Geocerca activa: tolerancia de",
+    geofenceActive: "Perímetro de geocerca activo: tolerancia de",
     stateOffShift: "Fuera de turno",
-    stateWorking: "En turno activo",
-    stateOnBreak: "En pausa / descanso",
+    stateOffShiftDetail: "Tu siguiente acción registra el lugar donde inicias el trabajo.",
+    stateWorking: "Trabajando",
+    stateWorkingDetail: "Tu turno está activo. Toma una pausa o finaliza al terminar el trabajo.",
+    stateOnBreak: "En pausa",
+    stateOnBreakDetail: "El contador de tiempo está pausado hasta que regreses.",
     stateComplete: "Jornada completada",
+    stateCompleteDetail: "Tu tiempo trabajado y evidencias GPS han sido guardados para hoy.",
     clockIn: "Marcar Entrada",
     startBreak: "Iniciar Pausa",
     endBreak: "Finalizar Pausa",
     finishShift: "Finalizar Jornada",
     confirmFinish: "Confirmar Salida",
     finishPromptTitle: "¿Deseas finalizar tu jornada?",
-    finishPromptDetail: "Esto registrará la hora actual y la verificación GPS de salida.",
+    finishPromptDetail: "Esto registrará la hora actual y una verificación GPS de salida.",
     cancel: "Cancelar",
     save: "Guardar",
     saving: "Guardando…",
     myPastShifts: "Mis Turnos Anteriores",
+    noPastShiftsYet: "Aún no hay turnos completados registrados.",
+    inProgress: "En curso",
+    logged: "Registrado",
     takeSelfiePrompt: "Foto de Entrada (Evidencia de presencia)",
     takeSelfieTitle: "Verificación de Identidad",
-    takeSelfieSubtitle: "Toma una foto rápida para certificar tu presencia en la obra.",
+    takeSelfieSubtitle: "Toma una selfie rápida para certificar tu presencia en la obra.",
     capturePhoto: "Tomar Foto",
     skipPhoto: "Omitir Foto",
     switchCamera: "Cambiar Cámara",
     retake: "Repetir Foto",
-    confirmPhoto: "Usar Esta Foto",
+    confirmPhoto: "Confirmar y Fichar",
+    photoVerified: "Foto verificada",
+    viewPhoto: "Ver Foto",
+    openMap: "Ver mapa",
+    locationEvidenceTitle: "Evidencias de Ubicación y Foto",
+    locationEvidenceSubtitle: "Registradas al momento de cada acción",
+    noClockEventsToday: "No hay eventos registrados hoy.",
 
     adminGreeting: "Buen día",
-    adminSubtitle: "Panel de control en tiempo real y registro de evidencias GPS.",
+    adminSubtitle: "Vista en tiempo real del progreso del equipo y auditoría de presencia.",
     workingMetric: "Trabajando",
     onBreakMetric: "En Pausa",
     finishedMetric: "Finalizados",
@@ -178,15 +267,19 @@ export const translations: Record<Language, Translations> = {
     todaysTeam: "Equipo de hoy",
     progressAtAGlance: "Resumen de actividad",
     details: "Detalles",
-    noMembersYet: "Aún no hay trabajadores registrados. Crea una invitación para agregar el primero.",
-    inviteWorkerTitle: "Invitar Trabajador",
-    inviteWorkerSubtitle: "Genera un enlace o código QR de un solo uso para registrar a un nuevo operario.",
+    noMembersYet: "Aún no hay trabajadores registrados. Crea una invitación para agregar al primero.",
+    inviteWorkerTitle: "Invitar Personal",
+    inviteWorkerSubtitle: "Escanear para unirse",
     createInvitation: "Crear Invitación",
     creatingInvitation: "Generando…",
     copyLink: "Copiar Enlace",
     copied: "¡Enlace copiado!",
-    qrInstruction: "El trabajador puede escanear este código QR para registrarse.",
+    qrInstruction: "El trabajador puede escanear este código QR con su móvil.",
     oneTimeNotice: "El token es de un solo uso y vence en 30 minutos.",
+    workerProfileHistory: "Perfil y Registro del Trabajador",
+    todaysShiftEvidence: "Evidencias del Turno de Hoy",
+    recordedPastShifts: "Turnos Pasados Registrados",
+    shiftsFound: "turno(s) encontrados",
 
     reportsTitle: "Historial de Turnos y Reportes",
     periodFilter: "Período",
@@ -215,29 +308,35 @@ export const translations: Record<Language, Translations> = {
     colActions: "Acciones",
     noShiftsFound: "No se encontraron turnos para este período. Prueba seleccionando 'Todos los registros'.",
     adjustShift: "Ajustar",
-    adjustTitle: "Ajuste Manual de Turno",
+    auditAdjustment: "Ajuste de Auditoría",
+    adjustShiftTimes: "Ajustar Horas del Turno",
+    clockInTime: "Hora de Entrada",
+    clockOutTime: "Hora de Salida",
     adjustReason: "Motivo del Ajuste *",
     adjustReasonPlaceholder: "Ej. El trabajador olvidó fichar su salida al finalizar el turno",
-    adjustSave: "Guardar Ajuste",
-    viewPhotoEvidence: "Ver Foto",
-    photoEvidenceTitle: "Evidencia Fotográfica de Entrada",
+    saveAdjustment: "Guardar Ajuste",
+    mapWithCount: "Mapa",
 
     projectsTitle: "Gestión de Proyectos y Obras",
-    projectsSubtitle: "Define obras, ubicaciones GPS y perímetros de geocerca permitidos.",
-    newProjectBtn: "Nuevo Proyecto / Obra",
-    noProjectsYet: "No hay proyectos u obras creados aún. Haz clic en 'Nuevo Proyecto' para crear el primero.",
+    projectsSubtitle: "Configura direcciones de obra, coordenadas GPS y radio de tolerancia en metros.",
+    newProjectBtn: "Agregar Proyecto",
+    noProjectsYet: "No hay proyectos registrados aún",
+    noProjectsPrompt: "Agrega tu primera obra para que los trabajadores puedan asociar sus jornadas y verificar geocercas.",
     editProject: "Editar Proyecto / Obra",
-    newProject: "Nuevo Proyecto / Obra",
-    projectName: "Nombre de la Obra / Proyecto *",
+    newProject: "Nueva Obra / Proyecto",
+    projectName: "Nombre del Proyecto / Obra *",
     projectCode: "Código de Obra",
     siteAddress: "Dirección",
     geofenceRadius: "Radio de Geocerca (metros)",
     gpsCoordinates: "Coordenadas GPS",
-    useMyLocation: "Usar mi ubicación",
-    activeStatus: "Estado Activo",
-    inactiveStatus: "Inactivo",
+    useMyLocation: "Capturar GPS actual",
+    activeProjectCheck: "Proyecto Activo (Disponible para que los trabajadores fichen)",
+    saveProject: "Guardar Proyecto",
     active: "Activo",
-    inactive: "Inactivo",
+    archived: "Archivado",
+    noGpsSet: "Sin coordenadas GPS (geocerca inactiva)",
+    viewMap: "Ver Mapa",
+    edit: "Editar",
   },
   en: {
     appTitle: "Field Hours",
@@ -247,41 +346,80 @@ export const translations: Record<Language, Translations> = {
     signOut: "Sign out",
     liveStatus: "Updated",
     online: "Online",
-    offline: "Offline Mode",
+    offline: "Offline",
     syncPending: "pending to sync",
     syncedSuccess: "action(s) synced with the server.",
+    locationFooterNotice: "Location is captured only for a clock action.",
+    close: "Close",
 
-    workerHeaderTitle: "Shift Clock",
+    secureAccess: "Secure access",
+    welcomeBack: "Welcome back",
+    welcomeBackSubtitle: "Sign in to clock time or see today’s team.",
+    joinTeam: "Join your team",
+    joinTeamSubtitle: "Your one-time invitation decides your worker access.",
+    signIn: "Sign in",
+    createWorkerAccount: "Create worker account",
+    email: "Email address",
+    password: "Password",
+    fullName: "Full name",
+    invitationCode: "Invitation code",
+    haveInvitation: "I have a staff invitation",
+    backToSignIn: "Back to sign in",
+    firstSignIn: "First sign-in",
+    choosePermanentPassword: "Choose your permanent password",
+    changePasswordDetail: "The temporary administrator password can only open this screen. Use at least 12 characters.",
+    newPassword: "New password",
+    confirmPassword: "Confirm password",
+    savePassword: "Save password",
+    passwordsDoNotMatch: "The passwords do not match.",
+
+    workerHeaderTitle: "My shift",
+    hiUser: "Hi",
+    workedToday: "Worked today",
     assignedProject: "Assigned Project / Job Site",
-    selectProject: "Select site...",
+    selectProject: "Select Job Site / Project...",
+    noProjectsAvailable: "No active projects configured by admin.",
     generalWork: "General Work",
-    geofenceActive: "Geofence active: tolerance of",
+    geofenceActive: "Geofence perimeter active: tolerance of",
     stateOffShift: "Off shift",
+    stateOffShiftDetail: "Your next action records the place you start work.",
     stateWorking: "Working",
+    stateWorkingDetail: "Your shift is live. Take a break or finish when you are done.",
     stateOnBreak: "On break",
+    stateOnBreakDetail: "Your paid-time clock is paused until you return.",
     stateComplete: "Shift complete",
-    clockIn: "Clock In",
-    startBreak: "Start Break",
-    endBreak: "End Break",
-    finishShift: "Finish Shift",
-    confirmFinish: "Confirm Finish",
+    stateCompleteDetail: "Your worked time and location evidence are saved for today.",
+    clockIn: "Clock in",
+    startBreak: "Start break",
+    endBreak: "End break",
+    finishShift: "Finish shift",
+    confirmFinish: "Confirm finish",
     finishPromptTitle: "Finish your shift?",
-    finishPromptDetail: "This records the current timestamp and a fresh GPS location check.",
+    finishPromptDetail: "This records the current time and a fresh location check.",
     cancel: "Cancel",
     save: "Save",
     saving: "Saving…",
     myPastShifts: "My Past Shifts",
+    noPastShiftsYet: "No completed shifts recorded yet.",
+    inProgress: "In Progress",
+    logged: "Logged",
     takeSelfiePrompt: "Clock In Photo (Presence evidence)",
     takeSelfieTitle: "Identity Verification",
-    takeSelfieSubtitle: "Take a quick photo to certify your physical presence on the job site.",
+    takeSelfieSubtitle: "Take a quick selfie to certify your presence on the job site.",
     capturePhoto: "Take Photo",
     skipPhoto: "Skip Photo",
     switchCamera: "Switch Camera",
     retake: "Retake Photo",
-    confirmPhoto: "Use This Photo",
+    confirmPhoto: "Confirm & Clock In",
+    photoVerified: "Photo verified",
+    viewPhoto: "View Photo",
+    openMap: "Open map",
+    locationEvidenceTitle: "Location & Photo evidence",
+    locationEvidenceSubtitle: "Captured upon action",
+    noClockEventsToday: "No clock events recorded today.",
 
     adminGreeting: "Good day",
-    adminSubtitle: "Live operations snapshot and GPS location audit.",
+    adminSubtitle: "A clear view of the team’s progress and location evidence.",
     workingMetric: "Working",
     onBreakMetric: "On break",
     finishedMetric: "Finished",
@@ -289,36 +427,40 @@ export const translations: Record<Language, Translations> = {
     activeShifts: "active shifts",
     pausedNow: "paused now",
     completedToday: "completed today",
-    staffMembers: "registered staff",
+    staffMembers: "staff members",
     todaysTeam: "Today’s team",
     progressAtAGlance: "Progress at a glance",
     details: "Details",
     noMembersYet: "No staff members have joined yet. Create an invitation to add the first worker.",
-    inviteWorkerTitle: "Invite Staff Member",
-    inviteWorkerSubtitle: "Generate a secure one-time link or QR code to register a new worker.",
-    createInvitation: "Create Invitation",
+    inviteWorkerTitle: "Invite staff",
+    inviteWorkerSubtitle: "Scan to join",
+    createInvitation: "Create invitation",
     creatingInvitation: "Generating…",
     copyLink: "Copy Link",
     copied: "Link copied!",
     qrInstruction: "The worker can scan this QR code with their mobile device.",
-    oneTimeNotice: "The token is single-use and expires in 30 minutes.",
+    oneTimeNotice: "The raw token is shown once; D1 stores only its cryptographic hash.",
+    workerProfileHistory: "Worker Profile & History",
+    todaysShiftEvidence: "Today's Shift Evidence",
+    recordedPastShifts: "Recorded Past Shifts",
+    shiftsFound: "shift(s) found",
 
     reportsTitle: "Shift History & Reports",
     periodFilter: "Period",
     workerFilter: "Worker",
     projectFilter: "Project / Site",
-    allStaff: "All staff members",
-    allProjects: "All projects / sites",
+    allStaff: "All Staff Members",
+    allProjects: "All Projects / Sites",
     periodToday: "Today",
     periodThisWeek: "This Week",
     periodLastWeek: "Last Week",
     periodThisMonth: "This Month",
-    periodAll: "All records",
+    periodAll: "All Records",
     totalWorked: "Total Worked",
     breakTime: "Break Time",
     totalShifts: "Total Shifts",
     activeStaff: "Active Staff",
-    exportExcel: "Export to Excel",
+    exportExcel: "Export Excel",
     colDate: "Date",
     colWorker: "Worker",
     colProject: "Project / Site",
@@ -328,31 +470,37 @@ export const translations: Record<Language, Translations> = {
     colNetHours: "Net Hours",
     colStatus: "Status",
     colActions: "Actions",
-    noShiftsFound: "No shift records found for this period. Try selecting 'All records'.",
+    noShiftsFound: "No shift records found for this period. Try selecting 'All Records'.",
     adjustShift: "Adjust",
-    adjustTitle: "Manual Shift Adjustment",
+    auditAdjustment: "Audit Adjustment",
+    adjustShiftTimes: "Adjust Shift Times",
+    clockInTime: "Clock In Time",
+    clockOutTime: "Clock Out Time",
     adjustReason: "Reason for Adjustment *",
     adjustReasonPlaceholder: "e.g. Worker forgot to clock out at the end of the shift",
-    adjustSave: "Save Adjustment",
-    viewPhotoEvidence: "View Photo",
-    photoEvidenceTitle: "Clock In Photo Evidence",
+    saveAdjustment: "Save Adjustment",
+    mapWithCount: "Map",
 
-    projectsTitle: "Projects & Job Sites",
-    projectsSubtitle: "Manage construction sites, GPS coordinates and geofence radiuses.",
-    newProjectBtn: "New Project / Site",
-    noProjectsYet: "No projects created yet. Click 'New Project' to add the first one.",
-    editProject: "Edit Project / Site",
-    newProject: "New Project / Site",
-    projectName: "Project / Site Name *",
-    projectCode: "Site Code",
+    projectsTitle: "Manage Construction Projects",
+    projectsSubtitle: "Configure site addresses, GPS center coordinates, and tolerance radius in meters.",
+    newProjectBtn: "Add Project",
+    noProjectsYet: "No projects registered yet",
+    noProjectsPrompt: "Add your first job site so workers can associate their shifts and verify geofences.",
+    editProject: "Edit Project",
+    newProject: "New Project",
+    projectName: "Project Name *",
+    projectCode: "Project Code",
     siteAddress: "Site Address",
     geofenceRadius: "Geofence Radius (meters)",
     gpsCoordinates: "GPS Coordinates",
-    useMyLocation: "Use My Location",
-    activeStatus: "Active Status",
-    inactiveStatus: "Inactive",
+    useMyLocation: "Capture Current GPS",
+    activeProjectCheck: "Active Project (Available for workers to clock in)",
+    saveProject: "Save Project",
     active: "Active",
-    inactive: "Inactive",
+    archived: "Archived",
+    noGpsSet: "No GPS coordinates set (geofence inactive)",
+    viewMap: "View Map",
+    edit: "Edit",
   },
   pt: {
     appTitle: "Field Hours",
@@ -362,22 +510,52 @@ export const translations: Record<Language, Translations> = {
     signOut: "Sair",
     liveStatus: "Atualizado",
     online: "Online",
-    offline: "Modo Offline",
+    offline: "Offline",
     syncPending: "pendentes de sincronização",
     syncedSuccess: "ação(ões) sincronizada(s) com o servidor.",
+    locationFooterNotice: "A localização GPS é capturada apenas ao bater o ponto.",
+    close: "Fechar",
 
-    workerHeaderTitle: "Controle de Ponto",
+    secureAccess: "Acesso seguro",
+    welcomeBack: "Bem-vindo de volta",
+    welcomeBackSubtitle: "Entre para registrar seu ponto ou acompanhar a equipe.",
+    joinTeam: "Junte-se à sua equipe",
+    joinTeamSubtitle: "Seu convite de uso único define seu acesso de operário.",
+    signIn: "Entrar",
+    createWorkerAccount: "Criar conta de operário",
+    email: "E-mail",
+    password: "Senha",
+    fullName: "Nome completo",
+    invitationCode: "Código de convite",
+    haveInvitation: "Tenho um convite de funcionário",
+    backToSignIn: "Voltar para o login",
+    firstSignIn: "Primeiro acesso",
+    choosePermanentPassword: "Defina sua senha definitiva",
+    changePasswordDetail: "A senha provisória de administrador serve apenas para este acesso. Use pelo menos 12 caracteres.",
+    newPassword: "Nova senha",
+    confirmPassword: "Confirmar nova senha",
+    savePassword: "Salvar senha",
+    passwordsDoNotMatch: "As senhas não conferem.",
+
+    workerHeaderTitle: "Meu Ponto",
+    hiUser: "Olá",
+    workedToday: "Trabalhado hoje",
     assignedProject: "Obra / Projeto Atribuído",
-    selectProject: "Selecionar obra...",
+    selectProject: "Selecionar obra ou projeto...",
+    noProjectsAvailable: "Nenhuma obra ativa cadastrada pelo administrador.",
     generalWork: "Trabalho Geral",
-    geofenceActive: "Cerca geográfica ativa: tolerância de",
+    geofenceActive: "Perímetro de geocerca ativo: tolerância de",
     stateOffShift: "Fora de turno",
-    stateWorking: "Em jornada ativa",
-    stateOnBreak: "Em intervalo / pausa",
+    stateOffShiftDetail: "Sua próxima ação registra o local onde você inicia o trabalho.",
+    stateWorking: "Trabalhando",
+    stateWorkingDetail: "Sua jornada está ativa. Faça um intervalo ou finalize ao encerrar o expediente.",
+    stateOnBreak: "Em pausa",
+    stateOnBreakDetail: "A contagem de horas está pausada até você retornar.",
     stateComplete: "Jornada finalizada",
+    stateCompleteDetail: "Seu tempo trabalhado e comprovantes GPS foram salvos hoje.",
     clockIn: "Bater Entrada",
-    startBreak: "Iniciar Intervalo",
-    endBreak: "Finalizar Intervalo",
+    startBreak: "Iniciar Pausa",
+    endBreak: "Finalizar Pausa",
     finishShift: "Finalizar Jornada",
     confirmFinish: "Confirmar Saída",
     finishPromptTitle: "Deseja finalizar sua jornada?",
@@ -386,17 +564,26 @@ export const translations: Record<Language, Translations> = {
     save: "Salvar",
     saving: "Salvando…",
     myPastShifts: "Meus Turnos Anteriores",
+    noPastShiftsYet: "Nenhum turno finalizado registrado ainda.",
+    inProgress: "Em andamento",
+    logged: "Registrado",
     takeSelfiePrompt: "Foto de Entrada (Comprovante de presença)",
     takeSelfieTitle: "Verificação de Identidade",
-    takeSelfieSubtitle: "Tire uma foto rápida para certificar sua presença na obra.",
+    takeSelfieSubtitle: "Tire uma selfie rápida para comprovar sua presença na obra.",
     capturePhoto: "Tirar Foto",
     skipPhoto: "Pular Foto",
     switchCamera: "Trocar Câmera",
     retake: "Tirar Outra Foto",
-    confirmPhoto: "Usar Esta Foto",
+    confirmPhoto: "Confirmar e Registrar",
+    photoVerified: "Foto verificada",
+    viewPhoto: "Ver Foto",
+    openMap: "Ver mapa",
+    locationEvidenceTitle: "Comprovantes de Localização e Foto",
+    locationEvidenceSubtitle: "Registrados ao bater o ponto",
+    noClockEventsToday: "Nenhum evento registrado hoje.",
 
     adminGreeting: "Bom dia",
-    adminSubtitle: "Visão em tempo real e auditoria de presença por GPS.",
+    adminSubtitle: "Visão em tempo real do progresso da equipe e auditoria de presença.",
     workingMetric: "Trabalhando",
     onBreakMetric: "Em Pausa",
     finishedMetric: "Finalizados",
@@ -410,13 +597,17 @@ export const translations: Record<Language, Translations> = {
     details: "Detalhes",
     noMembersYet: "Nenhum funcionário cadastrado ainda. Crie um convite para adicionar o primeiro.",
     inviteWorkerTitle: "Convidar Funcionário",
-    inviteWorkerSubtitle: "Gere um link ou QR code de uso único para cadastrar um novo operário.",
+    inviteWorkerSubtitle: "Escanear para entrar",
     createInvitation: "Criar Convite",
     creatingInvitation: "Gerando…",
     copyLink: "Copiar Link",
     copied: "Link copiado!",
-    qrInstruction: "O funcionário pode ler este QR code com seu celular.",
+    qrInstruction: "O funcionário pode ler este QR code com o celular.",
     oneTimeNotice: "O token é de uso único e expira em 30 minutos.",
+    workerProfileHistory: "Perfil e Histórico do Operário",
+    todaysShiftEvidence: "Comprovantes do Turno de Hoje",
+    recordedPastShifts: "Turnos Anteriores Registrados",
+    shiftsFound: "turno(s) encontrados",
 
     reportsTitle: "Histórico de Turnos e Relatórios",
     periodFilter: "Período",
@@ -445,29 +636,35 @@ export const translations: Record<Language, Translations> = {
     colActions: "Ações",
     noShiftsFound: "Nenhum registro encontrado para este período. Tente selecionar 'Todos os registros'.",
     adjustShift: "Ajustar",
-    adjustTitle: "Ajuste Manual de Ponto",
+    auditAdjustment: "Ajuste de Auditoria",
+    adjustShiftTimes: "Ajustar Horários do Turno",
+    clockInTime: "Horário de Entrada",
+    clockOutTime: "Horário de Saída",
     adjustReason: "Motivo do Ajuste *",
     adjustReasonPlaceholder: "Ex. O funcionário esqueceu de registrar a saída ao fim do expediente",
-    adjustSave: "Salvar Ajuste",
-    viewPhotoEvidence: "Ver Foto",
-    photoEvidenceTitle: "Comprovante Fotográfico de Entrada",
+    saveAdjustment: "Salvar Ajuste",
+    mapWithCount: "Mapa",
 
-    projectsTitle: "Gestão de Projetos e Obras",
-    projectsSubtitle: "Cadastre locais de trabalho, coordenadas GPS e raios de tolerância.",
-    newProjectBtn: "Novo Projeto / Obra",
-    noProjectsYet: "Nenhum projeto cadastrado ainda. Clique em 'Novo Projeto' para criar o primeiro.",
-    editProject: "Editar Projeto / Obra",
-    newProject: "Novo Projeto / Obra",
+    projectsTitle: "Gestão de Obras e Projetos",
+    projectsSubtitle: "Cadastre locais de trabalho, coordenadas GPS e raios de tolerância em metros.",
+    newProjectBtn: "Adicionar Obra",
+    noProjectsYet: "Nenhuma obra cadastrada ainda",
+    noProjectsPrompt: "Adicione sua primeira obra para que os operários possam associar seus pontos e validar geocercas.",
+    editProject: "Editar Obra",
+    newProject: "Nova Obra / Projeto",
     projectName: "Nome da Obra / Projeto *",
     projectCode: "Código da Obra",
     siteAddress: "Endereço",
     geofenceRadius: "Raio de Geocerca (metros)",
     gpsCoordinates: "Coordenadas GPS",
-    useMyLocation: "Usar Minha Localização",
-    activeStatus: "Status Ativo",
-    inactiveStatus: "Inativo",
+    useMyLocation: "Capturar GPS atual",
+    activeProjectCheck: "Obra Ativa (Disponível para os operários baterem ponto)",
+    saveProject: "Salvar Obra",
     active: "Ativo",
-    inactive: "Inativo",
+    archived: "Arquivado",
+    noGpsSet: "Sem coordenadas GPS (geocerca inativa)",
+    viewMap: "Ver Mapa",
+    edit: "Editar",
   },
 };
 
@@ -485,7 +682,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     if (saved && (saved === "es" || saved === "en" || saved === "pt")) {
       return saved;
     }
-    // Default to spanish
     return "es";
   });
 
@@ -508,7 +704,6 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 export function useI18n() {
   const context = useContext(I18nContext);
   if (!context) {
-    // Fallback if rendered outside provider
     return {
       lang: "es" as Language,
       setLang: () => {},
