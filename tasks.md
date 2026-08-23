@@ -5,7 +5,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 ---
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 4 — Geocercas y Proyectos / Obras (COMPLETADA)
+- **Fase Actual**: Fase 5 — Verificación Fotográfica Selfie y Multi-idioma (COMPLETADA)
 - **Última Actualización**: 22 de Agosto de 2026
 
 ---
@@ -55,8 +55,10 @@ Objetivo: Vincular fichajes a ubicaciones de obra específicas y alertar fichaje
 
 ---
 
-## 📌 Fase 5: Verificación Fotográfica Opcional y Multi-idioma
+## 📌 Fase 5: Verificación Fotográfica Opcional y Multi-idioma *(Completada)*
 Objetivo: Evitar suplantación ("buddy punching") y facilitar el uso a cuadrillas internacionales.
 
-- [ ] **Tarea 5.1 (Foto Evidencia)**: Captura opcional de selfie con la cámara al marcar entrada.
-- [ ] **Tarea 5.2 (i18n)**: Soporte de idiomas conmutables (Español, Inglés, Portugués).
+- [x] **Tarea 5.1 (Foto Evidencia)**: Captura de selfie frontal en tiempo real con la cámara del dispositivo al pulsar "Clock in", con compresión ultraligera en canvas (JPEG base64 ~15-20KB), opción de omitir o repetir foto y almacenamiento inmutable en eventos de auditoría.
+- [x] **Tarea 5.2 (Visor de Evidencia en Panel Admin)**: Miniaturas interactivas y visor modal a pantalla completa para que el administrador inspeccione las fotos de fichaje en el panel de hoy y en el historial.
+- [x] **Tarea 5.3 (Multi-idioma i18n)**: Sistema completo de internacionalización (`i18n.tsx`) con selector visual en cabecera (🇪🇸 Español, 🇺🇸 Inglés, 🇧🇷 Portugués) disponible tanto en pantalla de acceso como en la app principal.
+- [x] **Tarea 5.4 (QA & Verificación)**: Build de Vite completado con 0 errores, typecheck de frontend y worker con 0 errores y despliegue del worker a Cloudflare.

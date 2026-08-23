@@ -30,6 +30,7 @@ export interface ShiftEvent {
   type: ShiftAction;
   at: string;
   location: LocationEvidence;
+  photo?: string;
 }
 
 export interface Project {

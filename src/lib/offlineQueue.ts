@@ -6,6 +6,7 @@ export interface QueuedAction {
   location: LocationEvidence;
   idempotencyKey: string;
   projectId?: string;
+  photo?: string;
   queuedAt: string;
 }
 
@@ -25,6 +26,7 @@ export function queueOfflineAction(
   location: LocationEvidence,
   idempotencyKey: string,
   projectId?: string,
+  photo?: string,
 ): QueuedAction {
   const item: QueuedAction = {
     id: crypto.randomUUID(),
@@ -32,6 +34,7 @@ export function queueOfflineAction(
     location,
     idempotencyKey,
     projectId,
+    photo,
     queuedAt: new Date().toISOString(),
   };
   const current = getOfflineQueue();
@@ -55,7 +58,7 @@ export async function syncOfflineQueue(
 
   for (const item of queue) {
     try {
-      lastSnapshot = await runShiftAction(item.action, item.location, item.idempotencyKey, item.projectId);
+      lastSnapshot = await runShiftAction(item.action, item.location, item.idempotencyKey, item.projectId, item.photo);
       syncedCount++;
       if (onSynced && lastSnapshot) onSynced(lastSnapshot);
     } catch (error) {

@@ -14,6 +14,7 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  Camera,
   Check,
   CheckCircle2,
   Clock3,
@@ -41,6 +42,8 @@ import {
   X,
 } from "lucide-react";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
+import { useI18n } from "@/lib/i18n";
+import { SelfieModal } from "@/components/SelfieModal";
 import {
   actionLabel,
   adjustShift,
@@ -142,6 +145,86 @@ function messageFrom(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
 }
 
+function LanguageSwitcher() {
+  const { lang, setLang } = useI18n();
+
+  return (
+    <div className="flex items-center rounded-xl border border-border bg-muted/60 p-1 text-xs font-semibold">
+      <button
+        type="button"
+        onClick={() => setLang("es")}
+        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
+          lang === "es" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        }`}
+        title="Español"
+      >
+        <span>🇪🇸</span>
+        <span className="text-[11px]">ES</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setLang("en")}
+        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
+          lang === "en" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        }`}
+        title="English"
+      >
+        <span>🇺🇸</span>
+        <span className="text-[11px]">EN</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setLang("pt")}
+        className={`flex items-center gap-1 rounded-lg px-2 py-1 transition ${
+          lang === "pt" ? "bg-background text-foreground shadow-sm font-bold" : "text-muted-foreground hover:text-foreground"
+        }`}
+        title="Português"
+      >
+        <span>🇧🇷</span>
+        <span className="text-[11px]">PT</span>
+      </button>
+    </div>
+  );
+}
+
+function PhotoEvidenceModal({
+  photo,
+  title,
+  subtitle,
+  onClose,
+}: {
+  photo: string;
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div>
+            <h3 className="text-sm font-bold">{title}</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="p-4">
+          <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-black shadow-inner">
+            <img src={photo} alt="Clock-in evidence" className="h-full w-full object-cover" />
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const initialToken = invitationFromLocation();
   const [email, setEmail] = useState("");
@@ -193,8 +276,13 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
             </div>
           </div>
           <div className="p-6 sm:p-10">
-            <div className="mb-8 flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase lg:hidden">
-              <Crosshair className="h-5 w-5 text-brand" /> Field hours
+            <div className="mb-6 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase lg:hidden">
+                <Crosshair className="h-5 w-5 text-brand" /> Field hours
+              </div>
+              <div className="ml-auto">
+                <LanguageSwitcher />
+              </div>
             </div>
             <div className="mb-8">
               <p className="label-eyebrow">Secure access</p>
@@ -375,6 +463,7 @@ function PasswordChangeScreen({
 }
 
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
+  const { t } = useI18n();
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -387,6 +476,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [finishRequested, setFinishRequested] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const [selfieModalOpen, setSelfieModalOpen] = useState(false);
+  const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -466,7 +557,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     return projects.find((p) => p.id === (shift.projectId || selectedProjectId));
   }, [projects, shift.projectId, selectedProjectId]);
 
-  async function act(nextAction: ShiftAction) {
+  async function act(nextAction: ShiftAction, photo?: string) {
     if (busy) return;
     if (!nextState(shift.state, nextAction)) {
       setMessage("That action is no longer available. Refresh your shift and try again.");
@@ -481,7 +572,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
       if (!online) {
         // Queue offline
-        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit);
+        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit, photo);
         setPendingQueueCount(getOfflineQueue().length);
         const optimisticNext = nextState(shift.state, nextAction) || shift.state;
         const newEvent: ShiftEvent = {
@@ -489,6 +580,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           type: nextAction,
           at: new Date().toISOString(),
           location,
+          photo,
         };
         setShift((prev) => ({
           ...prev,
@@ -502,7 +594,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         return;
       }
 
-      const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit);
+      const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit, photo);
       setShift(updated);
       if (nextAction === "clock_out") {
         setFinishRequested(false);
@@ -519,6 +611,14 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       setBusy(null);
     }
   }
+
+  const handleMainActionClick = (actionName: ShiftAction) => {
+    if (actionName === "clock_in") {
+      setSelfieModalOpen(true);
+    } else {
+      void act(actionName);
+    }
+  };
 
   if (loading) {
     return (
@@ -646,8 +746,23 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               ) : (
                 <>
                   {action && (
-                    <button type="button" onClick={() => act(action)} disabled={Boolean(busy)} className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"}`}>
-                      {busy === action ? <Loader2 className="h-5 w-5 animate-spin" /> : action === "clock_in" ? <Play className="h-5 w-5" fill="currentColor" /> : action === "start_break" ? <Pause className="h-5 w-5" fill="currentColor" /> : <ArrowRight className="h-5 w-5" />}
+                    <button
+                      type="button"
+                      onClick={() => handleMainActionClick(action)}
+                      disabled={Boolean(busy)}
+                      className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${
+                        action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"
+                      }`}
+                    >
+                      {busy === action ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : action === "clock_in" ? (
+                        <Camera className="h-5 w-5" />
+                      ) : action === "start_break" ? (
+                        <Pause className="h-5 w-5" fill="currentColor" />
+                      ) : (
+                        <ArrowRight className="h-5 w-5" />
+                      )}
                       {busy === action ? "Saving…" : actionLabel(action)}
                     </button>
                   )}
@@ -662,7 +777,16 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           </div>
         </section>
 
-        <LocationEvidenceList events={shift.events} />
+        <LocationEvidenceList
+          events={shift.events}
+          onViewPhoto={(photo, ev) =>
+            setPhotoModal({
+              photo,
+              title: `${user.displayName} — ${actionLabel(ev.type)}`,
+              subtitle: new Date(ev.at).toLocaleString(),
+            })
+          }
+        />
 
         {/* Worker Shift History Section */}
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
@@ -703,18 +827,45 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             ))}
           </div>
         </section>
+
+        {/* Selfie Capture Modal */}
+        {selfieModalOpen && (
+          <SelfieModal
+            onClose={() => setSelfieModalOpen(false)}
+            onCapture={(photo) => {
+              setSelfieModalOpen(false);
+              void act("clock_in", photo || undefined);
+            }}
+          />
+        )}
+
+        {/* Photo Evidence Modal */}
+        {photoModal && (
+          <PhotoEvidenceModal
+            photo={photoModal.photo}
+            title={photoModal.title}
+            subtitle={photoModal.subtitle}
+            onClose={() => setPhotoModal(null)}
+          />
+        )}
       </div>
     </Shell>
   );
 }
 
-function LocationEvidenceList({ events }: { events: ShiftEvent[] }) {
+function LocationEvidenceList({
+  events,
+  onViewPhoto,
+}: {
+  events: ShiftEvent[];
+  onViewPhoto?: (photo: string, event: ShiftEvent) => void;
+}) {
   return (
     <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
       <div className="flex items-center justify-between">
         <div>
-          <p className="label-eyebrow">Location evidence</p>
-          <h2 className="mt-1 text-lg font-semibold">Only when you tap an action</h2>
+          <p className="label-eyebrow">Location & Photo evidence</p>
+          <h2 className="mt-1 text-lg font-semibold">Captured upon action</h2>
         </div>
         <MapPin className="h-5 w-5 text-muted-foreground" />
       </div>
@@ -722,13 +873,48 @@ function LocationEvidenceList({ events }: { events: ShiftEvent[] }) {
         {events.length === 0 && <p className="rounded-2xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground">No clock events recorded today.</p>}
         {events.slice().reverse().map((event) => (
           <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold">{actionLabel(event.type)}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ±{event.location.accuracy}m accuracy
-              </p>
+            <div className="flex items-center gap-3">
+              {event.photo && (
+                <button
+                  type="button"
+                  onClick={() => onViewPhoto?.(event.photo!, event)}
+                  className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm"
+                  title="View Photo Evidence"
+                >
+                  <img src={event.photo} alt="Selfie" className="h-full w-full object-cover transition group-hover:scale-110" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 transition group-hover:opacity-100">
+                    <Camera className="h-3.5 w-3.5" />
+                  </div>
+                </button>
+              )}
+              <div>
+                <p className="text-sm font-semibold flex items-center gap-1.5">
+                  {actionLabel(event.type)}
+                  {event.photo && (
+                    <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand flex items-center gap-1">
+                      <Camera className="h-3 w-3" /> Photo verified
+                    </span>
+                  )}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ±{event.location.accuracy}m accuracy
+                </p>
+              </div>
             </div>
-            <a href={locationLink(event.location)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-info underline-offset-4 hover:underline">Open map</a>
+            <div className="flex items-center gap-2">
+              {event.photo && (
+                <button
+                  type="button"
+                  onClick={() => onViewPhoto?.(event.photo!, event)}
+                  className="text-xs font-semibold text-brand underline-offset-4 hover:underline flex items-center gap-1"
+                >
+                  <Camera className="h-3 w-3" /> View Photo
+                </button>
+              )}
+              <a href={locationLink(event.location)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-info underline-offset-4 hover:underline">
+                Open map
+              </a>
+            </div>
           </div>
         ))}
       </div>
@@ -1080,6 +1266,7 @@ function AdjustShiftModal({
 }
 
 function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
+  const { t } = useI18n();
   const [viewMode, setViewMode] = useState<"today" | "history" | "projects">("today");
   const [people, setPeople] = useState<Person[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -1099,6 +1286,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [selectedPersonHistory, setSelectedPersonHistory] = useState<ShiftHistoryRecord[]>([]);
   const [selectedPersonLoading, setSelectedPersonLoading] = useState(false);
   const [shiftToAdjust, setShiftToAdjust] = useState<ShiftHistoryRecord | null>(null);
+  const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -1581,6 +1769,25 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center gap-2">
+                            {r.events.some((e) => e.photo) && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const ev = r.events.find((e) => e.photo);
+                                  if (ev?.photo) {
+                                    setPhotoModal({
+                                      photo: ev.photo,
+                                      title: `${r.display_name} — Clock In Photo`,
+                                      subtitle: `${r.work_date} ${new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+                                    });
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand/20"
+                                title="View Clock-in Photo Evidence"
+                              >
+                                <Camera className="h-3.5 w-3.5" /> Photo
+                              </button>
+                            )}
                             {r.events.length > 0 && (
                               <a
                                 href={locationLink(r.events[0].location)}
@@ -1724,7 +1931,16 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               {/* Today's Live Evidence */}
               <div className="mt-6">
                 <h3 className="text-sm font-semibold mb-3">Today's Shift Evidence</h3>
-                <LocationEvidenceList events={selectedPerson.events} />
+                <LocationEvidenceList
+                  events={selectedPerson.events}
+                  onViewPhoto={(photo, ev) =>
+                    setPhotoModal({
+                      photo,
+                      title: `${selectedPerson.name} — ${actionLabel(ev.type)}`,
+                      subtitle: new Date(ev.at).toLocaleString(),
+                    })
+                  }
+                />
               </div>
 
               {/* Past Shifts History for this Worker */}
@@ -1827,6 +2043,16 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             }}
           />
         )}
+
+        {/* Photo Evidence Modal */}
+        {photoModal && (
+          <PhotoEvidenceModal
+            photo={photoModal.photo}
+            title={photoModal.title}
+            subtitle={photoModal.subtitle}
+            onClose={() => setPhotoModal(null)}
+          />
+        )}
       </div>
     </Shell>
   );
@@ -1880,16 +2106,19 @@ function Shell({
               <p className="text-[10px] uppercase tracking-[0.13em] text-muted-foreground">{title}</p>
             </div>
           </div>
-          <div className="relative">
-            <button type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen}>
-              <span className="hidden sm:inline">{user.displayName}</span><Menu className="h-4 w-4" />
-            </button>
-            {menuOpen && (
-              <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-border bg-card p-2 shadow-lg">
-                <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> Sign out</button>
-                <button type="button" onClick={() => setMenuOpen(false)} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> Close</button>
-              </div>
-            )}
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <div className="relative">
+              <button type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen}>
+                <span className="hidden sm:inline">{user.displayName}</span><Menu className="h-4 w-4" />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-border bg-card p-2 shadow-lg">
+                  <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> Sign out</button>
+                  <button type="button" onClick={() => setMenuOpen(false)} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> Close</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

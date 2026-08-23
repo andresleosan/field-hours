@@ -15,6 +15,7 @@ export interface ShiftEvent {
   type: ShiftAction;
   at: string;
   location: LocationEvidence;
+  photo?: string;
 }
 
 export interface Project {
@@ -138,12 +139,14 @@ export async function runShiftAction(
   location: LocationEvidence,
   idempotencyKey: string,
   projectId?: string,
+  photo?: string,
 ): Promise<ShiftSnapshot> {
   return backend.post<ShiftSnapshot>("/api/shift/action", {
     action,
     location,
     idempotencyKey,
     projectId,
+    photo,
   }, true);
 }
 

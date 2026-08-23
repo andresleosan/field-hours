@@ -124,20 +124,45 @@ function toEvent(row: EventRow): ShiftEvent {
 }
 
 async function eventsForShift(env: Env, shiftId: string): Promise<ShiftEvent[]> {
-  const result = await env.DB.prepare(
-    `SELECT
-       id,
-       user_id AS userId,
-       event_type AS eventType,
-       occurred_at AS occurredAt,
-       latitude,
-       longitude,
-       accuracy_m AS accuracy
-     FROM workforce_shift_events
-     WHERE shift_id = ?1
-     ORDER BY rowid ASC`,
-  ).bind(shiftId).all<EventRow>();
-  return result.results.map(toEvent);
+  const [result, audit] = await Promise.all([
+    env.DB.prepare(
+      `SELECT
+         id,
+         user_id AS userId,
+         event_type AS eventType,
+         occurred_at AS occurredAt,
+         latitude,
+         longitude,
+         accuracy_m AS accuracy
+       FROM workforce_shift_events
+       WHERE shift_id = ?1
+       ORDER BY rowid ASC`,
+    ).bind(shiftId).all<EventRow>(),
+    env.DB.prepare(
+      `SELECT metadata_json FROM workforce_audit_events
+       WHERE subject_id = ?1 AND action = 'shift.clock_in' LIMIT 1`,
+    ).bind(shiftId).first<{ metadata_json: string }>(),
+  ]);
+
+  let clockInPhoto: string | undefined = undefined;
+  if (audit?.metadata_json) {
+    try {
+      const parsed = JSON.parse(audit.metadata_json);
+      if (typeof parsed.photo === "string" && parsed.photo.startsWith("data:image/")) {
+        clockInPhoto = parsed.photo;
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  return result.results.map((row) => {
+    const ev = toEvent(row);
+    if (ev.type === "clock_in" && clockInPhoto) {
+      ev.photo = clockInPhoto;
+    }
+    return ev;
+  });
 }
 
 async function shiftForToday(env: Env, auth: AuthContext): Promise<ShiftRow | null> {
@@ -274,6 +299,7 @@ export async function performShiftAction(
     location?: unknown;
     idempotencyKey?: unknown;
     projectId?: unknown;
+    photo?: unknown;
   },
 ): Promise<ShiftSnapshot> {
   requireReady(auth);
@@ -298,6 +324,7 @@ export async function performShiftAction(
     if (shift) throw new ApiError(409, "INVALID_TRANSITION", "A shift already exists for today.");
     const shiftId = crypto.randomUUID();
     const projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : null;
+    const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") ? body.photo : undefined;
 
     let geofenceDistance: number | null = null;
     let outOfBounds = false;
@@ -368,6 +395,7 @@ export async function performShiftAction(
             project_id: projectId,
             geofence_distance_m: geofenceDistance,
             out_of_bounds: outOfBounds,
+            photo,
           }),
         ),
       ]);
