@@ -36,6 +36,19 @@ export interface PayrollProfileDetails extends PayrollProfile {
   bankAccountNumber: string | null;
 }
 
+export interface PayrollSettings {
+  hourlyRate: number;
+  payFrequency: "monthly";
+  payDay: number;
+  businessName: string;
+  businessAddress: string;
+  hasBusinessTaxReference: boolean;
+  hasBusinessSocialReference: boolean;
+  workerSocialSecurityRate: number;
+  employerSocialSecurityRate: number;
+  updatedAt: string;
+}
+
 export interface WorkerPayrollSummary {
   timezone: string;
   asOfDate: string;
@@ -253,6 +266,24 @@ export async function saveWorkerPayrollProfile(input: {
 
 export async function loadAdminPayrollProfiles(): Promise<PayrollProfile[]> {
   return backend.get<PayrollProfile[]>("/api/admin/payroll-profiles");
+}
+
+export async function loadAdminPayrollSettings(): Promise<PayrollSettings | null> {
+  return backend.get<PayrollSettings | null>("/api/admin/payroll-settings");
+}
+
+export async function saveAdminPayrollSettings(input: {
+  hourlyRate: number;
+  payFrequency: "monthly";
+  payDay: number;
+  businessName: string;
+  businessAddress: string;
+  businessTaxReference?: string;
+  businessSocialReference?: string;
+  workerSocialSecurityRate: number;
+  employerSocialSecurityRate: number;
+}): Promise<PayrollSettings> {
+  return backend.post<PayrollSettings>("/api/admin/payroll-settings", input, true);
 }
 
 export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {

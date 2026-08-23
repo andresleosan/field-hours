@@ -29,6 +29,10 @@ import {
 } from "./payrollProfiles";
 import { getWorkerPayrollSummary } from "./payrollSummary";
 import {
+  getAdminPayrollSettings,
+  saveAdminPayrollSettings,
+} from "./payrollSettings";
+import {
   ApiError,
   assertAllowedOrigin,
   assertCsrf,
@@ -186,6 +190,31 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/payroll-profiles") {
     const auth = await getAuth(request, env);
     return json(request, env, await listAdminPayrollProfiles(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/admin/payroll-settings") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await getAdminPayrollSettings(env, auth));
+  }
+
+  if (request.method === "POST" && path === "/api/admin/payroll-settings") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, await saveAdminPayrollSettings(
+      env,
+      auth,
+      await readJson<{
+        hourlyRate?: unknown;
+        payFrequency?: unknown;
+        payDay?: unknown;
+        businessName?: unknown;
+        businessAddress?: unknown;
+        businessTaxReference?: unknown;
+        businessSocialReference?: unknown;
+        workerSocialSecurityRate?: unknown;
+        employerSocialSecurityRate?: unknown;
+      }>(request),
+    ));
   }
 
   const payrollProfileMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/(reveal|review)$/);

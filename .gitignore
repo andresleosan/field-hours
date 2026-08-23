@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+graphify-out/
 cloudflare/.wrangler/
 cloudflare/backups/
 .env*

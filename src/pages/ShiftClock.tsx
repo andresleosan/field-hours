@@ -58,6 +58,7 @@ import {
   loadAdminHistory,
   loadAdminToday,
   loadAdminPayrollProfiles,
+  loadAdminPayrollSettings,
   loadProjects,
   loadSession,
   loadWorkerPayrollProfile,
@@ -80,6 +81,7 @@ import {
   rejectPasswordReset,
   revealAdminPayrollProfile,
   reviewAdminPayrollProfile,
+  saveAdminPayrollSettings,
   saveWorkerPayrollProfile,
   completePasswordReset,
   startGoogleSignIn,
@@ -90,6 +92,7 @@ import {
   type LocationEvidence,
   type PayrollProfile,
   type PayrollProfileDetails,
+  type PayrollSettings,
   type WorkerPayrollProfile,
   type WorkerPayrollSummary,
   type Project,
@@ -1792,6 +1795,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [payrollRevealBusy, setPayrollRevealBusy] = useState<string | null>(null);
   const [revealedPayrollProfile, setRevealedPayrollProfile] = useState<PayrollProfileDetails | null>(null);
   const [salaryAdviceProfile, setSalaryAdviceProfile] = useState<PayrollProfile | null>(null);
+  const [payrollSettings, setPayrollSettings] = useState<PayrollSettings | null>(null);
+  const [payrollSettingsLoading, setPayrollSettingsLoading] = useState(false);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1849,6 +1854,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       // The payroll panel is supplementary while its migration is being rolled out.
     } finally {
       setPayrollProfilesLoading(false);
+    }
+  }, []);
+
+  const refreshPayrollSettings = useCallback(async () => {
+    setPayrollSettingsLoading(true);
+    try {
+      setPayrollSettings(await loadAdminPayrollSettings());
+    } catch {
+      // The settings panel is supplementary while its migration is being rolled out.
+    } finally {
+      setPayrollSettingsLoading(false);
     }
   }, []);
 
@@ -1914,6 +1930,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     void refreshPasswordResetRequests();
     void refreshRequestHistory();
     void refreshPayrollProfiles();
+    void refreshPayrollSettings();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
@@ -1921,9 +1938,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       void refreshPasswordResetRequests();
       void refreshRequestHistory();
       void refreshPayrollProfiles();
+      void refreshPayrollSettings();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles, refreshPayrollSettings]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -2353,6 +2371,13 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             </table>
           </div>
         </section>
+
+        <PayrollSettingsCard
+          settings={payrollSettings}
+          loading={payrollSettingsLoading}
+          onSaved={setPayrollSettings}
+          onMessage={setMessage}
+        />
 
         {viewMode === "today" ? (
           <>
@@ -2927,6 +2952,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         {salaryAdviceProfile && (
           <SalaryAdviceModal
             profile={salaryAdviceProfile}
+            settings={payrollSettings}
             organizationName={user.organizationName}
             timezone={user.timezone}
             onClose={() => setSalaryAdviceProfile(null)}
@@ -2938,14 +2964,127 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   );
 }
 
+function PayrollSettingsCard({
+  settings,
+  loading,
+  onSaved,
+  onMessage,
+}: {
+  settings: PayrollSettings | null;
+  loading: boolean;
+  onSaved: (settings: PayrollSettings) => void;
+  onMessage: (message: string) => void;
+}) {
+  const [hourlyRate, setHourlyRate] = useState("");
+  const [payDay, setPayDay] = useState("1");
+  const [businessName, setBusinessName] = useState("");
+  const [businessAddress, setBusinessAddress] = useState("");
+  const [businessTaxReference, setBusinessTaxReference] = useState("");
+  const [businessSocialReference, setBusinessSocialReference] = useState("");
+  const [workerSocialSecurityRate, setWorkerSocialSecurityRate] = useState("0");
+  const [employerSocialSecurityRate, setEmployerSocialSecurityRate] = useState("0");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!settings) return;
+    setHourlyRate(settings.hourlyRate.toFixed(2));
+    setPayDay(String(settings.payDay));
+    setBusinessName(settings.businessName);
+    setBusinessAddress(settings.businessAddress);
+    setWorkerSocialSecurityRate(settings.workerSocialSecurityRate.toFixed(2));
+    setEmployerSocialSecurityRate(settings.employerSocialSecurityRate.toFixed(2));
+    setBusinessTaxReference("");
+    setBusinessSocialReference("");
+  }, [settings]);
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const hourly = Number(hourlyRate);
+    const day = Number(payDay);
+    const workerRate = Number(workerSocialSecurityRate);
+    const employerRate = Number(employerSocialSecurityRate);
+    if (!Number.isFinite(hourly) || hourly < 0.01 || !Number.isInteger(day) || day < 1 || day > 28) {
+      setError("Enter a valid hourly rate and a pay day between 1 and 28.");
+      return;
+    }
+    if (![workerRate, employerRate].every((rate) => Number.isFinite(rate) && rate >= 0 && rate <= 100)) {
+      setError("Social Security rates must be between 0% and 100%.");
+      return;
+    }
+    setSaving(true);
+    try {
+      const saved = await saveAdminPayrollSettings({
+        hourlyRate: hourly,
+        payFrequency: "monthly",
+        payDay: day,
+        businessName,
+        businessAddress,
+        businessTaxReference: businessTaxReference || undefined,
+        businessSocialReference: businessSocialReference || undefined,
+        workerSocialSecurityRate: workerRate,
+        employerSocialSecurityRate: employerRate,
+      });
+      onSaved(saved);
+      setBusinessTaxReference("");
+      setBusinessSocialReference("");
+      onMessage("Payroll configuration saved. Automatic statutory calculations remain the next step.");
+    } catch (caught) {
+      setError(messageFrom(caught, "The payroll configuration could not be saved."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-settings-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label-eyebrow">Payroll · Jersey</p>
+          <h2 id="payroll-settings-title" className="mt-1 text-lg font-semibold">Payroll configuration</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Set the business details and schedule that will feed future Salary Advice calculations. Jersey tax rules are not inferred from these fields.</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>
+          {loading ? "Loading" : settings ? "Configured" : "Not configured"}
+        </span>
+      </div>
+      {loading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">Loading payroll configuration…</p>
+      ) : (
+        <form className="mt-6 space-y-5" onSubmit={save}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="text-sm font-medium">Business name<input value={businessName} onChange={(event) => setBusinessName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={2} maxLength={160} /></label>
+            <label className="text-sm font-medium">Business address<input value={businessAddress} onChange={(event) => setBusinessAddress(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={2} maxLength={250} /></label>
+            <label className="text-sm font-medium">Hourly rate (£)<input type="number" min="0.01" step="0.01" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+            <label className="text-sm font-medium">Pay frequency<select value="monthly" disabled className="mt-1.5 h-11 w-full rounded-xl border border-input bg-muted px-3 text-sm outline-none"><option value="monthly">Monthly</option></select></label>
+            <label className="text-sm font-medium">Pay day<input type="number" min="1" max="28" step="1" value={payDay} onChange={(event) => setPayDay(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+            <label className="text-sm font-medium">Worker Social Security (%)<input type="number" min="0" max="100" step="0.01" value={workerSocialSecurityRate} onChange={(event) => setWorkerSocialSecurityRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+            <label className="text-sm font-medium">Employer Social Security (%)<input type="number" min="0" max="100" step="0.01" value={employerSocialSecurityRate} onChange={(event) => setEmployerSocialSecurityRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+            <label className="text-sm font-medium">Business Tax Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessTaxReference} onChange={(event) => setBusinessTaxReference(event.target.value)} placeholder={settings?.hasBusinessTaxReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+            <label className="text-sm font-medium">Business Social Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessSocialReference} onChange={(event) => setBusinessSocialReference(event.target.value)} placeholder={settings?.hasBusinessSocialReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+          </div>
+          <p className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">These rates are stored as configuration only. The system will not mark a payroll as ready or submit a payment until the statutory calculation and review steps are implemented.</p>
+          {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+          <div className="flex justify-end">
+            <button type="submit" disabled={saving} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save configuration"}</button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function SalaryAdviceModal({
   profile,
+  settings,
   organizationName,
   timezone,
   onClose,
   onMessage,
 }: {
   profile: PayrollProfile;
+  settings: PayrollSettings | null;
   organizationName: string;
   timezone: string;
   onClose: () => void;
@@ -2956,11 +3095,15 @@ function SalaryAdviceModal({
   const [periodStart, setPeriodStart] = useState(() => firstOfMonthInTimezone(timezone));
   const [periodEnd, setPeriodEnd] = useState(() => todayInTimezone(timezone));
   const [payDate, setPayDate] = useState(() => firstOfNextMonth(periodStart));
-  const [hourlyRate, setHourlyRate] = useState("");
+  const [hourlyRate, setHourlyRate] = useState(() => settings?.hourlyRate.toFixed(2) ?? "");
   const [incomeTax, setIncomeTax] = useState("0");
   const [socialSecurity, setSocialSecurity] = useState("0");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!hourlyRate && settings?.hourlyRate) setHourlyRate(settings.hourlyRate.toFixed(2));
+  }, [hourlyRate, settings]);
 
   useEffect(() => {
     let active = true;
@@ -3003,7 +3146,8 @@ function SalaryAdviceModal({
       return;
     }
     const opened = printSalaryAdvice({
-      organizationName,
+      organizationName: settings?.businessName || organizationName,
+      organizationAddress: settings?.businessAddress || "",
       details,
       periodStart,
       periodEnd,
@@ -3118,6 +3262,7 @@ function escapeHtml(value: string): string {
 
 function printSalaryAdvice(input: {
   organizationName: string;
+  organizationAddress: string;
   details: PayrollProfileDetails;
   periodStart: string;
   periodEnd: string;
@@ -3137,7 +3282,7 @@ function printSalaryAdvice(input: {
   const details = input.details;
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(details.legalName ?? details.displayName)}</title><style>
     @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.draft{border:2px solid #b45309;color:#92400e;padding:7px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta strong{display:block}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f4f4;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:145px}.lower>div+div{border-left:1px solid #222}.line{margin:0 0 10px}.line strong{display:inline-block;min-width:145px}.notice{margin-top:16px;font-size:10px;color:#555}@media print{.draft{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-  </style></head><body><main class="sheet"><div class="draft">Draft · manual payroll inputs</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.organizationName)}</strong><span>Pay date: ${escapeHtml(input.payDate)}</span></div><div><strong>${escapeHtml(input.periodStart)} to ${escapeHtml(input.periodEnd)}</strong><span>Payment period</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody><tr><td>Basic Hourly Pay<br><small>£${input.hourlyRate.toFixed(2)} / hour</small></td><td>${input.hours.toFixed(2)}</td><td>${formatPounds(input.gross)}</td></tr></tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.gross)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS</td><td>${formatPounds(input.incomeTax)}</td></tr><tr><td>Social Security</td><td>${formatPounds(input.socialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.incomeTax + input.socialSecurity)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong>${escapeHtml(details.legalName ?? details.displayName)}</p><p class="line"><strong>Employee No.</strong>${escapeHtml(details.employeeNumber ?? "")}</p><p class="line"><strong>Address</strong>${escapeHtml(details.address ?? "")}</p><p class="line"><strong>Tax Ref</strong>${escapeHtml(details.taxReference)}</p><p class="line"><strong>Social Ref</strong>${escapeHtml(details.socialReference)}</p></div><div><p class="line"><strong>BACS · Net Pay</strong>${formatPounds(input.net)}</p><p class="line"><strong>Gross Taxable Pay</strong>${formatPounds(input.gross)}</p><p class="line"><strong>Tax Paid</strong>${formatPounds(input.incomeTax)}</p></div></div><p class="notice">This document is a draft Salary Advice generated from approved attendance and manual payroll inputs. Statutory Jersey tax and social security calculations will be applied after payroll rules are configured.</p></main><script>window.onload=()=>window.print();</script></body></html>`;
+  </style></head><body><main class="sheet"><div class="draft">Draft · manual payroll inputs</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.organizationName)}</strong><span>${escapeHtml(input.organizationAddress)}</span><span>Pay date: ${escapeHtml(input.payDate)}</span></div><div><strong>${escapeHtml(input.periodStart)} to ${escapeHtml(input.periodEnd)}</strong><span>Payment period</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody><tr><td>Basic Hourly Pay<br><small>£${input.hourlyRate.toFixed(2)} / hour</small></td><td>${input.hours.toFixed(2)}</td><td>${formatPounds(input.gross)}</td></tr></tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.gross)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS</td><td>${formatPounds(input.incomeTax)}</td></tr><tr><td>Social Security</td><td>${formatPounds(input.socialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.incomeTax + input.socialSecurity)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong>${escapeHtml(details.legalName ?? details.displayName)}</p><p class="line"><strong>Employee No.</strong>${escapeHtml(details.employeeNumber ?? "")}</p><p class="line"><strong>Address</strong>${escapeHtml(details.address ?? "")}</p><p class="line"><strong>Tax Ref</strong>${escapeHtml(details.taxReference)}</p><p class="line"><strong>Social Ref</strong>${escapeHtml(details.socialReference)}</p></div><div><p class="line"><strong>BACS · Net Pay</strong>${formatPounds(input.net)}</p><p class="line"><strong>Gross Taxable Pay</strong>${formatPounds(input.gross)}</p><p class="line"><strong>Tax Paid</strong>${formatPounds(input.incomeTax)}</p></div></div><p class="notice">This document is a draft Salary Advice generated from approved attendance and manual payroll inputs. Statutory Jersey tax and social security calculations will be applied after payroll rules are configured.</p></main><script>window.onload=()=>window.print();</script></body></html>`;
   printWindow.document.open();
   printWindow.document.write(html);
   printWindow.document.close();
