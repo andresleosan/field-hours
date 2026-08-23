@@ -6,13 +6,19 @@ import {
   useState,
 } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import * as XLSX from "xlsx";
 import {
   Activity,
   ArrowRight,
+  Calendar,
   Check,
   Clock3,
   Copy,
   Crosshair,
+  Download,
+  Filter,
+  History,
+  Info,
   Loader2,
   LogOut,
   MapPin,
@@ -29,9 +35,12 @@ import {
   actionLabel,
   changePassword,
   createInvitation,
+  formatMinutes,
   formatWorkedDuration,
+  loadAdminHistory,
   loadAdminToday,
   loadSession,
+  loadWorkerHistory,
   loadWorkerShift,
   nextState,
   registerWorker,
@@ -43,6 +52,7 @@ import {
   type LocationEvidence,
   type ShiftAction,
   type ShiftEvent,
+  type ShiftHistoryRecord,
   type ShiftSnapshot,
   type ShiftState,
 } from "@/lib/timeClock";
@@ -131,25 +141,25 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
           displayName,
         })
         : await signIn(email, password);
-      window.history.replaceState({}, "", "/clock");
+      window.history.replaceState({}, "", "/");
       onLogin(user);
     } catch (caught) {
-      setError(messageFrom(caught, "We could not sign you in."));
+      setError(messageFrom(caught, "We could not sign you in. Check your credentials."));
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-background px-5 py-8 sm:px-8">
-      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
-        <section className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-lg lg:grid-cols-[1.05fr_.95fr]">
-          <div className="hidden bg-primary p-10 text-primary-foreground lg:flex lg:flex-col lg:justify-between">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-xl">
+        <section className="grid lg:grid-cols-[1.1fr_1fr]">
+          <div className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
             <div>
-              <div className="mb-14 flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase">
+              <div className="flex items-center gap-3 text-sm font-semibold tracking-[0.16em] uppercase">
                 <Crosshair className="h-5 w-5 text-brand" /> Field hours
               </div>
-              <p className="max-w-md text-4xl font-semibold leading-[1.05]">Time that follows the workday.</p>
+              <p className="mt-8 max-w-md text-4xl font-semibold leading-[1.05]">Time that follows the workday.</p>
               <p className="mt-6 max-w-sm text-sm leading-6 text-primary-foreground/70">
                 One clear action at a time, with a fresh location check when you clock in, take a break, return, or finish.
               </p>
@@ -217,7 +227,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                 Password
                 <input
                   required
-                  minLength={12}
+                  minLength={8}
                   maxLength={128}
                   type="password"
                   value={password}
@@ -342,6 +352,8 @@ function PasswordChangeScreen({
 
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
+  const [history, setHistory] = useState<ShiftHistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [busy, setBusy] = useState<ShiftAction | null>(null);
   const [message, setMessage] = useState("");
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -349,12 +361,25 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
 
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      setHistory(await loadWorkerHistory());
+    } catch {
+      // non-fatal
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    loadWorkerShift()
-      .then(setShift)
+    Promise.all([
+      loadWorkerShift().then(setShift),
+      loadHistory(),
+    ])
       .catch((caught) => setMessage(messageFrom(caught, "We could not load your shift.")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadHistory]);
 
   useEffect(() => {
     const goOnline = () => setOnline(true);
@@ -396,8 +421,12 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     setBusy(nextAction);
     try {
       const location = await requestLocation();
-      setShift(await runShiftAction(nextAction, location, crypto.randomUUID()));
-      if (nextAction === "clock_out") setFinishRequested(false);
+      const updated = await runShiftAction(nextAction, location, crypto.randomUUID());
+      setShift(updated);
+      if (nextAction === "clock_out") {
+        setFinishRequested(false);
+        void loadHistory();
+      }
       setMessage("Saved with a fresh location check.");
     } catch (caught) {
       setMessage(messageFrom(caught, "We could not save that action."));
@@ -473,7 +502,41 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             </div>
           </div>
         </section>
+
         <LocationEvidenceList events={shift.events} />
+
+        {/* Worker Shift History Section */}
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+          <div className="flex items-center justify-between border-b border-border pb-4">
+            <div>
+              <p className="label-eyebrow">Work Log</p>
+              <h2 className="mt-1 text-lg font-semibold">My Past Shifts</h2>
+            </div>
+            <History className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="mt-4 divide-y divide-border">
+            {historyLoading && <p className="py-4 text-sm text-muted-foreground">Loading past shifts…</p>}
+            {!historyLoading && history.length === 0 && (
+              <p className="py-6 text-sm text-muted-foreground text-center">No completed shifts recorded yet.</p>
+            )}
+            {history.map((record) => (
+              <div key={record.id} className="flex items-center justify-between py-3">
+                <div>
+                  <p className="text-sm font-semibold">{record.work_date}</p>
+                  <p className="text-xs text-muted-foreground">
+                    In: {new Date(record.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {record.clock_out_at ? ` · Out: ${new Date(record.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " · In Progress"}
+                    {record.break_minutes > 0 && ` · Break: ${formatMinutes(record.break_minutes)}`}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-mono text-sm font-bold text-foreground">{formatMinutes(record.net_minutes)}</p>
+                  <p className="text-[11px] text-success font-medium">Logged</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
     </Shell>
   );
@@ -524,16 +587,24 @@ function toPerson(row: AdminSnapshot): Person {
 }
 
 function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
+  const [viewMode, setViewMode] = useState<"today" | "history">("today");
   const [people, setPeople] = useState<Person[]>([]);
+  const [historyRecords, setHistoryRecords] = useState<ShiftHistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFilterPeriod, setHistoryFilterPeriod] = useState<"all" | "today" | "this_week" | "last_week" | "this_month">("this_month");
+  const [historyFilterWorker, setHistoryFilterWorker] = useState<string>("all");
+  
   const [invite, setInvite] = useState<{ token: string; expiresAt: string } | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [selectedPersonHistory, setSelectedPersonHistory] = useState<ShiftHistoryRecord[]>([]);
+  const [selectedPersonLoading, setSelectedPersonLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refreshToday = useCallback(async () => {
     try {
       setPeople((await loadAdminToday()).map(toPerson));
       setUpdatedAt(new Date());
@@ -545,14 +616,64 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }, []);
 
+  const calculateDateRange = useCallback((period: string) => {
+    const today = new Date();
+    const toYMD = (d: Date) => d.toISOString().slice(0, 10);
+    
+    if (period === "today") {
+      return { start: toYMD(today), end: toYMD(today) };
+    }
+    if (period === "this_week") {
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(today.setDate(diff));
+      return { start: toYMD(monday), end: toYMD(new Date()) };
+    }
+    if (period === "last_week") {
+      const prevMonday = new Date();
+      prevMonday.setDate(prevMonday.getDate() - 7 - (prevMonday.getDay() === 0 ? 6 : prevMonday.getDay() - 1));
+      const prevSunday = new Date(prevMonday);
+      prevSunday.setDate(prevSunday.getDate() + 6);
+      return { start: toYMD(prevMonday), end: toYMD(prevSunday) };
+    }
+    if (period === "this_month") {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { start: toYMD(firstDay), end: toYMD(new Date()) };
+    }
+    return { start: undefined, end: undefined };
+  }, []);
+
+  const refreshHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const { start, end } = calculateDateRange(historyFilterPeriod);
+      const records = await loadAdminHistory({
+        userId: historyFilterWorker,
+        startDate: start,
+        endDate: end,
+      });
+      setHistoryRecords(records);
+    } catch (caught) {
+      setMessage(messageFrom(caught, "Could not load shift history."));
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [calculateDateRange, historyFilterPeriod, historyFilterWorker]);
+
   useEffect(() => {
-    void refresh();
+    void refreshToday();
     const timer = window.setInterval(() => {
       setNow(Date.now());
-      void refresh();
+      void refreshToday();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [refreshToday]);
+
+  useEffect(() => {
+    if (viewMode === "history") {
+      void refreshHistory();
+    }
+  }, [viewMode, refreshHistory]);
 
   const counts = useMemo(() => ({
     working: people.filter((person) => person.state === "working").length,
@@ -560,6 +681,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     complete: people.filter((person) => person.state === "complete").length,
     total: people.length,
   }), [people]);
+
+  const historyTotals = useMemo(() => {
+    const totalNetMinutes = historyRecords.reduce((acc, r) => acc + (r.net_minutes || 0), 0);
+    const totalBreakMinutes = historyRecords.reduce((acc, r) => acc + (r.break_minutes || 0), 0);
+    const uniqueWorkers = new Set(historyRecords.map((r) => r.user_id)).size;
+    return {
+      totalNetMinutes,
+      totalHours: (totalNetMinutes / 60).toFixed(1),
+      totalBreakHours: (totalBreakMinutes / 60).toFixed(1),
+      shiftsCount: historyRecords.length,
+      workersCount: uniqueWorkers,
+    };
+  }, [historyRecords]);
+
   const inviteLink = invite ? `${window.location.origin}/join#invite=${invite.token}` : "";
 
   async function generateInvite() {
@@ -584,115 +719,409 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }
 
+  const handleOpenPersonDetails = async (person: Person) => {
+    setSelectedPerson(person);
+    setSelectedPersonLoading(true);
+    try {
+      const records = await loadAdminHistory({ userId: person.id });
+      setSelectedPersonHistory(records);
+    } catch {
+      setSelectedPersonHistory([]);
+    } finally {
+      setSelectedPersonLoading(false);
+    }
+  };
+
+  const exportExcel = () => {
+    const wb = XLSX.utils.book_new();
+    const rows = historyRecords.map((r) => ({
+      "Date": r.work_date,
+      "Worker": r.display_name,
+      "Status": r.state,
+      "Clock In": r.clock_in_at ? new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
+      "Clock Out": r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active",
+      "Break (Hours)": (r.break_minutes / 60).toFixed(2),
+      "Net Hours Worked": (r.net_minutes / 60).toFixed(2),
+      "Duration": formatMinutes(r.net_minutes),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, "Shifts History");
+    XLSX.writeFile(wb, `FieldHours_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   return (
-    <Shell title="Today" user={user} onSignOut={onSignOut}>
+    <Shell title={viewMode === "today" ? "Today" : "Reports & History"} user={user} onSignOut={onSignOut}>
       <div className="space-y-6">
-        <section className="flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:p-7">
-          <div>
-            <p className="label-eyebrow">Operations · live snapshot</p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight">Good day, {user.displayName.split(" ")[0]}.</h1>
-            <p className="mt-2 text-sm text-muted-foreground">A clear view of the team’s progress and location evidence.</p>
+        {/* Navigation Mode Switcher */}
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="inline-flex rounded-2xl border border-border bg-muted/60 p-1.5 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("today")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                viewMode === "today"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Activity className="h-4 w-4 text-brand" />
+              Live Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("history")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                viewMode === "history"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Calendar className="h-4 w-4 text-info" />
+              History & Reports
+            </button>
           </div>
+
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full bg-success" />
             {updatedAt ? `Updated ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "Loading"}
           </div>
-        </section>
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Metric label="Working" value={counts.working} detail="active shifts" tone="live" icon={<Activity className="h-4 w-4" />} />
-          <Metric label="On break" value={counts.onBreak} detail="paused now" tone="break" icon={<Pause className="h-4 w-4" />} />
-          <Metric label="Finished" value={counts.complete} detail="completed today" tone="neutral" icon={<Check className="h-4 w-4" />} />
-          <Metric label="Team" value={counts.total} detail="staff members" tone="neutral" icon={<Users className="h-4 w-4" />} />
-        </section>
-        {message && <p role="status" className="rounded-2xl border border-border bg-card px-4 py-3 text-sm">{message}</p>}
-        <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <section className="rounded-3xl border border-border bg-card shadow-sm">
-            <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
-              <div>
-                <p className="label-eyebrow">Today’s team</p>
-                <h2 className="mt-1 text-lg font-semibold">Progress at a glance</h2>
-              </div>
-              <button type="button" onClick={() => void refresh()} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Refresh team">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
-              </button>
-            </div>
-            <div className="divide-y divide-border">
-              {!loading && people.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground sm:px-7">No staff members have joined yet. Create an invitation to add the first worker.</p>}
-              {people.map((person) => (
-                <div key={person.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground">
-                      {person.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold">{person.name}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{person.role} · {person.lastEvent}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="font-mono text-sm font-semibold">{formatWorkedDuration(person.events, person.state, now)}</p>
-                      <p className={`mt-1 text-xs font-semibold ${person.state === "working" ? "text-success" : person.state === "on_break" ? "text-warning" : "text-muted-foreground"}`}>
-                        {stateCopy(person.state).label}
-                      </p>
-                    </div>
-                    <button type="button" onClick={() => setSelectedPerson(person)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted" aria-label={`View details for ${person.name}`}>
-                      Details
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="label-eyebrow">Invite staff</p>
-                <h2 className="mt-1 text-lg font-semibold">Scan to join</h2>
-                <p className="mt-2 text-sm leading-5 text-muted-foreground">The raw token is shown once; D1 stores only its cryptographic hash.</p>
-              </div>
-              <QrCode className="h-5 w-5 text-brand" />
-            </div>
-            {invite ? (
-              <div className="mt-6">
-                <div className="flex justify-center rounded-2xl bg-white p-5">
-                  <QRCodeSVG value={inviteLink} size={210} level="M" includeMargin />
-                </div>
-                <p className="mt-3 text-center text-xs text-muted-foreground">
-                  Expires {new Date(invite.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </p>
-                <button type="button" onClick={() => void copyInvite()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-muted">
-                  <Copy className="h-4 w-4" /> Copy secure link
-                </button>
-                <button type="button" onClick={() => setInvite(null)} className="mt-2 w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground">Hide this invitation</button>
-              </div>
-            ) : (
-              <button type="button" disabled={inviteBusy} onClick={() => void generateInvite()} className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                {inviteBusy ? "Creating…" : "Create invitation"}
-              </button>
-            )}
-            <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-              Each invitation expires quickly and can register exactly one worker.
-            </div>
-          </section>
         </div>
+
+        {message && <p role="status" className="rounded-2xl border border-border bg-card px-4 py-3 text-sm">{message}</p>}
+
+        {viewMode === "today" ? (
+          <>
+            {/* Today's Metrics Banner */}
+            <section className="flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:p-7">
+              <div>
+                <p className="label-eyebrow">Operations · live snapshot</p>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight">Good day, {user.displayName.split(" ")[0]}.</h1>
+                <p className="mt-2 text-sm text-muted-foreground">A clear view of the team’s progress and location evidence.</p>
+              </div>
+            </section>
+
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric label="Working" value={counts.working} detail="active shifts" tone="live" icon={<Activity className="h-4 w-4" />} />
+              <Metric label="On break" value={counts.onBreak} detail="paused now" tone="break" icon={<Pause className="h-4 w-4" />} />
+              <Metric label="Finished" value={counts.complete} detail="completed today" tone="neutral" icon={<Check className="h-4 w-4" />} />
+              <Metric label="Team" value={counts.total} detail="staff members" tone="neutral" icon={<Users className="h-4 w-4" />} />
+            </section>
+
+            <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+              {/* Today's Team List */}
+              <section className="rounded-3xl border border-border bg-card shadow-sm">
+                <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
+                  <div>
+                    <p className="label-eyebrow">Today’s team</p>
+                    <h2 className="mt-1 text-lg font-semibold">Progress at a glance</h2>
+                  </div>
+                  <button type="button" onClick={() => void refreshToday()} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Refresh team">
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
+                  </button>
+                </div>
+                <div className="divide-y divide-border">
+                  {!loading && people.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground sm:px-7">No staff members have joined yet. Create an invitation to add the first worker.</p>}
+                  {people.map((person) => (
+                    <div key={person.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground">
+                          {person.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold">{person.name}</p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">{person.role} · {person.lastEvent}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <p className="font-mono text-sm font-semibold">{formatWorkedDuration(person.events, person.state, now)}</p>
+                          <p className={`mt-1 text-xs font-semibold ${person.state === "working" ? "text-success" : person.state === "on_break" ? "text-warning" : "text-muted-foreground"}`}>
+                            {stateCopy(person.state).label}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => void handleOpenPersonDetails(person)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted" aria-label={`View details for ${person.name}`}>
+                          Details
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Invite Card */}
+              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="label-eyebrow">Invite staff</p>
+                    <h2 className="mt-1 text-lg font-semibold">Scan to join</h2>
+                    <p className="mt-2 text-sm leading-5 text-muted-foreground">The raw token is shown once; D1 stores only its cryptographic hash.</p>
+                  </div>
+                  <QrCode className="h-5 w-5 text-brand" />
+                </div>
+                {invite ? (
+                  <div className="mt-6">
+                    <div className="flex justify-center rounded-2xl bg-white p-5">
+                      <QRCodeSVG value={inviteLink} size={210} level="M" includeMargin />
+                    </div>
+                    <p className="mt-3 text-center text-xs text-muted-foreground">
+                      Expires {new Date(invite.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                    <button type="button" onClick={() => void copyInvite()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-muted">
+                      <Copy className="h-4 w-4" /> Copy secure link
+                    </button>
+                    <button type="button" onClick={() => setInvite(null)} className="mt-2 w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground">Hide this invitation</button>
+                  </div>
+                ) : (
+                  <button type="button" disabled={inviteBusy} onClick={() => void generateInvite()} className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+                    {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                    {inviteBusy ? "Creating…" : "Create invitation"}
+                  </button>
+                )}
+                <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                  Each invitation expires quickly and can register exactly one worker.
+                </div>
+              </section>
+            </div>
+          </>
+        ) : (
+          /* History & Reports Subview */
+          <div className="space-y-6">
+            {/* Filters Bar */}
+            <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <p className="label-eyebrow">Timesheets & Audit</p>
+                  <h2 className="mt-1 text-2xl font-bold">Shift History & Reports</h2>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* Period Filter */}
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <select
+                      value={historyFilterPeriod}
+                      onChange={(e: any) => setHistoryFilterPeriod(e.target.value)}
+                      className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <option value="today">Today</option>
+                      <option value="this_week">This Week</option>
+                      <option value="last_week">Last Week</option>
+                      <option value="this_month">This Month</option>
+                      <option value="all">All Records</option>
+                    </select>
+                  </div>
+
+                  {/* Worker Filter */}
+                  <select
+                    value={historyFilterWorker}
+                    onChange={(e) => setHistoryFilterWorker(e.target.value)}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="all">All Staff Members</option>
+                    {people.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+
+                  {/* Export Button */}
+                  <button
+                    type="button"
+                    onClick={exportExcel}
+                    disabled={historyRecords.length === 0}
+                    className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export Excel
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary Stats Band */}
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-2xl bg-muted/40 p-4">
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Worked</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.totalHours}h</p>
+                  <p className="text-[11px] text-muted-foreground">{formatMinutes(historyTotals.totalNetMinutes)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Break Time</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-warning">{historyTotals.totalBreakHours}h</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Total Shifts</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.shiftsCount}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-medium">Active Staff</p>
+                  <p className="mt-1 text-2xl font-bold font-mono text-foreground">{historyTotals.workersCount}</p>
+                </div>
+              </div>
+            </section>
+
+            {/* Table of Shifts */}
+            <section className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground uppercase">
+                    <tr>
+                      <th className="px-6 py-3.5 font-semibold">Date</th>
+                      <th className="px-6 py-3.5 font-semibold">Worker</th>
+                      <th className="px-6 py-3.5 font-semibold">Clock In</th>
+                      <th className="px-6 py-3.5 font-semibold">Clock Out</th>
+                      <th className="px-6 py-3.5 font-semibold">Break</th>
+                      <th className="px-6 py-3.5 font-semibold">Net Hours</th>
+                      <th className="px-6 py-3.5 font-semibold">Status</th>
+                      <th className="px-6 py-3.5 font-semibold text-right">Evidence</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {historyLoading && (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-brand" />
+                          Loading shifts history…
+                        </td>
+                      </tr>
+                    )}
+                    {!historyLoading && historyRecords.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                          <Info className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+                          No shift records found for this period. Try selecting "All Records".
+                        </td>
+                      </tr>
+                    )}
+                    {historyRecords.map((r) => (
+                      <tr key={r.id} className="hover:bg-muted/30 transition">
+                        <td className="px-6 py-4 font-medium whitespace-nowrap">{r.work_date}</td>
+                        <td className="px-6 py-4 font-semibold text-foreground">{r.display_name}</td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          {new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-xs">
+                          {r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In Progress"}
+                        </td>
+                        <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
+                          {r.break_minutes > 0 ? formatMinutes(r.break_minutes) : "—"}
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-foreground">
+                          {formatMinutes(r.net_minutes)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            r.state === "complete"
+                              ? "bg-success/15 text-success"
+                              : r.state === "working"
+                                ? "bg-brand/15 text-brand"
+                                : r.state === "on_break"
+                                  ? "bg-warning/15 text-warning"
+                                  : "bg-muted text-muted-foreground"
+                          }`}>
+                            {r.state}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          {r.events.length > 0 ? (
+                            <a
+                              href={locationLink(r.events[0].location)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-info hover:underline"
+                            >
+                              <MapPin className="h-3.5 w-3.5" /> Map ({r.events.length})
+                            </a>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {/* Worker Details Modal with Shift History */}
         {selectedPerson && (
           <div className="fixed inset-0 z-30 flex items-end justify-center bg-foreground/30 p-4 sm:items-center" role="presentation" onClick={() => setSelectedPerson(null)}>
-            <section role="dialog" aria-modal="true" aria-labelledby="worker-details-title" className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
-              <div className="flex items-start justify-between gap-4">
+            <section role="dialog" aria-modal="true" aria-labelledby="worker-details-title" className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
                 <div>
-                  <p className="label-eyebrow">Worker detail</p>
-                  <h2 id="worker-details-title" className="mt-1 text-xl font-semibold">{selectedPerson.name}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{stateCopy(selectedPerson.state).label} · {formatWorkedDuration(selectedPerson.events, selectedPerson.state, now)}</p>
+                  <p className="label-eyebrow">Worker Profile & History</p>
+                  <h2 id="worker-details-title" className="mt-1 text-2xl font-bold">{selectedPerson.name}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Today: {stateCopy(selectedPerson.state).label} · {formatWorkedDuration(selectedPerson.events, selectedPerson.state, now)}
+                  </p>
                 </div>
                 <button type="button" onClick={() => setSelectedPerson(null)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close worker details">
-                  <X className="h-4 w-4" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
+
+              {/* Today's Live Evidence */}
               <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-3">Today's Shift Evidence</h3>
                 <LocationEvidenceList events={selectedPerson.events} />
+              </div>
+
+              {/* Past Shifts History for this Worker */}
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Recorded Past Shifts</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedPersonHistory.length} shift(s) found
+                  </span>
+                </div>
+
+                <div className="rounded-2xl border border-border overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-muted/60 text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2.5">Date</th>
+                        <th className="px-4 py-2.5">Clock In</th>
+                        <th className="px-4 py-2.5">Clock Out</th>
+                        <th className="px-4 py-2.5">Break</th>
+                        <th className="px-4 py-2.5">Total Hours</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {selectedPersonLoading && (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                            Loading worker past shifts…
+                          </td>
+                        </tr>
+                      )}
+                      {!selectedPersonLoading && selectedPersonHistory.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                            No past shifts recorded for this worker yet.
+                          </td>
+                        </tr>
+                      )}
+                      {selectedPersonHistory.map((s) => (
+                        <tr key={s.id} className="hover:bg-muted/20">
+                          <td className="px-4 py-2.5 font-medium">{s.work_date}</td>
+                          <td className="px-4 py-2.5 font-mono">
+                            {new Date(s.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono">
+                            {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "In progress"}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono text-muted-foreground">
+                            {s.break_minutes > 0 ? formatMinutes(s.break_minutes) : "—"}
+                          </td>
+                          <td className="px-4 py-2.5 font-mono font-bold text-foreground">
+                            {formatMinutes(s.net_minutes)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </section>
           </div>
@@ -710,7 +1139,7 @@ function Metric({
   icon,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   detail: string;
   tone: "live" | "break" | "neutral";
   icon: React.ReactNode;

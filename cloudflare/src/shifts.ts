@@ -53,6 +53,34 @@ export interface AdminSnapshot {
   events: ShiftEvent[];
 }
 
+export interface ShiftHistoryRecord {
+  id: string;
+  user_id: string;
+  display_name: string;
+  work_date: string;
+  state: ShiftState;
+  clock_in_at: string;
+  break_started_at: string | null;
+  break_ended_at: string | null;
+  clock_out_at: string | null;
+  duration_minutes: number;
+  break_minutes: number;
+  net_minutes: number;
+  events: ShiftEvent[];
+}
+
+interface HistoryRow {
+  id: string;
+  userId: string;
+  displayName: string;
+  workDate: string;
+  state: Exclude<ShiftState, "off_shift">;
+  clockInAt: string;
+  breakStartedAt: string | null;
+  breakEndedAt: string | null;
+  clockOutAt: string | null;
+}
+
 function workDate(timezone: string, now = new Date()): string {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
@@ -407,4 +435,210 @@ export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnap
     clock_out_at: member.clockOutAt,
     events: eventsByUser.get(member.userId) ?? [],
   }));
+}
+
+export async function adminShiftHistory(
+  env: Env,
+  auth: AuthContext,
+  params: URLSearchParams,
+): Promise<ShiftHistoryRecord[]> {
+  requireRole(auth, "admin");
+  const userId = params.get("user_id");
+  const startDate = params.get("start_date");
+  const endDate = params.get("end_date");
+
+  let query = `
+    SELECT
+      s.id,
+      s.user_id AS userId,
+      m.display_name AS displayName,
+      s.work_date AS workDate,
+      s.state,
+      s.clock_in_at AS clockInAt,
+      s.break_started_at AS breakStartedAt,
+      s.break_ended_at AS breakEndedAt,
+      s.clock_out_at AS clockOutAt
+    FROM workforce_shifts s
+    JOIN workforce_memberships m ON m.organization_id = s.organization_id AND m.user_id = s.user_id
+    WHERE s.organization_id = ?1
+  `;
+  const bindings: unknown[] = [auth.user.organizationId];
+  let bindIndex = 2;
+
+  if (userId && userId !== "all") {
+    query += ` AND s.user_id = ?${bindIndex}`;
+    bindings.push(userId);
+    bindIndex++;
+  }
+  if (startDate) {
+    query += ` AND s.work_date >= ?${bindIndex}`;
+    bindings.push(startDate);
+    bindIndex++;
+  }
+  if (endDate) {
+    query += ` AND s.work_date <= ?${bindIndex}`;
+    bindings.push(endDate);
+    bindIndex++;
+  }
+
+  query += ` ORDER BY s.work_date DESC, s.clock_in_at DESC LIMIT 500`;
+
+  const shiftsResult = await env.DB.prepare(query).bind(...bindings).all<HistoryRow>();
+
+  // Fetch all events for these shifts
+  const shiftIds = shiftsResult.results.map((r) => r.id);
+  const eventsByShift = new Map<string, ShiftEvent[]>();
+
+  if (shiftIds.length > 0) {
+    const placeholders = shiftIds.map((_, idx) => `?${idx + 1}`).join(",");
+    const eventsQuery = `
+      SELECT
+        id,
+        shift_id AS shiftId,
+        user_id AS userId,
+        event_type AS eventType,
+        occurred_at AS occurredAt,
+        latitude,
+        longitude,
+        accuracy_m AS accuracy
+      FROM workforce_shift_events
+      WHERE shift_id IN (${placeholders})
+      ORDER BY rowid ASC
+    `;
+    const eventRows = await env.DB.prepare(eventsQuery).bind(...shiftIds).all<EventRow & { shiftId: string }>();
+    for (const e of eventRows.results) {
+      const current = eventsByShift.get(e.shiftId) ?? [];
+      current.push(toEvent(e));
+      eventsByShift.set(e.shiftId, current);
+    }
+  }
+
+  return shiftsResult.results.map((row) => {
+    const clockIn = new Date(row.clockInAt).getTime();
+    const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
+    const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
+    
+    let breakMinutes = 0;
+    if (row.breakStartedAt && row.breakEndedAt) {
+      breakMinutes = Math.max(0, Math.round((new Date(row.breakEndedAt).getTime() - new Date(row.breakStartedAt).getTime()) / 60000));
+    } else if (row.breakStartedAt && !row.breakEndedAt) {
+      breakMinutes = Math.max(0, Math.round((Date.now() - new Date(row.breakStartedAt).getTime()) / 60000));
+    }
+    const netMinutes = Math.max(0, durationMinutes - breakMinutes);
+
+    return {
+      id: row.id,
+      user_id: row.userId,
+      display_name: row.displayName,
+      work_date: row.workDate,
+      state: row.state,
+      clock_in_at: row.clockInAt,
+      break_started_at: row.breakStartedAt,
+      break_ended_at: row.breakEndedAt,
+      clock_out_at: row.clockOutAt,
+      duration_minutes: durationMinutes,
+      break_minutes: breakMinutes,
+      net_minutes: netMinutes,
+      events: eventsByShift.get(row.id) ?? [],
+    };
+  });
+}
+
+export async function workerShiftHistory(
+  env: Env,
+  auth: AuthContext,
+  params: URLSearchParams,
+): Promise<ShiftHistoryRecord[]> {
+  requireReady(auth);
+  const startDate = params.get("start_date");
+  const endDate = params.get("end_date");
+
+  let query = `
+    SELECT
+      s.id,
+      s.user_id AS userId,
+      m.display_name AS displayName,
+      s.work_date AS workDate,
+      s.state,
+      s.clock_in_at AS clockInAt,
+      s.break_started_at AS breakStartedAt,
+      s.break_ended_at AS breakEndedAt,
+      s.clock_out_at AS clockOutAt
+    FROM workforce_shifts s
+    JOIN workforce_memberships m ON m.organization_id = s.organization_id AND m.user_id = s.user_id
+    WHERE s.organization_id = ?1 AND s.user_id = ?2
+  `;
+  const bindings: unknown[] = [auth.user.organizationId, auth.user.id];
+  let bindIndex = 3;
+
+  if (startDate) {
+    query += ` AND s.work_date >= ?${bindIndex}`;
+    bindings.push(startDate);
+    bindIndex++;
+  }
+  if (endDate) {
+    query += ` AND s.work_date <= ?${bindIndex}`;
+    bindings.push(endDate);
+    bindIndex++;
+  }
+
+  query += ` ORDER BY s.work_date DESC, s.clock_in_at DESC LIMIT 100`;
+
+  const shiftsResult = await env.DB.prepare(query).bind(...bindings).all<HistoryRow>();
+  const shiftIds = shiftsResult.results.map((r) => r.id);
+  const eventsByShift = new Map<string, ShiftEvent[]>();
+
+  if (shiftIds.length > 0) {
+    const placeholders = shiftIds.map((_, idx) => `?${idx + 1}`).join(",");
+    const eventsQuery = `
+      SELECT
+        id,
+        shift_id AS shiftId,
+        user_id AS userId,
+        event_type AS eventType,
+        occurred_at AS occurredAt,
+        latitude,
+        longitude,
+        accuracy_m AS accuracy
+      FROM workforce_shift_events
+      WHERE shift_id IN (${placeholders})
+      ORDER BY rowid ASC
+    `;
+    const eventRows = await env.DB.prepare(eventsQuery).bind(...shiftIds).all<EventRow & { shiftId: string }>();
+    for (const e of eventRows.results) {
+      const current = eventsByShift.get(e.shiftId) ?? [];
+      current.push(toEvent(e));
+      eventsByShift.set(e.shiftId, current);
+    }
+  }
+
+  return shiftsResult.results.map((row) => {
+    const clockIn = new Date(row.clockInAt).getTime();
+    const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
+    const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
+    
+    let breakMinutes = 0;
+    if (row.breakStartedAt && row.breakEndedAt) {
+      breakMinutes = Math.max(0, Math.round((new Date(row.breakEndedAt).getTime() - new Date(row.breakStartedAt).getTime()) / 60000));
+    } else if (row.breakStartedAt && !row.breakEndedAt) {
+      breakMinutes = Math.max(0, Math.round((Date.now() - new Date(row.breakStartedAt).getTime()) / 60000));
+    }
+    const netMinutes = Math.max(0, durationMinutes - breakMinutes);
+
+    return {
+      id: row.id,
+      user_id: row.userId,
+      display_name: row.displayName,
+      work_date: row.workDate,
+      state: row.state,
+      clock_in_at: row.clockInAt,
+      break_started_at: row.breakStartedAt,
+      break_ended_at: row.breakEndedAt,
+      clock_out_at: row.clockOutAt,
+      duration_minutes: durationMinutes,
+      break_minutes: breakMinutes,
+      net_minutes: netMinutes,
+      events: eventsByShift.get(row.id) ?? [],
+    };
+  });
 }

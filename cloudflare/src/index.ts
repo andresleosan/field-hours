@@ -15,7 +15,13 @@ import {
   optionsResponse,
   readJson,
 } from "./http";
-import { adminToday, performShiftAction, workerToday } from "./shifts";
+import {
+  adminShiftHistory,
+  adminToday,
+  performShiftAction,
+  workerShiftHistory,
+  workerToday,
+} from "./shifts";
 
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -83,9 +89,19 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await workerToday(env, auth));
   }
 
+  if (request.method === "GET" && path === "/api/worker/shifts/history") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await workerShiftHistory(env, auth, url.searchParams));
+  }
+
   if (request.method === "GET" && path === "/api/admin/today") {
     const auth = await getAuth(request, env);
     return json(request, env, await adminToday(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/admin/shifts/history") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await adminShiftHistory(env, auth, url.searchParams));
   }
 
   if (request.method === "POST" && path === "/api/shift/action") {

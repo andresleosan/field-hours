@@ -39,6 +39,22 @@ export interface AdminSnapshot {
   events: ShiftEvent[];
 }
 
+export interface ShiftHistoryRecord {
+  id: string;
+  user_id: string;
+  display_name: string;
+  work_date: string;
+  state: ShiftState;
+  clock_in_at: string;
+  break_started_at: string | null;
+  break_ended_at: string | null;
+  clock_out_at: string | null;
+  duration_minutes: number;
+  break_minutes: number;
+  net_minutes: number;
+  events: ShiftEvent[];
+}
+
 const transition: Record<ShiftState, Partial<Record<ShiftAction, ShiftState>>> = {
   off_shift: { clock_in: "working" },
   working: { start_break: "on_break", clock_out: "complete" },
@@ -79,6 +95,7 @@ export async function registerWorker(input: {
   email: string;
   password: string;
   displayName: string;
+  phone?: string;
 }): Promise<SessionUser> {
   const result = await backend.post<{ user: SessionUser }>("/api/auth/register", input);
   return result.user;
@@ -120,6 +137,36 @@ export async function loadWorkerShift(): Promise<ShiftSnapshot> {
 
 export async function loadAdminToday(): Promise<AdminSnapshot[]> {
   return backend.get<AdminSnapshot[]>("/api/admin/today");
+}
+
+export async function loadAdminHistory(params?: {
+  userId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<ShiftHistoryRecord[]> {
+  const query = new URLSearchParams();
+  if (params?.userId && params.userId !== "all") query.set("user_id", params.userId);
+  if (params?.startDate) query.set("start_date", params.startDate);
+  if (params?.endDate) query.set("end_date", params.endDate);
+  const qStr = query.toString();
+  return backend.get<ShiftHistoryRecord[]>(`/api/admin/shifts/history${qStr ? `?${qStr}` : ""}`);
+}
+
+export async function loadWorkerHistory(params?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<ShiftHistoryRecord[]> {
+  const query = new URLSearchParams();
+  if (params?.startDate) query.set("start_date", params.startDate);
+  if (params?.endDate) query.set("end_date", params.endDate);
+  const qStr = query.toString();
+  return backend.get<ShiftHistoryRecord[]>(`/api/worker/shifts/history${qStr ? `?${qStr}` : ""}`);
+}
+
+export function formatMinutes(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
 export function formatWorkedDuration(

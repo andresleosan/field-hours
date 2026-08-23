@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => ({
         // Split the long-lived vendors so an app deploy does not bust their cache.
         manualChunks: {
           react: ["react", "react-dom", "react-router-dom"],
+          xlsx: ["xlsx"],
         },
       },
     },
