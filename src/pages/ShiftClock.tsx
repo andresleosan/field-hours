@@ -390,23 +390,33 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
   const loadData = useCallback(async () => {
     try {
-      const [currentShift, projs, pastShifts] = await Promise.all([
-        loadWorkerShift(),
-        loadProjects(),
-        loadWorkerHistory(),
-      ]);
+      const currentShift = await loadWorkerShift();
       setShift(currentShift);
-      setProjects(projs.filter((p) => p.is_active));
-      setHistory(pastShifts);
       if (currentShift.projectId) {
         setSelectedProjectId(currentShift.projectId);
-      } else if (projs.length > 0 && projs[0].is_active) {
-        setSelectedProjectId(projs[0].id);
       }
     } catch (caught) {
-      setMessage(messageFrom(caught, "We could not load your workspace."));
+      setMessage(messageFrom(caught, "We could not load your shift."));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const projs = await loadProjects();
+      const active = projs.filter((p) => p.is_active);
+      setProjects(active);
+      if (active.length > 0) {
+        setSelectedProjectId((prev) => prev || active[0].id);
+      }
+    } catch {
+      // Non-fatal if projects endpoint is still deploying
+    }
+
+    try {
+      const pastShifts = await loadWorkerHistory();
+      setHistory(pastShifts);
+    } catch {
+      // Non-fatal
     }
   }, []);
 
@@ -1094,19 +1104,23 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
 
   const refreshToday = useCallback(async () => {
+    setLoading(true);
     try {
-      const [members, projs] = await Promise.all([
-        loadAdminToday(),
-        loadProjects(),
-      ]);
+      const members = await loadAdminToday();
       setPeople(members.map(toPerson));
-      setProjects(projs);
       setUpdatedAt(new Date());
       setMessage("");
     } catch (caught) {
       setMessage(messageFrom(caught, "Today’s team could not be loaded."));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const projs = await loadProjects();
+      setProjects(projs);
+    } catch {
+      // Non-fatal if projects endpoint is still deploying
     }
   }, []);
 

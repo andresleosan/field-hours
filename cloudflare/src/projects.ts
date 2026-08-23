@@ -48,16 +48,38 @@ function toProject(row: ProjectRow): Project {
   };
 }
 
+async function ensureProjectsTable(env: Env): Promise<void> {
+  await env.DB.prepare(
+    `CREATE TABLE IF NOT EXISTS workforce_projects (
+      id TEXT PRIMARY KEY NOT NULL,
+      organization_id TEXT NOT NULL REFERENCES workforce_organizations(id) ON DELETE CASCADE,
+      name TEXT NOT NULL CHECK (length(name) BETWEEN 2 AND 120),
+      code TEXT CHECK (code IS NULL OR length(code) BETWEEN 1 AND 30),
+      address TEXT,
+      latitude REAL,
+      longitude REAL,
+      radius_m INTEGER NOT NULL DEFAULT 200 CHECK (radius_m BETWEEN 20 AND 50000),
+      is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+    )`,
+  ).run();
+}
+
 export async function listProjects(env: Env, auth: AuthContext): Promise<Project[]> {
   requireReady(auth);
-  const rows = await env.DB.prepare(
-    `SELECT id, organization_id, name, code, address, latitude, longitude, radius_m, is_active, created_at
-     FROM workforce_projects
-     WHERE organization_id = ?1
-     ORDER BY is_active DESC, name COLLATE NOCASE ASC`,
-  ).bind(auth.user.organizationId).all<ProjectRow>();
+  try {
+    await ensureProjectsTable(env);
+    const rows = await env.DB.prepare(
+      `SELECT id, organization_id, name, code, address, latitude, longitude, radius_m, is_active, created_at
+       FROM workforce_projects
+       WHERE organization_id = ?1
+       ORDER BY is_active DESC, name COLLATE NOCASE ASC`,
+    ).bind(auth.user.organizationId).all<ProjectRow>();
 
-  return rows.results.map(toProject);
+    return rows.results.map(toProject);
+  } catch {
+    return [];
+  }
 }
 
 export async function createOrUpdateProject(
@@ -75,6 +97,8 @@ export async function createOrUpdateProject(
   },
 ): Promise<Project> {
   requireRole(auth, "admin");
+  await ensureProjectsTable(env);
+
   const name = requireString(body.name, "Project name", 2, 120);
   const code = typeof body.code === "string" && body.code.trim() ? body.code.trim().slice(0, 30) : null;
   const address = typeof body.address === "string" && body.address.trim() ? body.address.trim().slice(0, 250) : null;
