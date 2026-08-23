@@ -51,6 +51,8 @@ import {
   changePassword,
   createInvitation,
   formatMinutes,
+  formatRecordedDateTime,
+  formatRecordedTime,
   formatWorkedDuration,
   loadAdminHistory,
   loadAdminToday,
@@ -801,11 +803,12 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
         <LocationEvidenceList
           events={shift.events}
+          timezone={user.timezone}
           onViewPhoto={(photo, ev) =>
             setPhotoModal({
               photo,
               title: `${user.displayName} — ${getActionLabel(ev.type, t)}`,
-              subtitle: new Date(ev.at).toLocaleString(),
+              subtitle: formatRecordedDateTime(ev.at, user.timezone),
             })
           }
         />
@@ -836,8 +839,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {t("colClockIn")}: {new Date(record.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    {record.clock_out_at ? ` · ${t("colClockOut")}: ${new Date(record.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : ` · ${t("inProgress")}`}
+                    {t("colClockIn")}: {formatRecordedTime(record.clock_in_at, user.timezone)}
+                    {record.clock_out_at ? ` · ${t("colClockOut")}: ${formatRecordedTime(record.clock_out_at, user.timezone)}` : ` · ${t("inProgress")}`}
                     {record.break_minutes > 0 && ` · ${t("colBreak")}: ${formatMinutes(record.break_minutes)}`}
                   </p>
                 </div>
@@ -877,9 +880,11 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
 function LocationEvidenceList({
   events,
+  timezone,
   onViewPhoto,
 }: {
   events: ShiftEvent[];
+  timezone: string;
   onViewPhoto?: (photo: string, event: ShiftEvent) => void;
 }) {
   const { t } = useI18n();
@@ -920,7 +925,7 @@ function LocationEvidenceList({
                   )}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {new Date(event.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} · ±{event.location.accuracy}m
+                  {formatRecordedTime(event.at, timezone)} · ±{event.location.accuracy}m
                 </p>
               </div>
             </div>
@@ -945,7 +950,7 @@ function LocationEvidenceList({
   );
 }
 
-function toPerson(row: AdminSnapshot, t: (key: any) => string): Person {
+function toPerson(row: AdminSnapshot, t: (key: any) => string, timezone: string): Person {
   const latest = row.events.at(-1);
   return {
     id: row.user_id,
@@ -958,7 +963,7 @@ function toPerson(row: AdminSnapshot, t: (key: any) => string): Person {
     projectName: row.project_name,
     events: row.events,
     lastEvent: latest
-      ? `${getActionLabel(latest.type, t)} · ${new Date(latest.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+      ? `${getActionLabel(latest.type, t)} · ${formatRecordedTime(latest.at, timezone)}`
       : t("stateOffShift"),
   };
 }
@@ -1320,7 +1325,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     setLoading(true);
     try {
       const members = await loadAdminToday();
-      setPeople(members.map((m) => toPerson(m, t)));
+      setPeople(members.map((m) => toPerson(m, t, user.timezone)));
       setUpdatedAt(new Date());
       setMessage("");
     } catch (caught) {
@@ -1474,8 +1479,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       "Worker": r.display_name,
       "Project / Site": r.project_name || t("generalWork"),
       "Status": r.state,
-      "Clock In": r.clock_in_at ? new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
-      "Clock Out": r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress"),
+      "Clock In": r.clock_in_at ? formatRecordedTime(r.clock_in_at, user.timezone) : "",
+      "Clock Out": r.clock_out_at ? formatRecordedTime(r.clock_out_at, user.timezone) : t("inProgress"),
       "Break (Hours)": (r.break_minutes / 60).toFixed(2),
       "Net Hours Worked": (r.net_minutes / 60).toFixed(2),
       "Duration": formatMinutes(r.net_minutes),
@@ -1768,10 +1773,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           {r.project_name || t("generalWork")}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
-                          {new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {formatRecordedTime(r.clock_in_at, user.timezone)}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs">
-                          {r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress")}
+                          {r.clock_out_at ? formatRecordedTime(r.clock_out_at, user.timezone) : t("inProgress")}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs text-muted-foreground">
                           {r.break_minutes > 0 ? formatMinutes(r.break_minutes) : "—"}
@@ -1803,7 +1808,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                                     setPhotoModal({
                                       photo: ev.photo,
                                       title: `${r.display_name} — ${t("takeSelfieTitle")}`,
-                                      subtitle: `${r.work_date} ${new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`,
+                                      subtitle: `${r.work_date} ${formatRecordedTime(r.clock_in_at, user.timezone)}`,
                                     });
                                   }
                                 }}
@@ -1958,11 +1963,12 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 <h3 className="text-sm font-semibold mb-3">{t("todaysShiftEvidence")}</h3>
                 <LocationEvidenceList
                   events={selectedPerson.events}
+                  timezone={user.timezone}
                   onViewPhoto={(photo, ev) =>
                     setPhotoModal({
                       photo,
                       title: `${selectedPerson.name} — ${getActionLabel(ev.type, t)}`,
-                      subtitle: new Date(ev.at).toLocaleString(),
+                      subtitle: formatRecordedDateTime(ev.at, user.timezone),
                     })
                   }
                 />
@@ -2010,10 +2016,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           <td className="px-4 py-2.5 font-medium">{s.work_date}</td>
                           <td className="px-4 py-2.5 text-muted-foreground">{s.project_name || t("generalWork")}</td>
                           <td className="px-4 py-2.5 font-mono">
-                            {new Date(s.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {formatRecordedTime(s.clock_in_at, user.timezone)}
                           </td>
                           <td className="px-4 py-2.5 font-mono">
-                            {s.clock_out_at ? new Date(s.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : t("inProgress")}
+                            {s.clock_out_at ? formatRecordedTime(s.clock_out_at, user.timezone) : t("inProgress")}
                           </td>
                           <td className="px-4 py-2.5 font-mono text-muted-foreground">
                             {s.break_minutes > 0 ? formatMinutes(s.break_minutes) : "—"}

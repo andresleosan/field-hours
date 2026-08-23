@@ -239,6 +239,44 @@ export function formatMinutes(minutes: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`;
 }
 
+export function formatRecordedTime(
+  value: string | Date | null | undefined,
+  timezone: string,
+): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(date);
+  } catch {
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+}
+
+export function formatRecordedDateTime(
+  value: string | Date | null | undefined,
+  timezone: string,
+): string {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone: timezone,
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
+}
+
 export function formatWorkedDuration(
   events: ShiftEvent[],
   state: ShiftState,

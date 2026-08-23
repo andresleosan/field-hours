@@ -42,7 +42,7 @@ PRAGMA foreign_keys = ON;
 
 -- Organization
 INSERT INTO workforce_organizations (id, name, timezone)
-VALUES ('${orgId}', 'Field Hours Construction', 'America/Santiago');
+VALUES ('${orgId}', 'Field Hours Construction', 'Europe/Jersey');
 
 -- Admin user
 INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations, must_change_password)

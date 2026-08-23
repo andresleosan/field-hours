@@ -17,7 +17,7 @@ const sqlPath = join(tmpdir(), `field-hours-bootstrap-${randomUUID()}.sql`);
 const email = "admin@field-hours.local";
 const displayName = "Site Administrator";
 const organizationName = "Field Hours";
-const timezone = "UTC";
+const timezone = "Europe/Jersey";
 const password = randomBytes(24).toString("base64url");
 const pepper = process.env.FIELD_HOURS_PASSWORD_PEPPER;
 if (!pepper || pepper.length < 64 || pepper.length > 256) {
