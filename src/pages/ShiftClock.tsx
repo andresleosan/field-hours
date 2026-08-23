@@ -9,11 +9,14 @@ import { QRCodeSVG } from "qrcode.react";
 import * as XLSX from "xlsx";
 import {
   Activity,
+  AlertTriangle,
   ArrowRight,
+  Briefcase,
+  Building2,
   Calendar,
   Check,
+  CheckCircle2,
   Clock3,
-  CloudOff,
   Copy,
   Crosshair,
   Download,
@@ -25,8 +28,10 @@ import {
   LogOut,
   MapPin,
   Menu,
+  Navigation,
   Pause,
   Play,
+  Plus,
   QrCode,
   RefreshCw,
   ShieldCheck,
@@ -39,12 +44,14 @@ import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import {
   actionLabel,
   adjustShift,
+  calculateDistanceMeters,
   changePassword,
   createInvitation,
   formatMinutes,
   formatWorkedDuration,
   loadAdminHistory,
   loadAdminToday,
+  loadProjects,
   loadSession,
   loadWorkerHistory,
   loadWorkerShift,
@@ -52,10 +59,12 @@ import {
   registerWorker,
   requestLocation,
   runShiftAction,
+  saveProject,
   signIn,
   signOut,
   type AdminSnapshot,
   type LocationEvidence,
+  type Project,
   type ShiftAction,
   type ShiftEvent,
   type ShiftHistoryRecord,
@@ -75,6 +84,8 @@ type Person = {
   state: ShiftState;
   clockInAt: string | null;
   clockOutAt: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
   lastEvent: string;
   events: ShiftEvent[];
 };
@@ -86,6 +97,8 @@ const emptyShift: ShiftSnapshot = {
   breakStartedAt: null,
   breakEndedAt: null,
   clockOutAt: null,
+  projectId: null,
+  projectName: null,
   events: [],
 };
 
@@ -172,7 +185,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
               </div>
               <p className="mt-8 max-w-md text-4xl font-semibold leading-[1.05]">Time that follows the workday.</p>
               <p className="mt-6 max-w-sm text-sm leading-6 text-primary-foreground/70">
-                One clear action at a time, with a fresh location check when you clock in, take a break, return, or finish.
+                One clear action at a time, with project geofences and fresh location checks.
               </p>
             </div>
             <div className="flex items-center gap-3 text-xs text-primary-foreground/60">
@@ -363,6 +376,8 @@ function PasswordChangeScreen({
 
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [history, setHistory] = useState<ShiftHistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [busy, setBusy] = useState<ShiftAction | null>(null);
@@ -373,14 +388,25 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
 
-  const loadHistory = useCallback(async () => {
-    setHistoryLoading(true);
+  const loadData = useCallback(async () => {
     try {
-      setHistory(await loadWorkerHistory());
-    } catch {
-      // non-fatal
+      const [currentShift, projs, pastShifts] = await Promise.all([
+        loadWorkerShift(),
+        loadProjects(),
+        loadWorkerHistory(),
+      ]);
+      setShift(currentShift);
+      setProjects(projs.filter((p) => p.is_active));
+      setHistory(pastShifts);
+      if (currentShift.projectId) {
+        setSelectedProjectId(currentShift.projectId);
+      } else if (projs.length > 0 && projs[0].is_active) {
+        setSelectedProjectId(projs[0].id);
+      }
+    } catch (caught) {
+      setMessage(messageFrom(caught, "We could not load your workspace."));
     } finally {
-      setHistoryLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -389,18 +415,13 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     setPendingQueueCount(getOfflineQueue().length);
     if (res.syncedCount > 0) {
       setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
-      void loadHistory();
+      void loadData();
     }
-  }, [loadHistory]);
+  }, [loadData]);
 
   useEffect(() => {
-    Promise.all([
-      loadWorkerShift().then(setShift),
-      loadHistory(),
-    ])
-      .catch((caught) => setMessage(messageFrom(caught, "We could not load your shift.")))
-      .finally(() => setLoading(false));
-  }, [loadHistory]);
+    void loadData();
+  }, [loadData]);
 
   useEffect(() => {
     const goOnline = () => {
@@ -431,6 +452,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         : null;
   const duration = formatWorkedDuration(shift.events, shift.state, now);
 
+  const selectedProject = useMemo(() => {
+    return projects.find((p) => p.id === (shift.projectId || selectedProjectId));
+  }, [projects, shift.projectId, selectedProjectId]);
+
   async function act(nextAction: ShiftAction) {
     if (busy) return;
     if (!nextState(shift.state, nextAction)) {
@@ -442,10 +467,11 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     try {
       const location = await requestLocation();
       const idempotencyKey = crypto.randomUUID();
+      const projectToSubmit = nextAction === "clock_in" ? selectedProjectId : undefined;
 
       if (!online) {
         // Queue offline
-        queueOfflineAction(nextAction, location, idempotencyKey);
+        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit);
         setPendingQueueCount(getOfflineQueue().length);
         const optimisticNext = nextState(shift.state, nextAction) || shift.state;
         const newEvent: ShiftEvent = {
@@ -457,6 +483,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         setShift((prev) => ({
           ...prev,
           state: optimisticNext,
+          projectId: projectToSubmit || prev.projectId,
+          projectName: selectedProject?.name || prev.projectName,
           events: [...prev.events, newEvent],
         }));
         if (nextAction === "clock_out") setFinishRequested(false);
@@ -464,11 +492,11 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         return;
       }
 
-      const updated = await runShiftAction(nextAction, location, idempotencyKey);
+      const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit);
       setShift(updated);
       if (nextAction === "clock_out") {
         setFinishRequested(false);
-        void loadHistory();
+        void loadData();
       }
       setMessage("Saved with a fresh location check.");
     } catch (caught) {
@@ -545,8 +573,51 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               </div>
               <Clock3 className="mb-2 h-9 w-9 text-brand" aria-hidden="true" />
             </div>
+
+            {/* Assigned Project or Project Selector */}
+            <div className="mt-6 rounded-2xl border border-border bg-muted/30 p-4">
+              {shift.state === "off_shift" ? (
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-brand" /> Select Job Site / Project
+                  </label>
+                  {projects.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No active projects configured by admin.</p>
+                  ) : (
+                    <select
+                      value={selectedProjectId}
+                      onChange={(e) => setSelectedProjectId(e.target.value)}
+                      className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} {p.code ? `(${p.code})` : ""} {p.address ? `— ${p.address}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {selectedProject && selectedProject.latitude !== null && (
+                    <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Navigation className="h-3 w-3 text-info" /> Geofence perimeter active: {selectedProject.radius_m}m tolerance.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground font-medium">Assigned Project</p>
+                    <p className="text-sm font-bold text-foreground mt-0.5">
+                      {shift.projectName || selectedProject?.name || "General Work"}
+                    </p>
+                  </div>
+                  <Briefcase className="h-5 w-5 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+
             <p className="mt-4 max-w-lg text-sm leading-6 text-muted-foreground">{copy.detail}</p>
             {message && <p role="status" className="mt-5 rounded-xl border border-border bg-muted/50 px-3 py-3 text-sm">{message}</p>}
+            
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               {finishRequested ? (
                 <div className="flex w-full flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -600,8 +671,15 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             {history.map((record) => (
               <div key={record.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-semibold">{record.work_date}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold">{record.work_date}</p>
+                    {record.project_name && (
+                      <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                        {record.project_name}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     In: {new Date(record.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     {record.clock_out_at ? ` · Out: ${new Date(record.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : " · In Progress"}
                     {record.break_minutes > 0 && ` · Break: ${formatMinutes(record.break_minutes)}`}
@@ -657,11 +735,216 @@ function toPerson(row: AdminSnapshot): Person {
     state: row.state,
     clockInAt: row.clock_in_at,
     clockOutAt: row.clock_out_at,
+    projectId: row.project_id,
+    projectName: row.project_name,
     events: row.events,
     lastEvent: latest
       ? `${actionLabel(latest.type)} at ${new Date(latest.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
       : "Not clocked in",
   };
+}
+
+function ProjectEditModal({
+  project,
+  onClose,
+  onSaved,
+}: {
+  project: Project | null;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState(project?.name || "");
+  const [code, setCode] = useState(project?.code || "");
+  const [address, setAddress] = useState(project?.address || "");
+  const [latitude, setLatitude] = useState(project?.latitude?.toString() || "");
+  const [longitude, setLongitude] = useState(project?.longitude?.toString() || "");
+  const [radiusM, setRadiusM] = useState(project?.radius_m?.toString() || "200");
+  const [isActive, setIsActive] = useState(project ? project.is_active : true);
+  const [busy, setBusy] = useState(false);
+  const [gpsBusy, setGpsBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleCaptureCurrentGPS = async () => {
+    setGpsBusy(true);
+    setError("");
+    try {
+      const loc = await requestLocation();
+      setLatitude(loc.latitude.toString());
+      setLongitude(loc.longitude.toString());
+    } catch (caught) {
+      setError(messageFrom(caught, "Could not capture device location."));
+    } finally {
+      setGpsBusy(false);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) {
+      setError("Project name is required.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      await saveProject({
+        id: project?.id,
+        name: name.trim(),
+        code: code.trim() || undefined,
+        address: address.trim() || undefined,
+        latitude: latitude ? parseFloat(latitude) : undefined,
+        longitude: longitude ? parseFloat(longitude) : undefined,
+        radiusM: radiusM ? parseInt(radiusM, 10) : 200,
+        isActive,
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(messageFrom(caught, "Could not save project."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-border pb-4">
+          <div>
+            <p className="label-eyebrow text-brand font-semibold">Job Site Management</p>
+            <h2 className="mt-1 text-xl font-bold">{project ? "Edit Project / Site" : "New Project / Site"}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">Project / Site Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Edificio Residencial Los Olivos"
+              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase">Site Code</label>
+              <input
+                type="text"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="e.g. PRJ-01"
+                className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase">Geofence Radius (m)</label>
+              <input
+                type="number"
+                min={20}
+                max={50000}
+                value={radiusM}
+                onChange={(e) => setRadiusM(e.target.value)}
+                className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">Site Address</label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g. Av. Principal #450, Santiago"
+              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          {/* GPS Coordinates & Capture Button */}
+          <div className="rounded-2xl border border-border bg-muted/40 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase text-muted-foreground flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-brand" /> GPS Coordinates
+              </span>
+              <button
+                type="button"
+                onClick={handleCaptureCurrentGPS}
+                disabled={gpsBusy}
+                className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+              >
+                {gpsBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Crosshair className="h-3 w-3" />}
+                Use My Location
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+              <input
+                type="number"
+                step="any"
+                placeholder="Latitude"
+                value={latitude}
+                onChange={(e) => setLatitude(e.target.value)}
+                className="h-9 rounded-lg border border-input bg-background px-2"
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Longitude"
+                value={longitude}
+                onChange={(e) => setLongitude(e.target.value)}
+                className="h-9 rounded-lg border border-input bg-background px-2"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="isActiveCheck"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+            />
+            <label htmlFor="isActiveCheck" className="text-xs font-medium text-foreground cursor-pointer">
+              Active Project (Available for workers to clock in)
+            </label>
+          </div>
+
+          {error && <p className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Project
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
 
 function AdjustShiftModal({
@@ -787,12 +1070,17 @@ function AdjustShiftModal({
 }
 
 function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
-  const [viewMode, setViewMode] = useState<"today" | "history">("today");
+  const [viewMode, setViewMode] = useState<"today" | "history" | "projects">("today");
   const [people, setPeople] = useState<Person[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null | "new">(null);
+  
   const [historyRecords, setHistoryRecords] = useState<ShiftHistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFilterPeriod, setHistoryFilterPeriod] = useState<"all" | "today" | "this_week" | "last_week" | "this_month">("this_month");
   const [historyFilterWorker, setHistoryFilterWorker] = useState<string>("all");
+  const [historyFilterProject, setHistoryFilterProject] = useState<string>("all");
   
   const [invite, setInvite] = useState<{ token: string; expiresAt: string } | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -807,7 +1095,12 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
   const refreshToday = useCallback(async () => {
     try {
-      setPeople((await loadAdminToday()).map(toPerson));
+      const [members, projs] = await Promise.all([
+        loadAdminToday(),
+        loadProjects(),
+      ]);
+      setPeople(members.map(toPerson));
+      setProjects(projs);
       setUpdatedAt(new Date());
       setMessage("");
     } catch (caught) {
@@ -850,6 +1143,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       const { start, end } = calculateDateRange(historyFilterPeriod);
       const records = await loadAdminHistory({
         userId: historyFilterWorker,
+        projectId: historyFilterProject,
         startDate: start,
         endDate: end,
       });
@@ -859,7 +1153,18 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     } finally {
       setHistoryLoading(false);
     }
-  }, [calculateDateRange, historyFilterPeriod, historyFilterWorker]);
+  }, [calculateDateRange, historyFilterPeriod, historyFilterWorker, historyFilterProject]);
+
+  const refreshProjectsList = useCallback(async () => {
+    setProjectsLoading(true);
+    try {
+      setProjects(await loadProjects());
+    } catch (caught) {
+      setMessage(messageFrom(caught, "Could not load projects."));
+    } finally {
+      setProjectsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     void refreshToday();
@@ -873,8 +1178,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   useEffect(() => {
     if (viewMode === "history") {
       void refreshHistory();
+    } else if (viewMode === "projects") {
+      void refreshProjectsList();
     }
-  }, [viewMode, refreshHistory]);
+  }, [viewMode, refreshHistory, refreshProjectsList]);
 
   const counts = useMemo(() => ({
     working: people.filter((person) => person.state === "working").length,
@@ -938,6 +1245,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     const rows = historyRecords.map((r) => ({
       "Date": r.work_date,
       "Worker": r.display_name,
+      "Project / Site": r.project_name || "General Work",
       "Status": r.state,
       "Clock In": r.clock_in_at ? new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "",
       "Clock Out": r.clock_out_at ? new Date(r.clock_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "Active",
@@ -952,7 +1260,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   };
 
   return (
-    <Shell title={viewMode === "today" ? "Today" : "Reports & History"} user={user} onSignOut={onSignOut}>
+    <Shell title={viewMode === "today" ? "Today" : viewMode === "history" ? "Reports & History" : "Projects & Sites"} user={user} onSignOut={onSignOut}>
       <div className="space-y-6">
         {/* Navigation Mode Switcher */}
         <div className="flex items-center justify-between flex-wrap gap-4">
@@ -980,6 +1288,18 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             >
               <Calendar className="h-4 w-4 text-info" />
               History & Reports
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("projects")}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                viewMode === "projects"
+                  ? "bg-background text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Building2 className="h-4 w-4 text-primary" />
+              Projects & Sites
             </button>
           </div>
 
@@ -1030,7 +1350,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           {person.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
                         </div>
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold">{person.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-semibold">{person.name}</p>
+                            {person.projectName && (
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                                {person.projectName}
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1 truncate text-xs text-muted-foreground">{person.role} · {person.lastEvent}</p>
                         </div>
                       </div>
@@ -1086,7 +1413,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               </section>
             </div>
           </>
-        ) : (
+        ) : viewMode === "history" ? (
           /* History & Reports Subview */
           <div className="space-y-6">
             {/* Filters Bar */}
@@ -1122,6 +1449,18 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <option value="all">All Staff Members</option>
                     {people.map((p) => (
                       <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+
+                  {/* Project Filter */}
+                  <select
+                    value={historyFilterProject}
+                    onChange={(e) => setHistoryFilterProject(e.target.value)}
+                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="all">All Projects / Sites</option>
+                    {projects.map((pr) => (
+                      <option key={pr.id} value={pr.id}>{pr.name}</option>
                     ))}
                   </select>
 
@@ -1168,6 +1507,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <tr>
                       <th className="px-6 py-3.5 font-semibold">Date</th>
                       <th className="px-6 py-3.5 font-semibold">Worker</th>
+                      <th className="px-6 py-3.5 font-semibold">Project / Site</th>
                       <th className="px-6 py-3.5 font-semibold">Clock In</th>
                       <th className="px-6 py-3.5 font-semibold">Clock Out</th>
                       <th className="px-6 py-3.5 font-semibold">Break</th>
@@ -1179,7 +1519,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                   <tbody className="divide-y divide-border">
                     {historyLoading && (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-brand" />
                           Loading shifts history…
                         </td>
@@ -1187,7 +1527,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     )}
                     {!historyLoading && historyRecords.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                        <td colSpan={9} className="py-12 text-center text-muted-foreground">
                           <Info className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
                           No shift records found for this period. Try selecting "All Records".
                         </td>
@@ -1197,6 +1537,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <tr key={r.id} className="hover:bg-muted/30 transition">
                         <td className="px-6 py-4 font-medium whitespace-nowrap">{r.work_date}</td>
                         <td className="px-6 py-4 font-semibold text-foreground">{r.display_name}</td>
+                        <td className="px-6 py-4 text-xs font-medium text-muted-foreground">
+                          {r.project_name || "General Work"}
+                        </td>
                         <td className="px-6 py-4 font-mono text-xs">
                           {new Date(r.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                         </td>
@@ -1252,6 +1595,99 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               </div>
             </section>
           </div>
+        ) : (
+          /* Projects & Geofences Subview */
+          <div className="space-y-6">
+            <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="label-eyebrow">Job Sites & Geofences</p>
+                  <h2 className="mt-1 text-2xl font-bold">Manage Construction Projects</h2>
+                  <p className="text-xs text-muted-foreground mt-1">Configure site addresses, GPS center coordinates, and tolerance radius in meters.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEditingProject("new")}
+                  className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                >
+                  <Plus className="h-4 w-4" /> Add Project
+                </button>
+              </div>
+
+              <div className="mt-6 divide-y divide-border">
+                {projectsLoading && (
+                  <div className="py-8 text-center text-muted-foreground">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-brand" />
+                    Loading projects…
+                  </div>
+                )}
+                {!projectsLoading && projects.length === 0 && (
+                  <div className="py-10 text-center text-muted-foreground">
+                    <Building2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="font-semibold text-sm text-foreground">No projects registered yet</p>
+                    <p className="text-xs mt-1">Add your first job site so workers can associate their shifts and verify geofences.</p>
+                  </div>
+                )}
+                {projects.map((proj) => (
+                  <div key={proj.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-brand mt-0.5">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-base text-foreground">{proj.name}</h3>
+                          {proj.code && (
+                            <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-semibold">
+                              {proj.code}
+                            </span>
+                          )}
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                            proj.is_active ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+                          }`}>
+                            {proj.is_active ? "Active" : "Archived"}
+                          </span>
+                        </div>
+                        {proj.address && <p className="text-xs text-muted-foreground mt-1">{proj.address}</p>}
+                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground font-mono">
+                          {proj.latitude !== null && proj.longitude !== null ? (
+                            <>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-3.5 w-3.5 text-info" /> {proj.latitude.toFixed(5)}, {proj.longitude.toFixed(5)}
+                              </span>
+                              <span>· Geofence: {proj.radius_m}m</span>
+                            </>
+                          ) : (
+                            <span className="text-warning">No GPS coordinates set (geofence inactive)</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {proj.latitude !== null && proj.longitude !== null && (
+                        <a
+                          href={`https://www.openstreetmap.org/?mlat=${proj.latitude}&mlon=${proj.longitude}#map=17/${proj.latitude}/${proj.longitude}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-info hover:bg-muted"
+                        >
+                          View Map
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditingProject(proj)}
+                        className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" /> Edit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
         )}
 
         {/* Worker Details Modal with Shift History */}
@@ -1291,6 +1727,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <thead className="bg-muted/60 text-muted-foreground">
                       <tr>
                         <th className="px-4 py-2.5">Date</th>
+                        <th className="px-4 py-2.5">Project</th>
                         <th className="px-4 py-2.5">Clock In</th>
                         <th className="px-4 py-2.5">Clock Out</th>
                         <th className="px-4 py-2.5">Break</th>
@@ -1301,14 +1738,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <tbody className="divide-y divide-border">
                       {selectedPersonLoading && (
                         <tr>
-                          <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                          <td colSpan={7} className="py-6 text-center text-muted-foreground">
                             Loading worker past shifts…
                           </td>
                         </tr>
                       )}
                       {!selectedPersonLoading && selectedPersonHistory.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="py-6 text-center text-muted-foreground">
+                          <td colSpan={7} className="py-6 text-center text-muted-foreground">
                             No past shifts recorded for this worker yet.
                           </td>
                         </tr>
@@ -1316,6 +1753,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       {selectedPersonHistory.map((s) => (
                         <tr key={s.id} className="hover:bg-muted/20">
                           <td className="px-4 py-2.5 font-medium">{s.work_date}</td>
+                          <td className="px-4 py-2.5 text-muted-foreground">{s.project_name || "General"}</td>
                           <td className="px-4 py-2.5 font-mono">
                             {new Date(s.clock_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </td>
@@ -1358,6 +1796,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             onSaved={() => {
               setMessage("Shift adjusted successfully with audit event recorded.");
               void refreshHistory();
+              void refreshToday();
+            }}
+          />
+        )}
+
+        {/* Project Edit Modal */}
+        {editingProject && (
+          <ProjectEditModal
+            project={editingProject === "new" ? null : editingProject}
+            onClose={() => setEditingProject(null)}
+            onSaved={() => {
+              setMessage("Project saved successfully.");
+              void refreshProjectsList();
               void refreshToday();
             }}
           />

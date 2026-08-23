@@ -5,7 +5,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 ---
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 3 — PWA Instalable y Fichaje Offline (COMPLETADA)
+- **Fase Actual**: Fase 4 — Geocercas y Proyectos / Obras (COMPLETADA)
 - **Última Actualización**: 22 de Agosto de 2026
 
 ---
@@ -43,12 +43,15 @@ Objetivo: Permitir instalar la aplicación en móviles (Android/iOS) y permitir 
 
 ---
 
-## 📌 Fase 4: Geocercas y Proyectos / Obras
+## 📌 Fase 4: Geocercas y Proyectos / Obras *(Completada)*
 Objetivo: Vincular fichajes a ubicaciones de obra específicas y alertar fichajes fuera de perímetro.
 
-- [ ] **Tarea 4.1 (Backend D1)**: Tabla `workforce_projects` (nombre, cliente, latitud, longitud, radio de tolerancia en metros).
-- [ ] **Tarea 4.2 (Frontend)**: Selector de obra al iniciar turno.
-- [ ] **Tarea 4.3 (Geocerca)**: Cálculo de distancia GPS y advertencia visual si el fichaje se realiza fuera del radio permitido.
+- [x] **Tarea 4.1 (Backend D1 & Migración)**: Tabla `workforce_projects` (nombre, código, dirección, latitud, longitud, radio de tolerancia en metros y estado) y vinculación `project_id` en `workforce_shifts`.
+- [x] **Tarea 4.2 (Backend Endpoints)**: `GET /api/projects` para listar obras y `POST /api/admin/projects` para crear y editar proyectos con coordenadas GPS.
+- [x] **Tarea 4.3 (Geocerca & Haversine)**: Cálculo matemático de distancia en metros entre el punto de fichaje del trabajador y el centro de la obra. Registro en auditoría si el fichaje excede el radio.
+- [x] **Tarea 4.4 (Frontend Panel de Proyectos)**: Pestaña **Projects & Sites** para que el administrador cree obras, capture su GPS con un clic y fije el radio de tolerancia (ej. 200m).
+- [x] **Tarea 4.5 (Frontend Vista del Trabajador)**: Selector de obra asignada al momento de pulsar "Clock in" y visualización de la geocerca.
+- [x] **Tarea 4.6 (Reportes y Excel)**: Columna de Proyecto/Obra en la tabla de historial y en los reportes de exportación a Excel.
 
 ---
 

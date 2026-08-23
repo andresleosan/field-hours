@@ -17,6 +17,18 @@ export interface ShiftEvent {
   location: LocationEvidence;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  code: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radius_m: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ShiftSnapshot {
   id: string;
   state: ShiftState;
@@ -24,6 +36,8 @@ export interface ShiftSnapshot {
   breakStartedAt: string | null;
   breakEndedAt: string | null;
   clockOutAt: string | null;
+  projectId?: string | null;
+  projectName?: string | null;
   events: ShiftEvent[];
 }
 
@@ -36,6 +50,8 @@ export interface AdminSnapshot {
   break_started_at: string | null;
   break_ended_at: string | null;
   clock_out_at: string | null;
+  project_id?: string | null;
+  project_name?: string | null;
   events: ShiftEvent[];
 }
 
@@ -49,6 +65,8 @@ export interface ShiftHistoryRecord {
   break_started_at: string | null;
   break_ended_at: string | null;
   clock_out_at: string | null;
+  project_id?: string | null;
+  project_name?: string | null;
   duration_minutes: number;
   break_minutes: number;
   net_minutes: number;
@@ -119,16 +137,35 @@ export async function runShiftAction(
   action: ShiftAction,
   location: LocationEvidence,
   idempotencyKey: string,
+  projectId?: string,
 ): Promise<ShiftSnapshot> {
   return backend.post<ShiftSnapshot>("/api/shift/action", {
     action,
     location,
     idempotencyKey,
+    projectId,
   }, true);
 }
 
 export async function createInvitation(): Promise<{ token: string; expiresAt: string }> {
   return backend.post<{ token: string; expiresAt: string }>("/api/invitations", {}, true);
+}
+
+export async function loadProjects(): Promise<Project[]> {
+  return backend.get<Project[]>("/api/projects");
+}
+
+export async function saveProject(input: {
+  id?: string;
+  name: string;
+  code?: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusM?: number;
+  isActive?: boolean;
+}): Promise<Project> {
+  return backend.post<Project>("/api/admin/projects", input, true);
 }
 
 export async function loadWorkerShift(): Promise<ShiftSnapshot> {
@@ -141,11 +178,13 @@ export async function loadAdminToday(): Promise<AdminSnapshot[]> {
 
 export async function loadAdminHistory(params?: {
   userId?: string;
+  projectId?: string;
   startDate?: string;
   endDate?: string;
 }): Promise<ShiftHistoryRecord[]> {
   const query = new URLSearchParams();
   if (params?.userId && params.userId !== "all") query.set("user_id", params.userId);
+  if (params?.projectId && params.projectId !== "all") query.set("project_id", params.projectId);
   if (params?.startDate) query.set("start_date", params.startDate);
   if (params?.endDate) query.set("end_date", params.endDate);
   const qStr = query.toString();
@@ -170,6 +209,25 @@ export async function adjustShift(input: {
   reason: string;
 }): Promise<{ ok: true; shiftId: string }> {
   return backend.post<{ ok: true; shiftId: string }>("/api/admin/shifts/adjust", input, true);
+}
+
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number,
+): number {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
 }
 
 export function formatMinutes(minutes: number): string {

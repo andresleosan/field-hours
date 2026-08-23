@@ -32,6 +32,18 @@ export interface ShiftEvent {
   location: LocationEvidence;
 }
 
+export interface Project {
+  id: string;
+  name: string;
+  code: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radius_m: number;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface ShiftSnapshot {
   id: string;
   state: ShiftState;
@@ -39,5 +51,7 @@ export interface ShiftSnapshot {
   breakStartedAt: string | null;
   breakEndedAt: string | null;
   clockOutAt: string | null;
+  projectId: string | null;
+  projectName?: string | null;
   events: ShiftEvent[];
 }

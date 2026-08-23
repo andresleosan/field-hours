@@ -16,6 +16,10 @@ import {
   readJson,
 } from "./http";
 import {
+  createOrUpdateProject,
+  listProjects,
+} from "./projects";
+import {
   adminAdjustShift,
   adminShiftHistory,
   adminToday,
@@ -85,6 +89,31 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await createInvitation(env, auth), 201);
   }
 
+  if (request.method === "GET" && path === "/api/projects") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listProjects(env, auth));
+  }
+
+  if (request.method === "POST" && path === "/api/admin/projects") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const result = await createOrUpdateProject(
+      env,
+      auth,
+      await readJson<{
+        id?: unknown;
+        name?: unknown;
+        code?: unknown;
+        address?: unknown;
+        latitude?: unknown;
+        longitude?: unknown;
+        radiusM?: unknown;
+        isActive?: unknown;
+      }>(request),
+    );
+    return json(request, env, result);
+  }
+
   if (request.method === "GET" && path === "/api/worker/today") {
     const auth = await getAuth(request, env);
     return json(request, env, await workerToday(env, auth));
@@ -131,6 +160,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         action?: unknown;
         location?: unknown;
         idempotencyKey?: unknown;
+        projectId?: unknown;
       }>(request),
     );
     return json(request, env, snapshot);
