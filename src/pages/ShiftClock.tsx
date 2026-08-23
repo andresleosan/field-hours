@@ -69,6 +69,7 @@ import {
   signOut,
   loadGoogleAuthRequests,
   loadPasswordResetRequests,
+  loadRequestHistory,
   issuePasswordReset,
   reviewGoogleAuthRequest,
   requestPasswordReset,
@@ -78,6 +79,7 @@ import {
   type AdminSnapshot,
   type GoogleAuthRequest,
   type PasswordResetRequest,
+  type RequestHistoryItem,
   type LocationEvidence,
   type Project,
   type ShiftAction,
@@ -1506,6 +1508,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [issuingPasswordReset, setIssuingPasswordReset] = useState<string | null>(null);
   const [rejectingPasswordReset, setRejectingPasswordReset] = useState<string | null>(null);
   const [passwordResetLink, setPasswordResetLink] = useState("");
+  const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
+  const [requestHistoryLoading, setRequestHistoryLoading] = useState(false);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1541,6 +1545,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setPasswordResetRequests(await loadPasswordResetRequests());
     } catch {
       // The password reset panel is supplementary to the time clock.
+    }
+  }, []);
+
+  const refreshRequestHistory = useCallback(async () => {
+    setRequestHistoryLoading(true);
+    try {
+      setRequestHistory(await loadRequestHistory());
+    } catch {
+      // The history panel is supplementary to the time clock.
+    } finally {
+      setRequestHistoryLoading(false);
     }
   }, []);
 
@@ -1604,14 +1619,16 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     void refreshToday();
     void refreshGoogleRequests();
     void refreshPasswordResetRequests();
+    void refreshRequestHistory();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
       void refreshGoogleRequests();
       void refreshPasswordResetRequests();
+      void refreshRequestHistory();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -1898,6 +1915,55 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             )}
           </section>
         )}
+
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="request-history-title">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="label-eyebrow">Audit trail</p>
+              <h2 id="request-history-title" className="mt-1 text-lg font-semibold">Request history</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Reviewed Google access, migrations and password reset requests.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void refreshRequestHistory()}
+              className="rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted"
+            >
+              Refresh
+            </button>
+          </div>
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[720px] text-left text-xs">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Type</th>
+                  <th className="px-4 py-3 font-semibold">User</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Requested</th>
+                  <th className="px-4 py-3 font-semibold">Reviewed by</th>
+                  <th className="px-4 py-3 font-semibold">Reason</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {requestHistory.map((item) => (
+                  <tr key={`${item.category}-${item.id}`}>
+                    <td className="px-4 py-3 font-semibold">{item.category === "google" ? `Google · ${item.requestType}` : "Password reset"}</td>
+                    <td className="px-4 py-3"><p className="font-semibold">{item.displayName}</p><p className="text-muted-foreground">{item.email}</p></td>
+                    <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 font-semibold capitalize">{item.status}</span></td>
+                    <td className="px-4 py-3 whitespace-nowrap">{new Date(item.requestedAt).toLocaleString()}</td>
+                    <td className="px-4 py-3">{item.reviewerName ?? "—"}{item.reviewedAt ? <p className="text-muted-foreground">{new Date(item.reviewedAt).toLocaleString()}</p> : null}</td>
+                    <td className="max-w-[220px] px-4 py-3 text-muted-foreground">{item.reason || "—"}</td>
+                  </tr>
+                ))}
+                {!requestHistoryLoading && requestHistory.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">No reviewed requests yet.</td></tr>
+                )}
+                {requestHistoryLoading && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Loading history…</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         {viewMode === "today" ? (
           <>

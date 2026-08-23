@@ -23,6 +23,19 @@ export interface PasswordResetRequest {
   requestedAt: string;
 }
 
+export interface RequestHistoryItem {
+  id: string;
+  category: "google" | "password_reset";
+  requestType: string;
+  email: string;
+  displayName: string;
+  status: string;
+  reason: string | null;
+  requestedAt: string;
+  reviewedAt: string | null;
+  reviewerName: string | null;
+}
+
 export interface LocationEvidence {
   latitude: number;
   longitude: number;
@@ -203,6 +216,10 @@ export async function reviewGoogleAuthRequest(
 
 export async function loadPasswordResetRequests(): Promise<PasswordResetRequest[]> {
   return backend.get<PasswordResetRequest[]>("/api/admin/password-reset-requests");
+}
+
+export async function loadRequestHistory(): Promise<RequestHistoryItem[]> {
+  return backend.get<RequestHistoryItem[]>("/api/admin/request-history");
 }
 
 export async function issuePasswordReset(requestId: string): Promise<{ resetUrl: string; expiresAt: string }> {

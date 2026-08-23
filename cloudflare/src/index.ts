@@ -19,6 +19,7 @@ import {
   rejectPasswordReset,
   requestPasswordReset,
 } from "./passwordReset";
+import { listRequestHistory } from "./requestHistory";
 import {
   ApiError,
   assertAllowedOrigin,
@@ -136,6 +137,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/auth-requests") {
     const auth = await getAuth(request, env);
     return json(request, env, await listGoogleAuthRequests(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/admin/request-history") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listRequestHistory(env, auth));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {
