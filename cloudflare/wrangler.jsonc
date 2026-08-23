@@ -8,7 +8,9 @@
     "ALLOWED_ORIGINS": "https://field-hours.vercel.app,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8080,http://127.0.0.1:8080",
     "SESSION_TTL_SECONDS": "43200",
     "INVITE_TTL_SECONDS": "1800",
-    "ENVIRONMENT": "production"
+    "ENVIRONMENT": "production",
+    "APP_ORIGIN": "https://field-hours.vercel.app",
+    "GOOGLE_REDIRECT_URI": "https://field-hours.vercel.app/api/auth/google/callback"
   },
   "observability": {
     "enabled": true,

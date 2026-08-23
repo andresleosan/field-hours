@@ -27,3 +27,5 @@ cloudflare/.wrangler/
 cloudflare/backups/
 .env*
 !.env.example
+
+.vercel

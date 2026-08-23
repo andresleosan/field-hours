@@ -68,7 +68,7 @@ function invitationTtl(env: Env): number {
   return Number.isInteger(parsed) && parsed >= 300 && parsed <= 86_400 ? parsed : 1_800;
 }
 
-function passwordPepper(env: Env): string {
+export function passwordPepper(env: Env): string {
   const pepper = (env as Env & { PASSWORD_PEPPER?: unknown }).PASSWORD_PEPPER;
   if (typeof pepper === "string" && pepper.length >= 64 && pepper.length <= 256) {
     return pepper;
@@ -124,7 +124,7 @@ export async function getAuth(request: Request, env: Env): Promise<AuthContext> 
   };
 }
 
-async function createSession(
+export async function createSession(
   env: Env,
   user: SessionUser,
 ): Promise<{ cookies: string[]; user: SessionUser }> {

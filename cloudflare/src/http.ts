@@ -4,6 +4,7 @@ import type { AuthContext } from "./types";
 const MAX_JSON_BYTES = 16 * 1024;
 export const SESSION_COOKIE = "fh_session";
 export const CSRF_COOKIE = "fh_csrf";
+export const GOOGLE_STATE_COOKIE = "fh_google_state";
 
 export class ApiError extends Error {
   constructor(
@@ -119,6 +120,14 @@ export function clearAuthCookies(): string[] {
     `${SESSION_COOKIE}=; Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=0`,
     `${CSRF_COOKIE}=; Path=/; Secure; SameSite=Lax; Max-Age=0`,
   ];
+}
+
+export function oauthStateCookie(state: string): string {
+  return `${GOOGLE_STATE_COOKIE}=${state}; Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=600`;
+}
+
+export function clearOAuthStateCookie(): string {
+  return `${GOOGLE_STATE_COOKIE}=; Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=0`;
 }
 
 export async function assertCsrf(request: Request, auth: AuthContext): Promise<void> {

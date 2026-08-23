@@ -4,6 +4,16 @@ export type Role = "admin" | "worker";
 export type ShiftState = "off_shift" | "working" | "on_break" | "complete";
 export type ShiftAction = "clock_in" | "start_break" | "end_break" | "clock_out";
 
+export interface GoogleAuthRequest {
+  id: string;
+  organizationId: string;
+  requestType: "access" | "migration";
+  email: string;
+  displayName: string;
+  existingUserId: string | null;
+  requestedAt: string;
+}
+
 export interface LocationEvidence {
   latitude: number;
   longitude: number;
@@ -109,6 +119,10 @@ export async function signIn(email: string, password: string): Promise<SessionUs
   return result.user;
 }
 
+export function startGoogleSignIn(mode: "signin" | "link" = "signin"): void {
+  window.location.assign(`/api/auth/google/start?mode=${mode}`);
+}
+
 export async function registerWorker(input: {
   invitationToken: string;
   email: string;
@@ -152,6 +166,22 @@ export async function runShiftAction(
 
 export async function createInvitation(): Promise<{ token: string; expiresAt: string }> {
   return backend.post<{ token: string; expiresAt: string }>("/api/invitations", {}, true);
+}
+
+export async function loadGoogleAuthRequests(): Promise<GoogleAuthRequest[]> {
+  return backend.get<GoogleAuthRequest[]>("/api/admin/auth-requests");
+}
+
+export async function reviewGoogleAuthRequest(
+  requestId: string,
+  decision: "approve" | "reject",
+  reason?: string,
+): Promise<void> {
+  await backend.post<{ ok: true }>(
+    `/api/admin/auth-requests/${encodeURIComponent(requestId)}/${decision}`,
+    reason ? { reason } : {},
+    true,
+  );
 }
 
 export async function loadProjects(): Promise<Project[]> {

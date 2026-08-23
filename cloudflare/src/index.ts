@@ -7,6 +7,12 @@ import {
   registerWorker,
 } from "./auth";
 import {
+  googleCallback,
+  listGoogleAuthRequests,
+  reviewGoogleAuthRequest,
+  startGoogleAuth,
+} from "./googleAuth";
+import {
   ApiError,
   assertAllowedOrigin,
   assertCsrf,
@@ -34,6 +40,20 @@ async function route(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "OPTIONS") return optionsResponse(request, env);
   if (request.method === "POST") assertAllowedOrigin(request, env);
+
+  if (request.method === "GET" && path === "/api/auth/google/start") {
+    const result = await startGoogleAuth(env, request, url.searchParams.get("mode"));
+    const headers = new Headers({ Location: result.location, "Cache-Control": "no-store" });
+    for (const cookie of result.cookies) headers.append("Set-Cookie", cookie);
+    return new Response(null, { status: 302, headers });
+  }
+
+  if (request.method === "GET" && path === "/api/auth/google/callback") {
+    const result = await googleCallback(env, request);
+    const headers = new Headers({ Location: result.location, "Cache-Control": "no-store" });
+    for (const cookie of result.cookies) headers.append("Set-Cookie", cookie);
+    return new Response(null, { status: 302, headers });
+  }
 
   if (request.method === "GET" && path === "/api/health") {
     const database = await env.DB.prepare("SELECT 1 AS ok").first<number>("ok");
@@ -81,6 +101,31 @@ async function route(request: Request, env: Env): Promise<Response> {
       await readJson<{ password?: unknown }>(request),
     );
     return json(request, env, { user });
+  }
+
+  if (request.method === "GET" && path === "/api/auth/google/status") {
+    const auth = await getAuth(request, env);
+    const identity = await env.DB.prepare(
+      "SELECT 1 AS linked FROM workforce_google_identities WHERE user_id = ?1 LIMIT 1",
+    ).bind(auth.user.id).first<{ linked: number }>();
+    return json(request, env, { linked: Boolean(identity) });
+  }
+
+  if (request.method === "GET" && path === "/api/admin/auth-requests") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listGoogleAuthRequests(env, auth));
+  }
+
+  const authRequestMatch = path.match(/^\/api\/admin\/auth-requests\/([^/]+)\/(approve|reject)$/);
+  if (request.method === "POST" && authRequestMatch) {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, await reviewGoogleAuthRequest(
+      env,
+      auth,
+      decodeURIComponent(authRequestMatch[1] ?? ""),
+      { ...(await readJson<{ reason?: unknown }>(request)), decision: authRequestMatch[2] === "approve" ? "approve" : "reject" },
+    ));
   }
 
   if (request.method === "POST" && path === "/api/invitations") {

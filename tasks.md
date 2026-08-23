@@ -62,3 +62,15 @@ Objetivo: Evitar suplantación ("buddy punching") y facilitar el uso a cuadrilla
 - [x] **Tarea 5.2 (Visor de Evidencia en Panel Admin)**: Miniaturas interactivas y visor modal a pantalla completa para que el administrador inspeccione las fotos de fichaje en el panel de hoy y en el historial.
 - [x] **Tarea 5.3 (Multi-idioma i18n)**: Sistema completo de internacionalización (`i18n.tsx`) con selector visual en cabecera (🇪🇸 Español, 🇺🇸 Inglés, 🇧🇷 Portugués) disponible tanto en pantalla de acceso como en la app principal.
 - [x] **Tarea 5.4 (QA & Verificación)**: Build de Vite completado con 0 errores, typecheck de frontend y worker con 0 errores y despliegue del worker a Cloudflare.
+
+---
+
+## 📌 Fase 6: Inicio de sesión con Google y aprobación administrativa *(En revisión)*
+
+Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, con aprobación del administrador para nuevos accesos y migraciones de cuentas existentes.
+
+- [x] **Tarea 6.1 (Backend/OAuth)**: Flujo Google OAuth con `state` de un solo uso, validación de firma RS256, emisor, audiencia y correo verificado.
+- [x] **Tarea 6.2 (Datos)**: Migración D1 `0004_google_auth.sql` para identidades Google, solicitudes pendientes y estados OAuth, con rollback manual documentado.
+- [x] **Tarea 6.3 (Aprobación)**: Endpoints protegidos para listar, aprobar y rechazar solicitudes; la aprobación registra auditoría y vincula o crea el trabajador.
+- [x] **Tarea 6.4 (Frontend)**: Botón de Google, opción de migración desde el menú de usuario y panel administrativo de solicitudes pendientes.
+- [ ] **Tarea 6.5 (Configuración/QA)**: Configurar OAuth Client ID, secretos y redirect URI en Cloudflare; ejecutar typecheck/build y prueba real de login en staging.

@@ -67,7 +67,11 @@ import {
   saveProject,
   signIn,
   signOut,
+  loadGoogleAuthRequests,
+  reviewGoogleAuthRequest,
+  startGoogleSignIn,
   type AdminSnapshot,
+  type GoogleAuthRequest,
   type LocationEvidence,
   type Project,
   type ShiftAction,
@@ -243,11 +247,18 @@ function PhotoEvidenceModal({
 function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
   const { t } = useI18n();
   const initialToken = invitationFromLocation();
+  const googleStatus = new URLSearchParams(window.location.search).get("google");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteToken, setInviteToken] = useState(initialToken);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    googleStatus === "pending"
+      ? "Your Google request is waiting for administrator approval. Try again after it is approved."
+      : googleStatus === "error"
+        ? "Google sign-in could not be completed. Please try again."
+        : "",
+  );
   const [busy, setBusy] = useState(false);
   const [registration, setRegistration] = useState(Boolean(initialToken) || window.location.pathname === "/join");
 
@@ -378,6 +389,26 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                 <ArrowRight className="h-4 w-4" />
               </button>
             </form>
+            <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="h-px flex-1 bg-border" />
+              <span>or</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setBusy(true);
+                startGoogleSignIn("signin");
+              }}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold transition hover:bg-muted disabled:cursor-wait disabled:opacity-60"
+            >
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-border text-xs font-bold">G</span>
+              Continue with Google
+            </button>
+            <p className="mt-3 text-center text-xs leading-5 text-muted-foreground">
+              New Google accounts and account migrations need administrator approval.
+            </p>
             <button
               type="button"
               onClick={() => {
@@ -1320,6 +1351,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [googleRequests, setGoogleRequests] = useState<GoogleAuthRequest[]>([]);
+  const [reviewingGoogleRequest, setReviewingGoogleRequest] = useState<string | null>(null);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1341,6 +1374,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       // Non-fatal if projects endpoint is still deploying
     }
   }, [t]);
+
+  const refreshGoogleRequests = useCallback(async () => {
+    try {
+      setGoogleRequests(await loadGoogleAuthRequests());
+    } catch {
+      // The request panel is supplementary to the time clock.
+    }
+  }, []);
 
   const calculateDateRange = useCallback((period: string) => {
     const today = new Date();
@@ -1400,12 +1441,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
   useEffect(() => {
     void refreshToday();
+    void refreshGoogleRequests();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
+      void refreshGoogleRequests();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday]);
+  }, [refreshToday, refreshGoogleRequests]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -1447,6 +1490,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setMessage(messageFrom(caught, "The invitation could not be created."));
     } finally {
       setInviteBusy(false);
+    }
+  }
+
+  async function reviewGoogleRequest(request: GoogleAuthRequest, decision: "approve" | "reject") {
+    setReviewingGoogleRequest(request.id);
+    setMessage("");
+    try {
+      await reviewGoogleAuthRequest(request.id, decision);
+      await refreshGoogleRequests();
+      setMessage(decision === "approve" ? "Google sign-in approved." : "Google sign-in request rejected.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The Google sign-in request could not be updated."));
+    } finally {
+      setReviewingGoogleRequest(null);
     }
   }
 
@@ -1542,6 +1599,51 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         </div>
 
         {message && <p role="status" className="rounded-2xl border border-border bg-card px-4 py-3 text-sm">{message}</p>}
+
+        {googleRequests.length > 0 && (
+          <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="google-requests-title">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="label-eyebrow">Account access</p>
+                <h2 id="google-requests-title" className="mt-1 text-lg font-semibold">Google sign-in requests</h2>
+                <p className="mt-2 text-sm text-muted-foreground">Approve a new worker or link Google to an existing account.</p>
+              </div>
+              <ShieldCheck className="h-5 w-5 text-brand" />
+            </div>
+            <div className="mt-5 divide-y divide-border rounded-2xl border border-border">
+              {googleRequests.map((request) => (
+                <div key={request.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{request.displayName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{request.email}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {request.requestType === "migration" ? "Link to existing account" : "New worker access"}
+                      {request.requestedAt ? ` · ${new Date(request.requestedAt).toLocaleString()}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={reviewingGoogleRequest === request.id}
+                      onClick={() => void reviewGoogleRequest(request, "reject")}
+                      className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
+                    >
+                      Reject
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reviewingGoogleRequest === request.id}
+                      onClick={() => void reviewGoogleRequest(request, "approve")}
+                      className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                    >
+                      {reviewingGoogleRequest === request.id ? "Saving…" : "Approve"}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {viewMode === "today" ? (
           <>
@@ -2127,6 +2229,14 @@ function Shell({
 }) {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [googleNotice] = useState(() => {
+    const status = new URLSearchParams(window.location.search).get("google");
+    if (status) window.history.replaceState({}, "", window.location.pathname);
+    if (status === "pending") return "Google sign-in request sent. An administrator must approve it before you can use Google to sign in.";
+    if (status === "success") return "Google sign-in is ready for this account.";
+    if (status === "error") return "Google sign-in could not be completed. Your current session is unchanged.";
+    return "";
+  });
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 border-b border-border/80 bg-background/95 backdrop-blur">
@@ -2145,7 +2255,8 @@ function Shell({
                 <span className="hidden sm:inline">{user.displayName}</span><Menu className="h-4 w-4" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-44 rounded-2xl border border-border bg-card p-2 shadow-lg">
+                <div className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card p-2 shadow-lg">
+                  <button type="button" onClick={() => startGoogleSignIn("link")} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><ShieldCheck className="h-4 w-4" /> Set up Google sign-in</button>
                   <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> {t("signOut")}</button>
                   <button type="button" onClick={() => setMenuOpen(false)} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> {t("close")}</button>
                 </div>
@@ -2154,7 +2265,10 @@ function Shell({
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-5 py-6 sm:px-8 sm:py-8">
+        {googleNotice && <p role="status" className="mb-5 rounded-2xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-foreground">{googleNotice}</p>}
+        {children}
+      </main>
       <footer className="mx-auto flex max-w-7xl items-center gap-2 px-5 pb-8 text-xs text-muted-foreground sm:px-8">
         <ShieldCheck className="h-3.5 w-3.5" /> {t("locationFooterNotice")}
       </footer>
