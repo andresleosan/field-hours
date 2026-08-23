@@ -16,6 +16,14 @@ export interface PayrollSettings {
   updatedAt: string;
 }
 
+export interface PayrollCalculationSettings {
+  hourlyRatePence: number;
+  payFrequency: "monthly";
+  payDay: number;
+  workerSocialSecurityRateBps: number;
+  employerSocialSecurityRateBps: number;
+}
+
 interface PayrollSettingsRow {
   organizationId: string;
   hourlyRatePence: number;
@@ -112,6 +120,21 @@ export async function getAdminPayrollSettings(env: Env, auth: AuthContext): Prom
 export async function getPayrollSchedule(env: Env, organizationId: string): Promise<{ payDay: number }> {
   const row = await loadSettings(env, organizationId);
   return { payDay: row?.payDay ?? 1 };
+}
+
+export async function getPayrollCalculationSettings(
+  env: Env,
+  organizationId: string,
+): Promise<PayrollCalculationSettings> {
+  const row = await loadSettings(env, organizationId);
+  if (!row) throw new ApiError(409, "PAYROLL_NOT_CONFIGURED", "Configure payroll settings before calculating payroll.");
+  return {
+    hourlyRatePence: row.hourlyRatePence,
+    payFrequency: row.payFrequency,
+    payDay: row.payDay,
+    workerSocialSecurityRateBps: row.workerSocialSecurityRateBps,
+    employerSocialSecurityRateBps: row.employerSocialSecurityRateBps,
+  };
 }
 
 export async function saveAdminPayrollSettings(

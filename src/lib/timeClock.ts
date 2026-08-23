@@ -49,6 +49,51 @@ export interface PayrollSettings {
   updatedAt: string;
 }
 
+export interface PayrollPreviewLine {
+  userId: string;
+  displayName: string;
+  email: string;
+  employeeNumber: string | null;
+  profileStatus: PayrollProfileStatus | "not_started";
+  shiftCount: number;
+  hours: number;
+  itisRate: number | null;
+  grossPay: number | null;
+  workerSocialSecurity: number | null;
+  incomeTax: number | null;
+  netPay: number | null;
+  employerSocialSecurity: number | null;
+  employerTotalCost: number | null;
+  warnings: string[];
+}
+
+export interface PayrollPreview {
+  periodStart: string;
+  periodEnd: string;
+  payDate: string;
+  currency: "GBP";
+  isEstimate: true;
+  rules: {
+    year: number;
+    minimumEarningsThreshold: number;
+    standardEarningsLimit: number;
+    upperEarningsLimit: number;
+    workerSocialSecurityRate: number;
+    employerSocialSecurityRate: number;
+    employerUpperBandRate: number;
+    defaultItisRate: number;
+  };
+  lines: PayrollPreviewLine[];
+  totals: {
+    grossPay: number;
+    workerSocialSecurity: number;
+    incomeTax: number;
+    netPay: number;
+    employerSocialSecurity: number;
+    employerTotalCost: number;
+  };
+}
+
 export interface WorkerPayrollSummary {
   timezone: string;
   asOfDate: string;
@@ -284,6 +329,10 @@ export async function saveAdminPayrollSettings(input: {
   employerSocialSecurityRate: number;
 }): Promise<PayrollSettings> {
   return backend.post<PayrollSettings>("/api/admin/payroll-settings", input, true);
+}
+
+export async function loadAdminPayrollPreview(): Promise<PayrollPreview> {
+  return backend.get<PayrollPreview>("/api/admin/payroll-preview");
 }
 
 export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {

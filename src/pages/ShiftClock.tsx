@@ -58,6 +58,7 @@ import {
   loadAdminHistory,
   loadAdminToday,
   loadAdminPayrollProfiles,
+  loadAdminPayrollPreview,
   loadAdminPayrollSettings,
   loadProjects,
   loadSession,
@@ -92,6 +93,7 @@ import {
   type LocationEvidence,
   type PayrollProfile,
   type PayrollProfileDetails,
+  type PayrollPreview,
   type PayrollSettings,
   type WorkerPayrollProfile,
   type WorkerPayrollSummary,
@@ -1797,6 +1799,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [salaryAdviceProfile, setSalaryAdviceProfile] = useState<PayrollProfile | null>(null);
   const [payrollSettings, setPayrollSettings] = useState<PayrollSettings | null>(null);
   const [payrollSettingsLoading, setPayrollSettingsLoading] = useState(false);
+  const [payrollPreview, setPayrollPreview] = useState<PayrollPreview | null>(null);
+  const [payrollPreviewLoading, setPayrollPreviewLoading] = useState(false);
+  const [payrollPreviewError, setPayrollPreviewError] = useState("");
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1868,6 +1873,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }, []);
 
+  const refreshPayrollPreview = useCallback(async () => {
+    setPayrollPreviewLoading(true);
+    setPayrollPreviewError("");
+    try {
+      setPayrollPreview(await loadAdminPayrollPreview());
+    } catch (caught) {
+      setPayrollPreview(null);
+      setPayrollPreviewError(messageFrom(caught, "Configure payroll before calculating a preview."));
+    } finally {
+      setPayrollPreviewLoading(false);
+    }
+  }, []);
+
   const calculateDateRange = useCallback((period: string) => {
     const today = new Date();
     const toYMD = (d: Date) => d.toISOString().slice(0, 10);
@@ -1931,6 +1949,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     void refreshRequestHistory();
     void refreshPayrollProfiles();
     void refreshPayrollSettings();
+    void refreshPayrollPreview();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
@@ -1939,9 +1958,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       void refreshRequestHistory();
       void refreshPayrollProfiles();
       void refreshPayrollSettings();
+      void refreshPayrollPreview();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles, refreshPayrollSettings]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles, refreshPayrollSettings, refreshPayrollPreview]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -2375,8 +2395,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         <PayrollSettingsCard
           settings={payrollSettings}
           loading={payrollSettingsLoading}
-          onSaved={setPayrollSettings}
+          onSaved={(saved) => {
+            setPayrollSettings(saved);
+            void refreshPayrollPreview();
+          }}
           onMessage={setMessage}
+        />
+
+        <PayrollPreviewCard
+          preview={payrollPreview}
+          loading={payrollPreviewLoading}
+          error={payrollPreviewError}
+          onRefresh={() => void refreshPayrollPreview()}
+          timezone={user.timezone}
         />
 
         {viewMode === "today" ? (
@@ -2964,6 +2995,77 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   );
 }
 
+function PayrollPreviewCard({
+  preview,
+  loading,
+  error,
+  onRefresh,
+  timezone,
+}: {
+  preview: PayrollPreview | null;
+  loading: boolean;
+  error: string;
+  onRefresh: () => void;
+  timezone: string;
+}) {
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-preview-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label-eyebrow">Payroll · estimate</p>
+          <h2 id="payroll-preview-title" className="mt-1 text-lg font-semibold">Automatic payroll preview</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Calculated from completed shifts, approved worker profiles and the configured Jersey rules. This is not yet an approval or payment instruction.</p>
+        </div>
+        <button type="button" onClick={onRefresh} disabled={loading} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-60">Refresh</button>
+      </div>
+      {loading ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">Calculating payroll preview…</p>
+      ) : error ? (
+        <p role="alert" className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-4 text-sm text-warning-foreground">{error}</p>
+      ) : preview ? (
+        <>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+            <span>Period: <strong className="text-foreground">{formatCalendarDate(preview.periodStart, timezone)} – {formatCalendarDate(preview.periodEnd, timezone)}</strong></span>
+            <span>Pay date: <strong className="text-foreground">{formatCalendarDate(preview.payDate, timezone)}</strong></span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 font-semibold text-warning-foreground">Estimate · rules {preview.rules.year}</span>
+          </div>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+            <SalaryMetric label="Gross pay" value={formatPounds(preview.totals.grossPay)} />
+            <SalaryMetric label="Worker Social Security" value={formatPounds(preview.totals.workerSocialSecurity)} />
+            <SalaryMetric label="ITIS" value={formatPounds(preview.totals.incomeTax)} />
+            <SalaryMetric label="Net pay" value={formatPounds(preview.totals.netPay)} />
+            <SalaryMetric label="Employer Social Security" value={formatPounds(preview.totals.employerSocialSecurity)} />
+            <SalaryMetric label="Employer cost" value={formatPounds(preview.totals.employerTotalCost)} />
+          </div>
+          <p className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">Guidance only: 2026 rules use the official monthly threshold £{preview.rules.minimumEarningsThreshold.toLocaleString()}, SEL £{preview.rules.standardEarningsLimit.toLocaleString()} and UEL £{preview.rules.upperEarningsLimit.toLocaleString()}. Confirm the result against Revenue Jersey before filing.</p>
+          <p className="mb-2 mt-5 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para revisar todas las columnas.</p>
+          <div className="overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[980px] text-left text-xs">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr><th className="px-4 py-3 font-semibold">Worker</th><th className="px-4 py-3 font-semibold">Hours</th><th className="px-4 py-3 font-semibold">Gross</th><th className="px-4 py-3 font-semibold">Worker SS</th><th className="px-4 py-3 font-semibold">ITIS</th><th className="px-4 py-3 font-semibold">Net pay</th><th className="px-4 py-3 font-semibold">Employer SS</th></tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {preview.lines.map((line) => (
+                  <tr key={line.userId}>
+                    <td className="px-4 py-3"><p className="font-semibold">{line.displayName}</p><p className="text-muted-foreground">{line.profileStatus.replace("_", " ")}{line.warnings.length > 0 ? ` · ${line.warnings[0]}` : ""}</p></td>
+                    <td className="px-4 py-3 font-mono">{line.hours.toFixed(2)}</td>
+                    <td className="px-4 py-3 font-mono">{line.grossPay === null ? "—" : formatPounds(line.grossPay)}</td>
+                    <td className="px-4 py-3 font-mono">{line.workerSocialSecurity === null ? "—" : formatPounds(line.workerSocialSecurity)}</td>
+                    <td className="px-4 py-3 font-mono">{line.incomeTax === null ? "—" : formatPounds(line.incomeTax)}{line.itisRate === null ? "" : ` (${line.itisRate.toFixed(2)}%)`}</td>
+                    <td className="px-4 py-3 font-mono font-semibold">{line.netPay === null ? "—" : formatPounds(line.netPay)}</td>
+                    <td className="px-4 py-3 font-mono">{line.employerSocialSecurity === null ? "—" : formatPounds(line.employerSocialSecurity)}</td>
+                  </tr>
+                ))}
+                {preview.lines.length === 0 && <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No workers found.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 function PayrollSettingsCard({
   settings,
   loading,
@@ -2981,8 +3083,8 @@ function PayrollSettingsCard({
   const [businessAddress, setBusinessAddress] = useState("");
   const [businessTaxReference, setBusinessTaxReference] = useState("");
   const [businessSocialReference, setBusinessSocialReference] = useState("");
-  const [workerSocialSecurityRate, setWorkerSocialSecurityRate] = useState("0");
-  const [employerSocialSecurityRate, setEmployerSocialSecurityRate] = useState("0");
+  const [workerSocialSecurityRate, setWorkerSocialSecurityRate] = useState("6");
+  const [employerSocialSecurityRate, setEmployerSocialSecurityRate] = useState("6.5");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

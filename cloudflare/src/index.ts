@@ -28,6 +28,7 @@ import {
   saveWorkerPayrollProfile,
 } from "./payrollProfiles";
 import { getWorkerPayrollSummary } from "./payrollSummary";
+import { getAdminPayrollPreview } from "./payrollCalculation";
 import {
   getAdminPayrollSettings,
   saveAdminPayrollSettings,
@@ -195,6 +196,11 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/payroll-settings") {
     const auth = await getAuth(request, env);
     return json(request, env, await getAdminPayrollSettings(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/admin/payroll-preview") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await getAdminPayrollPreview(env, auth, url.searchParams));
   }
 
   if (request.method === "POST" && path === "/api/admin/payroll-settings") {
