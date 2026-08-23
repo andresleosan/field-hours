@@ -642,3 +642,65 @@ export async function workerShiftHistory(
     };
   });
 }
+
+export async function adminAdjustShift(
+  env: Env,
+  auth: AuthContext,
+  body: {
+    shiftId?: unknown;
+    clockInAt?: unknown;
+    clockOutAt?: unknown;
+    reason?: unknown;
+  },
+): Promise<{ ok: true; shiftId: string }> {
+  requireRole(auth, "admin");
+  const shiftId = requireString(body.shiftId, "Shift ID", 5, 80);
+  const reason = requireString(body.reason, "Adjustment reason", 3, 300);
+  const clockInAt = typeof body.clockInAt === "string" && body.clockInAt ? body.clockInAt : null;
+  const clockOutAt = typeof body.clockOutAt === "string" && body.clockOutAt ? body.clockOutAt : null;
+
+  const currentShift = await env.DB.prepare(
+    `SELECT id, user_id, clock_in_at, clock_out_at, state
+     FROM workforce_shifts
+     WHERE id = ?1 AND organization_id = ?2 LIMIT 1`,
+  ).bind(shiftId, auth.user.organizationId).first<{
+    id: string;
+    user_id: string;
+    clock_in_at: string;
+    clock_out_at: string | null;
+    state: string;
+  }>();
+
+  if (!currentShift) {
+    throw new ApiError(404, "NOT_FOUND", "The specified shift was not found.");
+  }
+
+  const finalClockIn = clockInAt || currentShift.clock_in_at;
+  const finalClockOut = clockOutAt || currentShift.clock_out_at;
+  const finalState = finalClockOut ? "complete" : currentShift.state;
+
+  const metadata = JSON.stringify({
+    reason,
+    old_clock_in: currentShift.clock_in_at,
+    old_clock_out: currentShift.clock_out_at,
+    new_clock_in: finalClockIn,
+    new_clock_out: finalClockOut,
+    target_user_id: currentShift.user_id,
+    adjusted_by: auth.user.email,
+  });
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE workforce_shifts
+       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3
+       WHERE id = ?4 AND organization_id = ?5`,
+    ).bind(finalClockIn, finalClockOut, finalState, shiftId, auth.user.organizationId),
+    env.DB.prepare(
+      `INSERT INTO workforce_audit_events
+       (organization_id, actor_user_id, action, subject_id, metadata_json)
+       VALUES (?1, ?2, 'shift.admin_adjusted', ?3, ?4)`,
+    ).bind(auth.user.organizationId, auth.user.id, shiftId, metadata),
+  ]);
+
+  return { ok: true, shiftId };
+}

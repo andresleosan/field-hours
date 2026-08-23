@@ -16,6 +16,7 @@ import {
   readJson,
 } from "./http";
 import {
+  adminAdjustShift,
   adminShiftHistory,
   adminToday,
   performShiftAction,
@@ -102,6 +103,22 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/shifts/history") {
     const auth = await getAuth(request, env);
     return json(request, env, await adminShiftHistory(env, auth, url.searchParams));
+  }
+
+  if (request.method === "POST" && path === "/api/admin/shifts/adjust") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const result = await adminAdjustShift(
+      env,
+      auth,
+      await readJson<{
+        shiftId?: unknown;
+        clockInAt?: unknown;
+        clockOutAt?: unknown;
+        reason?: unknown;
+      }>(request),
+    );
+    return json(request, env, result);
   }
 
   if (request.method === "POST" && path === "/api/shift/action") {

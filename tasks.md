@@ -5,7 +5,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 ---
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 1 — Historial, Reportes y Exportación de Horas (COMPLETADA)
+- **Fase Actual**: Fase 2 — Ajuste y Corrección Manual de Turnos por el Administrador (COMPLETADA)
 - **Última Actualización**: 22 de Agosto de 2026
 
 ---
@@ -23,12 +23,13 @@ Objetivo: Permitir al administrador y a los trabajadores consultar todas sus jor
 
 ---
 
-## 📌 Fase 2: Ajuste y Corrección Manual de Turnos por el Administrador
+## 📌 Fase 2: Ajuste y Corrección Manual de Turnos por el Administrador *(Completada)*
 Objetivo: Resolver situaciones reales en obra (olvidos de fichar salida, batería agotada) manteniendo auditoría estricta.
 
-- [ ] **Tarea 2.1 (Backend)**: Crear endpoint `/api/admin/shifts/adjust` en Cloudflare Workers para modificar o cerrar un turno pendiente, registrando el cambio en `workforce_audit_events`.
-- [ ] **Tarea 2.2 (Frontend)**: Botón de "Ajustar turno" en el panel de administrador con formulario para hora corregida y motivo obligatorio.
-- [ ] **Tarea 2.3 (Auditoría)**: Indicador visual en turnos ajustados manualmente para total transparencia.
+- [x] **Tarea 2.1 (Backend)**: Crear endpoint `POST /api/admin/shifts/adjust` en Cloudflare Workers para modificar o cerrar un turno pendiente, registrando el cambio en `workforce_audit_events`.
+- [x] **Tarea 2.2 (Frontend)**: Botón de "Adjust" en la tabla de historial y en el modal de trabajador con formulario para fechas de entrada/salida y motivo obligatorio de ajuste.
+- [x] **Tarea 2.3 (Auditoría)**: Registro inmutable con usuario auditor, motivo del cambio, horas previas y horas corregidas.
+- [x] **Tarea 2.4 (QA & Verificación)**: Verificación de compilación (0 errores de tipos) y despliegue.
 
 ---
 

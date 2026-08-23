@@ -163,6 +163,15 @@ export async function loadWorkerHistory(params?: {
   return backend.get<ShiftHistoryRecord[]>(`/api/worker/shifts/history${qStr ? `?${qStr}` : ""}`);
 }
 
+export async function adjustShift(input: {
+  shiftId: string;
+  clockInAt?: string;
+  clockOutAt?: string;
+  reason: string;
+}): Promise<{ ok: true; shiftId: string }> {
+  return backend.post<{ ok: true; shiftId: string }>("/api/admin/shifts/adjust", input, true);
+}
+
 export function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

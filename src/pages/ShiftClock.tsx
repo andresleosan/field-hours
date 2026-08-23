@@ -16,6 +16,7 @@ import {
   Copy,
   Crosshair,
   Download,
+  Edit3,
   Filter,
   History,
   Info,
@@ -33,6 +34,7 @@ import {
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import {
   actionLabel,
+  adjustShift,
   changePassword,
   createInvitation,
   formatMinutes,
@@ -586,6 +588,128 @@ function toPerson(row: AdminSnapshot): Person {
   };
 }
 
+function AdjustShiftModal({
+  shift,
+  onClose,
+  onSaved,
+}: {
+  shift: ShiftHistoryRecord;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [clockIn, setClockIn] = useState(
+    shift.clock_in_at ? new Date(shift.clock_in_at).toISOString().slice(0, 16) : ""
+  );
+  const [clockOut, setClockOut] = useState(
+    shift.clock_out_at ? new Date(shift.clock_out_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16)
+  );
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!reason.trim()) {
+      setError("Please provide a reason for this audit adjustment.");
+      return;
+    }
+    setError("");
+    setBusy(true);
+    try {
+      await adjustShift({
+        shiftId: shift.id,
+        clockInAt: clockIn ? new Date(clockIn).toISOString() : undefined,
+        clockOutAt: clockOut ? new Date(clockOut).toISOString() : undefined,
+        reason: reason.trim(),
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(messageFrom(caught, "Could not save shift adjustment."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-border pb-4">
+          <div>
+            <p className="label-eyebrow text-warning font-semibold">Audit Adjustment</p>
+            <h2 className="mt-1 text-xl font-bold">Adjust Shift Times</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{shift.display_name} · {shift.work_date}</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">Clock In Time</label>
+            <input
+              type="datetime-local"
+              value={clockIn}
+              onChange={(e) => setClockIn(e.target.value)}
+              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">Clock Out Time</label>
+            <input
+              type="datetime-local"
+              value={clockOut}
+              onChange={(e) => setClockOut(e.target.value)}
+              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-muted-foreground uppercase">Reason for Adjustment *</label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="e.g. Worker forgot to clock out at the end of the shift"
+              rows={3}
+              required
+              className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </div>
+
+          {error && <p className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Adjustment
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const [viewMode, setViewMode] = useState<"today" | "history">("today");
   const [people, setPeople] = useState<Person[]>([]);
@@ -600,6 +724,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedPersonHistory, setSelectedPersonHistory] = useState<ShiftHistoryRecord[]>([]);
   const [selectedPersonLoading, setSelectedPersonLoading] = useState(false);
+  const [shiftToAdjust, setShiftToAdjust] = useState<ShiftHistoryRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -972,7 +1097,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <th className="px-6 py-3.5 font-semibold">Break</th>
                       <th className="px-6 py-3.5 font-semibold">Net Hours</th>
                       <th className="px-6 py-3.5 font-semibold">Status</th>
-                      <th className="px-6 py-3.5 font-semibold text-right">Evidence</th>
+                      <th className="px-6 py-3.5 font-semibold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -1022,18 +1147,27 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          {r.events.length > 0 ? (
-                            <a
-                              href={locationLink(r.events[0].location)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-xs font-semibold text-info hover:underline"
+                          <div className="inline-flex items-center gap-2">
+                            {r.events.length > 0 && (
+                              <a
+                                href={locationLink(r.events[0].location)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-info hover:bg-muted"
+                                title="Open GPS Map"
+                              >
+                                <MapPin className="h-3.5 w-3.5" /> Map ({r.events.length})
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setShiftToAdjust(r)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+                              title="Audit Adjust Shift"
                             >
-                              <MapPin className="h-3.5 w-3.5" /> Map ({r.events.length})
-                            </a>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                              <Edit3 className="h-3.5 w-3.5" /> Adjust
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1085,19 +1219,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         <th className="px-4 py-2.5">Clock Out</th>
                         <th className="px-4 py-2.5">Break</th>
                         <th className="px-4 py-2.5">Total Hours</th>
+                        <th className="px-4 py-2.5 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {selectedPersonLoading && (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                          <td colSpan={6} className="py-6 text-center text-muted-foreground">
                             Loading worker past shifts…
                           </td>
                         </tr>
                       )}
                       {!selectedPersonLoading && selectedPersonHistory.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="py-6 text-center text-muted-foreground">
+                          <td colSpan={6} className="py-6 text-center text-muted-foreground">
                             No past shifts recorded for this worker yet.
                           </td>
                         </tr>
@@ -1117,6 +1252,18 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           <td className="px-4 py-2.5 font-mono font-bold text-foreground">
                             {formatMinutes(s.net_minutes)}
                           </td>
+                          <td className="px-4 py-2.5 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedPerson(null);
+                                setShiftToAdjust(s);
+                              }}
+                              className="rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+                            >
+                              Adjust
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1125,6 +1272,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               </div>
             </section>
           </div>
+        )}
+
+        {/* Adjust Shift Modal */}
+        {shiftToAdjust && (
+          <AdjustShiftModal
+            shift={shiftToAdjust}
+            onClose={() => setShiftToAdjust(null)}
+            onSaved={() => {
+              setMessage("Shift adjusted successfully with audit event recorded.");
+              void refreshHistory();
+              void refreshToday();
+            }}
+          />
         )}
       </div>
     </Shell>
