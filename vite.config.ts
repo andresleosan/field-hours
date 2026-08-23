@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => ({
     port: 5173,
     proxy: {
       "/api": {
-        target: "https://field-hours-api.field-hours-jedi-9f716a.workers.dev",
+        target: "https://field-hours-api.andres-san1404.workers.dev",
         changeOrigin: true,
         secure: true,
         headers: {

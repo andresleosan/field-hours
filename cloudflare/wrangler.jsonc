@@ -18,7 +18,7 @@
     {
       "binding": "DB",
       "database_name": "field-hours-prod",
-      "database_id": "9eeb9537-38e7-4e79-b4a2-96d581f2c213",
+      "database_id": "63196c41-282b-4839-ab61-27f104defb89",
       "migrations_dir": "migrations"
     }
   ]

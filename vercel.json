@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://field-hours-api.field-hours-jedi-9f716a.workers.dev/api/:path*"
+      "destination": "https://field-hours-api.andres-san1404.workers.dev/api/:path*"
     },
     {
       "source": "/(.*)",
