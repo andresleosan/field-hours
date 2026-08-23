@@ -6,16 +6,16 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ## Fase 7: Payroll, historial administrativo y experiencia móvil (Planificada)
 
-> Estado: el perfil de nómina de Jersey está implementado localmente y pasa typecheck/build/lint; queda pendiente configurar la clave de cifrado, aplicar la migración D1 con backup verificado y hacer la verificación en producción antes de marcarlo como completado.
+> Estado: el perfil de nómina de Jersey está desplegado en Worker/Vercel; la migración D1 0006 y la clave de cifrado están aplicadas en producción. Los cálculos fiscales, acumulados y payslips siguen pendientes.
 
 - [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
-- [ ] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo.
+- [x] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo. Validado en UI móvil, typecheck/build/lint y despliegue de Worker/Vercel.
 - [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.
 - [ ] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes.
 - [ ] Permitir al administrador exportar payslips / recibos de salario con el formato de Salary Advice proporcionado.
 - [ ] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip.
-- [ ] Crear un perfil de nómina de captura única por trabajador: nombre legal, dirección, número de empleado, número de seguro social, Tax Reference, Social Reference, porcentaje ITIS y datos bancarios si el negocio los necesita.
-- [ ] Proteger los datos sensibles de nómina con cifrado, acceso restringido al dueño/admin, enmascarado en pantalla, auditoría y opción de actualización controlada.
+- [x] Crear un perfil de nómina de captura única por trabajador: nombre legal, dirección, número de empleado, número de seguro social, Tax Reference, Social Reference, porcentaje ITIS y datos bancarios si el negocio los necesita. Validado con migración D1 0006 y smoke checks de producción.
+- [x] Proteger los datos sensibles de nómina con cifrado, acceso restringido al dueño/admin, enmascarado en pantalla, auditoría y opción de actualización controlada. AES-256-GCM, clave secreta de Worker, CSRF, ruta de revelado admin auditada y backup verificado.
 - [ ] Permitir que el administrador configure tarifa por hora, periodo de pago, datos del negocio y reglas fiscales de Jersey antes de calcular la nómina.
 - [ ] Calcular automáticamente el primer día de cada mes: horas aprobadas, salario bruto, seguro social del trabajador, ITIS/impuestos, deducciones, salario neto y totales acumulados.
 - [ ] Crear un proceso de revisión y aprobación de nómina antes de marcar el pago como listo; no ejecutar transferencias bancarias automáticamente sin confirmación del administrador.
