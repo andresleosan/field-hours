@@ -10,7 +10,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 - [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
 - [x] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo. Validado en UI móvil, typecheck/build/lint y despliegue de Worker/Vercel.
-- [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.
+- [x] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable. Validado con Playwright/Chrome a 390px para trabajador y admin, sin overflow de página, y desplegado en Vercel.
 - [x] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes. Validado con resumen de turnos completados, prueba móvil y smoke checks de producción.
 - [ ] Permitir al administrador exportar payslips / recibos de salario con el formato de Salary Advice proporcionado.
 - [x] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip. Validado con formulario de captura, actualización y revisión administrativa.
