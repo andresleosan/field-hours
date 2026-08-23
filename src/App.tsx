@@ -5,10 +5,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Loader2 } from "lucide-react";
-import Index from "./pages/Index";
+import ShiftClock from "./pages/ShiftClock";
 
-// Index stays eager (it is the entry point). Everything else loads on demand so
-// the first paint does not carry xlsx, html5-qrcode and the whole dialog tree.
+// Lazy load additional management modules on demand
+const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Builders = lazy(() => import("./pages/Builders"));
@@ -17,7 +17,6 @@ const ProjectDetails = lazy(() => import("./pages/ProjectDetails"));
 const Statements = lazy(() => import("./pages/Statements"));
 const Storage = lazy(() => import("./pages/Storage"));
 const Invite = lazy(() => import("./pages/Invite"));
-const ShiftClock = lazy(() => import("./pages/ShiftClock"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -43,7 +42,13 @@ const App = () => (
       <BrowserRouter>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
-            <Route path="/" element={<Index />} />
+            {/* Primary Field Hours App (Cloudflare D1 Workforce Time Clock) */}
+            <Route path="/" element={<ShiftClock />} />
+            <Route path="/join" element={<ShiftClock />} />
+            <Route path="/clock" element={<ShiftClock />} />
+
+            {/* Construction Management & Reports Subsystems */}
+            <Route path="/buildtrack" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/builders" element={<Builders />} />
@@ -52,8 +57,8 @@ const App = () => (
             <Route path="/statements" element={<Statements />} />
             <Route path="/storage" element={<Storage />} />
             <Route path="/invite" element={<Invite />} />
-            <Route path="/clock" element={<ShiftClock />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+            {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
