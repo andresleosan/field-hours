@@ -4,6 +4,15 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
+## Fase 7: Payroll, historial administrativo y experiencia móvil (Planificada)
+
+- [ ] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha.
+- [ ] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo.
+- [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.
+- [ ] Permitir que los trabajadores vean sus horas acumuladas y la fecha estimada de cobro del primer día de cada mes.
+- [ ] Permitir al administrador exportar payslips / recibos de salario con el formato de Salary Advice proporcionado.
+- [ ] Permitir que cada trabajador complete y mantenga los datos necesarios para generar su payslip.
+
 ## 📊 Estado General del Proyecto
 - **Fase Actual**: Fase 5 — Verificación Fotográfica Selfie y Multi-idioma (COMPLETADA)
 - **Última Actualización**: 22 de Agosto de 2026
