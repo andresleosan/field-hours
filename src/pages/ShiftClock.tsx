@@ -56,8 +56,10 @@ import {
   formatWorkedDuration,
   loadAdminHistory,
   loadAdminToday,
+  loadAdminPayrollProfiles,
   loadProjects,
   loadSession,
+  loadWorkerPayrollProfile,
   loadWorkerHistory,
   loadWorkerShift,
   nextState,
@@ -74,6 +76,9 @@ import {
   reviewGoogleAuthRequest,
   requestPasswordReset,
   rejectPasswordReset,
+  revealAdminPayrollProfile,
+  reviewAdminPayrollProfile,
+  saveWorkerPayrollProfile,
   completePasswordReset,
   startGoogleSignIn,
   type AdminSnapshot,
@@ -81,6 +86,9 @@ import {
   type PasswordResetRequest,
   type RequestHistoryItem,
   type LocationEvidence,
+  type PayrollProfile,
+  type PayrollProfileDetails,
+  type WorkerPayrollProfile,
   type Project,
   type ShiftAction,
   type ShiftEvent,
@@ -671,6 +679,8 @@ function PasswordResetScreen({ token, onDone }: { token: string; onDone: () => v
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const { t } = useI18n();
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
+  const [payrollProfile, setPayrollProfile] = useState<WorkerPayrollProfile | null>(null);
+  const [payrollProfileLoading, setPayrollProfileLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [history, setHistory] = useState<ShiftHistoryRecord[]>([]);
@@ -714,6 +724,14 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       setHistory(pastShifts);
     } catch {
       // Non-fatal
+    }
+
+    try {
+      setPayrollProfile(await loadWorkerPayrollProfile());
+    } catch {
+      // Non-fatal while the payroll profile migration is being rolled out.
+    } finally {
+      setPayrollProfileLoading(false);
     }
   }, []);
 
@@ -995,6 +1013,15 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           }
         />
 
+        <WorkerPayrollProfileForm
+          profile={payrollProfile}
+          loading={payrollProfileLoading}
+          onSaved={(saved) => {
+            setPayrollProfile(saved);
+            setMessage("Payroll details saved and sent for administrator review.");
+          }}
+        />
+
         {/* Worker Shift History Section */}
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="flex items-center justify-between border-b border-border pb-4">
@@ -1055,8 +1082,203 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             onClose={() => setPhotoModal(null)}
           />
         )}
+
       </div>
     </Shell>
+  );
+}
+
+function WorkerPayrollProfileForm({
+  profile,
+  loading,
+  onSaved,
+}: {
+  profile: WorkerPayrollProfile | null;
+  loading: boolean;
+  onSaved: (profile: WorkerPayrollProfile) => void;
+}) {
+  const [form, setForm] = useState(() => payrollFormFromProfile(profile));
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    setForm(payrollFormFromProfile(profile));
+  }, [profile?.userId, profile?.submittedAt, profile?.status]);
+
+  if (loading) {
+    return (
+      <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-profile-title">
+        <p className="text-sm text-muted-foreground">Loading payroll profile…</p>
+      </section>
+    );
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    const itisRate = Number(form.itisRate);
+    if (!Number.isFinite(itisRate) || itisRate < 0 || itisRate > 100 || Math.round(itisRate * 100) !== itisRate * 100) {
+      setError("ITIS must be a percentage between 0 and 100, with up to two decimal places.");
+      setBusy(false);
+      return;
+    }
+    try {
+      const saved = await saveWorkerPayrollProfile({
+        legalName: form.legalName,
+        address: form.address,
+        employeeNumber: form.employeeNumber,
+        socialSecurityNumber: form.socialSecurityNumber || undefined,
+        taxReference: form.taxReference || undefined,
+        socialReference: form.socialReference || undefined,
+        bankAccountName: form.bankAccountName || undefined,
+        bankSortCode: form.bankSortCode || undefined,
+        bankAccountNumber: form.bankAccountNumber || undefined,
+        itisRate,
+      });
+      setForm((previous) => ({
+        ...previous,
+        socialSecurityNumber: "",
+        taxReference: "",
+        socialReference: "",
+        bankAccountName: "",
+        bankSortCode: "",
+        bankAccountNumber: "",
+      }));
+      onSaved(saved);
+    } catch (caught) {
+      setError(messageFrom(caught, "The payroll profile could not be saved."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const statusLabel = profile?.status === "approved"
+    ? "Approved by administrator"
+    : profile?.status === "changes_requested"
+      ? "Changes requested"
+      : profile?.status === "pending_review"
+        ? "Waiting for administrator review"
+        : "Not submitted";
+
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-profile-title">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="label-eyebrow">Payroll profile · Jersey</p>
+          <h2 id="payroll-profile-title" className="mt-1 text-lg font-semibold">Your salary and tax details</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Complete this once so the administrator can prepare your monthly Salary Advice.</p>
+        </div>
+        <Briefcase className="h-5 w-5 text-muted-foreground" />
+      </div>
+      <div className="mt-4 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-xs">
+        <span className="font-semibold">Status:</span> {statusLabel}
+        {profile?.reviewNote && <span className="ml-2 text-muted-foreground">· {profile.reviewNote}</span>}
+      </div>
+      <form className="mt-5 space-y-5" onSubmit={(event) => void submit(event)}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PayrollInput label="Legal name" value={form.legalName} onChange={(value) => setForm({ ...form, legalName: value })} required autoComplete="name" />
+          <PayrollInput label="Employee number" value={form.employeeNumber} onChange={(value) => setForm({ ...form, employeeNumber: value })} required autoComplete="off" />
+        </div>
+        <PayrollInput label="Home address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} required autoComplete="street-address" />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <PayrollInput label="Social security number" type="password" value={form.socialSecurityNumber} onChange={(value) => setForm({ ...form, socialSecurityNumber: value })} required={!profile?.hasSocialSecurityNumber} autoComplete="off" placeholder={profile?.hasSocialSecurityNumber ? "Already stored · leave blank to keep" : "Required"} />
+          <PayrollInput label="Tax Reference" type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? "Already stored · leave blank to keep" : "Required"} />
+          <PayrollInput label="Social Reference" type="password" value={form.socialReference} onChange={(value) => setForm({ ...form, socialReference: value })} required={!profile?.hasSocialReference} autoComplete="off" placeholder={profile?.hasSocialReference ? "Already stored · leave blank to keep" : "Required"} />
+          <PayrollInput label="ITIS percentage" type="number" min="0" max="100" step="0.01" value={form.itisRate} onChange={(value) => setForm({ ...form, itisRate: value })} required placeholder="Example: 15" suffix="%" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold">Bank details (optional)</p>
+          <p className="mt-1 text-xs text-muted-foreground">Only complete these if the business needs them for payment.</p>
+          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+            <PayrollInput label="Account name" type="password" value={form.bankAccountName} onChange={(value) => setForm({ ...form, bankAccountName: value })} autoComplete="off" />
+            <PayrollInput label="Sort code" type="password" value={form.bankSortCode} onChange={(value) => setForm({ ...form, bankSortCode: value })} autoComplete="off" />
+            <PayrollInput label="Account number" type="password" value={form.bankAccountNumber} onChange={(value) => setForm({ ...form, bankAccountNumber: value })} autoComplete="off" />
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">Sensitive identifiers are encrypted. The administrator must review this profile before using it for payroll.</p>
+        {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+        <button type="submit" disabled={busy} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60 sm:w-auto">
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          {busy ? "Saving…" : profile ? "Update payroll profile" : "Save payroll profile"}
+        </button>
+      </form>
+    </section>
+  );
+}
+
+type PayrollFormState = {
+  legalName: string;
+  address: string;
+  employeeNumber: string;
+  socialSecurityNumber: string;
+  taxReference: string;
+  socialReference: string;
+  bankAccountName: string;
+  bankSortCode: string;
+  bankAccountNumber: string;
+  itisRate: string;
+};
+
+function payrollFormFromProfile(profile: WorkerPayrollProfile | null): PayrollFormState {
+  return {
+    legalName: profile?.legalName ?? "",
+    address: profile?.address ?? "",
+    employeeNumber: profile?.employeeNumber ?? "",
+    socialSecurityNumber: "",
+    taxReference: "",
+    socialReference: "",
+    bankAccountName: "",
+    bankSortCode: "",
+    bankAccountNumber: "",
+    itisRate: profile?.itisRate === null || profile?.itisRate === undefined ? "" : String(profile.itisRate),
+  };
+}
+
+function PayrollInput({
+  label,
+  value,
+  onChange,
+  required,
+  type = "text",
+  autoComplete,
+  placeholder,
+  min,
+  max,
+  step,
+  suffix,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+  autoComplete?: string;
+  placeholder?: string;
+  min?: string;
+  max?: string;
+  step?: string;
+  suffix?: string;
+}) {
+  return (
+    <label className="block text-sm font-medium">
+      {label}{required && <span className="ml-1 text-destructive">*</span>}
+      <span className="relative mt-1.5 block">
+        <input
+          type={type}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          required={required}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          min={min}
+          max={max}
+          step={step}
+          className={`h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${suffix ? "pr-9" : ""}`}
+        />
+        {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">{suffix}</span>}
+      </span>
+    </label>
   );
 }
 
@@ -1510,6 +1732,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [passwordResetLink, setPasswordResetLink] = useState("");
   const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
   const [requestHistoryLoading, setRequestHistoryLoading] = useState(false);
+  const [payrollProfiles, setPayrollProfiles] = useState<PayrollProfile[]>([]);
+  const [payrollProfilesLoading, setPayrollProfilesLoading] = useState(false);
+  const [payrollReviewing, setPayrollReviewing] = useState<string | null>(null);
+  const [payrollRevealBusy, setPayrollRevealBusy] = useState<string | null>(null);
+  const [revealedPayrollProfile, setRevealedPayrollProfile] = useState<PayrollProfileDetails | null>(null);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1556,6 +1783,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       // The history panel is supplementary to the time clock.
     } finally {
       setRequestHistoryLoading(false);
+    }
+  }, []);
+
+  const refreshPayrollProfiles = useCallback(async () => {
+    setPayrollProfilesLoading(true);
+    try {
+      setPayrollProfiles(await loadAdminPayrollProfiles());
+    } catch {
+      // The payroll panel is supplementary while its migration is being rolled out.
+    } finally {
+      setPayrollProfilesLoading(false);
     }
   }, []);
 
@@ -1620,15 +1858,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     void refreshGoogleRequests();
     void refreshPasswordResetRequests();
     void refreshRequestHistory();
+    void refreshPayrollProfiles();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
       void refreshGoogleRequests();
       void refreshPasswordResetRequests();
       void refreshRequestHistory();
+      void refreshPayrollProfiles();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -1722,6 +1962,32 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setMessage("Enlace copiado.");
     } catch {
       setMessage("No se pudo copiar el enlace; selecciónalo manualmente.");
+    }
+  }
+
+  async function reviewPayrollProfile(profile: PayrollProfile, decision: "approved" | "changes_requested") {
+    setPayrollReviewing(profile.userId);
+    setMessage("");
+    try {
+      await reviewAdminPayrollProfile(profile.userId, decision, decision === "changes_requested" ? "Please review and update the payroll details." : undefined);
+      await refreshPayrollProfiles();
+      setMessage(decision === "approved" ? "Payroll profile approved." : "Changes requested for the payroll profile.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The payroll profile could not be reviewed."));
+    } finally {
+      setPayrollReviewing(null);
+    }
+  }
+
+  async function revealPayrollProfile(profile: PayrollProfile) {
+    setPayrollRevealBusy(profile.userId);
+    setMessage("");
+    try {
+      setRevealedPayrollProfile(await revealAdminPayrollProfile(profile.userId));
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The payroll details could not be opened."));
+    } finally {
+      setPayrollRevealBusy(null);
     }
   }
 
@@ -1959,6 +2225,67 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 )}
                 {requestHistoryLoading && (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Loading history…</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-profiles-title">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="label-eyebrow">Payroll · Jersey</p>
+              <h2 id="payroll-profiles-title" className="mt-1 text-lg font-semibold">Worker payroll profiles</h2>
+              <p className="mt-2 text-sm text-muted-foreground">Review ITIS and the payroll identifiers submitted by each worker. Sensitive values stay masked until explicitly revealed.</p>
+            </div>
+            <button type="button" onClick={() => void refreshPayrollProfiles()} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted">Refresh</button>
+          </div>
+          <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
+            <table className="w-full min-w-[860px] text-left text-xs">
+              <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Worker</th>
+                  <th className="px-4 py-3 font-semibold">ITIS</th>
+                  <th className="px-4 py-3 font-semibold">Identifiers</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 text-right font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {payrollProfiles.map((profile) => (
+                  <tr key={profile.userId}>
+                    <td className="px-4 py-3">
+                      <p className="font-semibold">{profile.displayName}</p>
+                      <p className="text-muted-foreground">{profile.email}</p>
+                      {profile.employeeNumber && <p className="mt-1 text-muted-foreground">Employee: {profile.employeeNumber}</p>}
+                    </td>
+                    <td className="px-4 py-3 font-mono font-semibold">{profile.itisRate === null ? "—" : `${profile.itisRate.toFixed(2)}%`}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {profile.status === "not_started" ? "Not submitted" : `SSN ${profile.maskedSocialSecurityNumber ?? "—"} · Tax ${profile.maskedTaxReference ?? "—"} · Social ${profile.maskedSocialReference ?? "—"}`}
+                    </td>
+                    <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 font-semibold capitalize">{profile.status.replace("_", " ")}</span></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {profile.status !== "not_started" && (
+                          <button type="button" onClick={() => void revealPayrollProfile(profile)} disabled={payrollRevealBusy === profile.userId} className="rounded-xl border border-border px-3 py-2 font-semibold hover:bg-muted disabled:opacity-60">
+                            {payrollRevealBusy === profile.userId ? "Opening…" : "View details"}
+                          </button>
+                        )}
+                        {profile.status === "pending_review" && (
+                          <>
+                            <button type="button" onClick={() => void reviewPayrollProfile(profile, "changes_requested")} disabled={payrollReviewing === profile.userId} className="rounded-xl border border-border px-3 py-2 font-semibold hover:bg-muted disabled:opacity-60">Request changes</button>
+                            <button type="button" onClick={() => void reviewPayrollProfile(profile, "approved")} disabled={payrollReviewing === profile.userId} className="rounded-xl bg-primary px-3 py-2 font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Approve</button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {!payrollProfilesLoading && payrollProfiles.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">No workers found.</td></tr>
+                )}
+                {payrollProfilesLoading && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Loading payroll profiles…</td></tr>
                 )}
               </tbody>
             </table>
@@ -2506,8 +2833,44 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             onClose={() => setPhotoModal(null)}
           />
         )}
+
+        {revealedPayrollProfile && (
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/30 p-4 sm:items-center" role="presentation" onClick={() => setRevealedPayrollProfile(null)}>
+            <section role="dialog" aria-modal="true" aria-labelledby="payroll-details-title" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
+              <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
+                <div>
+                  <p className="label-eyebrow">Restricted payroll data</p>
+                  <h2 id="payroll-details-title" className="mt-1 text-xl font-semibold">{revealedPayrollProfile.displayName}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">This access was recorded in the audit trail.</p>
+                </div>
+                <button type="button" onClick={() => setRevealedPayrollProfile(null)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close payroll details"><X className="h-5 w-5" /></button>
+              </div>
+              <dl className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
+                <PayrollDetail label="Legal name" value={revealedPayrollProfile.legalName} />
+                <PayrollDetail label="Employee number" value={revealedPayrollProfile.employeeNumber} />
+                <PayrollDetail label="Address" value={revealedPayrollProfile.address} />
+                <PayrollDetail label="ITIS" value={revealedPayrollProfile.itisRate === null ? null : `${revealedPayrollProfile.itisRate.toFixed(2)}%`} />
+                <PayrollDetail label="Social security number" value={revealedPayrollProfile.socialSecurityNumber} />
+                <PayrollDetail label="Tax Reference" value={revealedPayrollProfile.taxReference} />
+                <PayrollDetail label="Social Reference" value={revealedPayrollProfile.socialReference} />
+                <PayrollDetail label="Bank account name" value={revealedPayrollProfile.bankAccountName} />
+                <PayrollDetail label="Sort code" value={revealedPayrollProfile.bankSortCode} />
+                <PayrollDetail label="Account number" value={revealedPayrollProfile.bankAccountNumber} />
+              </dl>
+            </section>
+          </div>
+        )}
       </div>
     </Shell>
+  );
+}
+
+function PayrollDetail({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="rounded-2xl border border-border bg-muted/30 p-3">
+      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words font-medium">{value || "—"}</dd>
+    </div>
   );
 }
 

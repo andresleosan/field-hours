@@ -1,5 +1,41 @@
 import { backend, type SessionUser } from "./safeClient";
 
+export type PayrollProfileStatus = "not_started" | "pending_review" | "approved" | "changes_requested";
+
+export interface PayrollProfile {
+  userId: string;
+  displayName: string;
+  email: string;
+  legalName: string | null;
+  address: string | null;
+  employeeNumber: string | null;
+  maskedSocialSecurityNumber: string | null;
+  maskedTaxReference: string | null;
+  maskedSocialReference: string | null;
+  maskedBankAccountNumber: string | null;
+  itisRate: number | null;
+  status: PayrollProfileStatus;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+}
+
+export interface WorkerPayrollProfile extends PayrollProfile {
+  hasSocialSecurityNumber: boolean;
+  hasTaxReference: boolean;
+  hasSocialReference: boolean;
+  hasBankDetails: boolean;
+}
+
+export interface PayrollProfileDetails extends PayrollProfile {
+  socialSecurityNumber: string;
+  taxReference: string;
+  socialReference: string;
+  bankAccountName: string | null;
+  bankSortCode: string | null;
+  bankAccountNumber: string | null;
+}
+
 export type Role = "admin" | "worker";
 export type ShiftState = "off_shift" | "working" | "on_break" | "complete";
 export type ShiftAction = "clock_in" | "start_break" | "end_break" | "clock_out";
@@ -176,6 +212,51 @@ export async function signOut(): Promise<void> {
 export async function changePassword(password: string): Promise<SessionUser> {
   const result = await backend.post<{ user: SessionUser }>("/api/auth/password", { password }, true);
   return result.user;
+}
+
+export async function loadWorkerPayrollProfile(): Promise<WorkerPayrollProfile | null> {
+  const result = await backend.get<{ profile: WorkerPayrollProfile | null }>("/api/worker/payroll-profile");
+  return result.profile;
+}
+
+export async function saveWorkerPayrollProfile(input: {
+  legalName: string;
+  address: string;
+  employeeNumber: string;
+  socialSecurityNumber?: string;
+  taxReference?: string;
+  socialReference?: string;
+  bankAccountName?: string;
+  bankSortCode?: string;
+  bankAccountNumber?: string;
+  itisRate: number;
+}): Promise<WorkerPayrollProfile> {
+  const result = await backend.post<{ profile: WorkerPayrollProfile }>("/api/worker/payroll-profile", input, true);
+  return result.profile;
+}
+
+export async function loadAdminPayrollProfiles(): Promise<PayrollProfile[]> {
+  return backend.get<PayrollProfile[]>("/api/admin/payroll-profiles");
+}
+
+export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {
+  return backend.post<PayrollProfileDetails>(
+    `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/reveal`,
+    {},
+    true,
+  );
+}
+
+export async function reviewAdminPayrollProfile(
+  userId: string,
+  decision: "approved" | "changes_requested",
+  note?: string,
+): Promise<PayrollProfile> {
+  return backend.post<PayrollProfile>(
+    `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/review`,
+    { decision, note },
+    true,
+  );
 }
 
 export async function runShiftAction(

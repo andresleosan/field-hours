@@ -6,6 +6,8 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ## Fase 7: Payroll, historial administrativo y experiencia móvil (Planificada)
 
+> Estado: el perfil de nómina de Jersey está implementado localmente y pasa typecheck/build/lint; queda pendiente configurar la clave de cifrado, aplicar la migración D1 con backup verificado y hacer la verificación en producción antes de marcarlo como completado.
+
 - [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
 - [ ] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo.
 - [ ] Optimizar la web-app para móviles: espacios, navegación, formularios y UX/UI responsive; evaluar una auditoría con Impeccable.

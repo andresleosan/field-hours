@@ -21,6 +21,13 @@ import {
 } from "./passwordReset";
 import { listRequestHistory } from "./requestHistory";
 import {
+  getWorkerPayrollProfile,
+  listAdminPayrollProfiles,
+  revealAdminPayrollProfile,
+  reviewAdminPayrollProfile,
+  saveWorkerPayrollProfile,
+} from "./payrollProfiles";
+import {
   ApiError,
   assertAllowedOrigin,
   assertCsrf,
@@ -142,6 +149,49 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/admin/request-history") {
     const auth = await getAuth(request, env);
     return json(request, env, await listRequestHistory(env, auth));
+  }
+
+  if (request.method === "GET" && path === "/api/worker/payroll-profile") {
+    const auth = await getAuth(request, env);
+    return json(request, env, { profile: await getWorkerPayrollProfile(env, auth) });
+  }
+
+  if (request.method === "POST" && path === "/api/worker/payroll-profile") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, { profile: await saveWorkerPayrollProfile(
+      env,
+      auth,
+      await readJson<{
+        legalName?: unknown;
+        address?: unknown;
+        employeeNumber?: unknown;
+        socialSecurityNumber?: unknown;
+        taxReference?: unknown;
+        socialReference?: unknown;
+        bankAccountName?: unknown;
+        bankSortCode?: unknown;
+        bankAccountNumber?: unknown;
+        itisRate?: unknown;
+      }>(request),
+    ) });
+  }
+
+  if (request.method === "GET" && path === "/api/admin/payroll-profiles") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listAdminPayrollProfiles(env, auth));
+  }
+
+  const payrollProfileMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/(reveal|review)$/);
+  if (payrollProfileMatch && request.method === "POST") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
+    if (payrollProfileMatch[2] === "reveal") {
+      return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
+    }
+    const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
+    return json(request, env, await reviewAdminPayrollProfile(env, auth, userId, body.decision, body.note));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {
