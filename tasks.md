@@ -5,7 +5,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 ---
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 2 — Ajuste y Corrección Manual de Turnos por el Administrador (COMPLETADA)
+- **Fase Actual**: Fase 3 — PWA Instalable y Fichaje Offline (COMPLETADA)
 - **Última Actualización**: 22 de Agosto de 2026
 
 ---
@@ -33,11 +33,13 @@ Objetivo: Resolver situaciones reales en obra (olvidos de fichar salida, baterí
 
 ---
 
-## 📌 Fase 3: PWA Instalable y Fichaje Offline
+## 📌 Fase 3: PWA Instalable y Fichaje Offline *(Completada)*
 Objetivo: Permitir instalar la aplicación en móviles (Android/iOS) y permitir fichar en sótanos o zonas sin cobertura.
 
-- [ ] **Tarea 3.1 (PWA)**: Configurar `manifest.webmanifest`, service worker e iconos para soporte de instalación como App nativa en pantalla de inicio.
-- [ ] **Tarea 3.2 (Offline Queue)**: Guardar acciones de fichaje en `IndexedDB` / `localStorage` cuando no haya conexión y sincronizar automáticamente con el servidor al recuperar red.
+- [x] **Tarea 3.1 (PWA)**: Configuración de `manifest.webmanifest`, service worker `sw.js`, icono PWA e integración con etiquetas meta para iOS / Android.
+- [x] **Tarea 3.2 (Offline Queue)**: Módulo `offlineQueue.ts` que almacena fichajes con GPS y timestamp en `localStorage` ante desconexión de red.
+- [x] **Tarea 3.3 (Auto-Sync)**: Reintento y sincronización automática de fichajes encolados tan pronto como el navegador recupera la conexión a internet.
+- [x] **Tarea 3.4 (Indicadores Visuales)**: Badges y avisos de estado `Online` / `Offline` y contador de acciones pendientes de sincronización.
 
 ---
 

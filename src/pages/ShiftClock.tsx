@@ -13,6 +13,7 @@ import {
   Calendar,
   Check,
   Clock3,
+  CloudOff,
   Copy,
   Crosshair,
   Download,
@@ -27,8 +28,11 @@ import {
   Pause,
   Play,
   QrCode,
+  RefreshCw,
   ShieldCheck,
   Users,
+  Wifi,
+  WifiOff,
   X,
 } from "lucide-react";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
@@ -58,6 +62,11 @@ import {
   type ShiftSnapshot,
   type ShiftState,
 } from "@/lib/timeClock";
+import {
+  getOfflineQueue,
+  queueOfflineAction,
+  syncOfflineQueue,
+} from "@/lib/offlineQueue";
 
 type Person = {
   id: string;
@@ -359,6 +368,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [busy, setBusy] = useState<ShiftAction | null>(null);
   const [message, setMessage] = useState("");
   const [online, setOnline] = useState(() => navigator.onLine);
+  const [pendingQueueCount, setPendingQueueCount] = useState(() => getOfflineQueue().length);
   const [finishRequested, setFinishRequested] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
@@ -374,6 +384,15 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     }
   }, []);
 
+  const triggerSync = useCallback(async () => {
+    const res = await syncOfflineQueue((updated) => setShift(updated));
+    setPendingQueueCount(getOfflineQueue().length);
+    if (res.syncedCount > 0) {
+      setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
+      void loadHistory();
+    }
+  }, [loadHistory]);
+
   useEffect(() => {
     Promise.all([
       loadWorkerShift().then(setShift),
@@ -384,7 +403,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   }, [loadHistory]);
 
   useEffect(() => {
-    const goOnline = () => setOnline(true);
+    const goOnline = () => {
+      setOnline(true);
+      void triggerSync();
+    };
     const goOffline = () => setOnline(false);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
@@ -392,7 +414,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
-  }, []);
+  }, [triggerSync]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -411,10 +433,6 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
   async function act(nextAction: ShiftAction) {
     if (busy) return;
-    if (!online) {
-      setMessage("You are offline. Reconnect before recording a clock action.");
-      return;
-    }
     if (!nextState(shift.state, nextAction)) {
       setMessage("That action is no longer available. Refresh your shift and try again.");
       return;
@@ -423,7 +441,30 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     setBusy(nextAction);
     try {
       const location = await requestLocation();
-      const updated = await runShiftAction(nextAction, location, crypto.randomUUID());
+      const idempotencyKey = crypto.randomUUID();
+
+      if (!online) {
+        // Queue offline
+        queueOfflineAction(nextAction, location, idempotencyKey);
+        setPendingQueueCount(getOfflineQueue().length);
+        const optimisticNext = nextState(shift.state, nextAction) || shift.state;
+        const newEvent: ShiftEvent = {
+          id: idempotencyKey,
+          type: nextAction,
+          at: new Date().toISOString(),
+          location,
+        };
+        setShift((prev) => ({
+          ...prev,
+          state: optimisticNext,
+          events: [...prev.events, newEvent],
+        }));
+        if (nextAction === "clock_out") setFinishRequested(false);
+        setMessage("⚡ Saved offline with timestamp & GPS. Will sync automatically once back online.");
+        return;
+      }
+
+      const updated = await runShiftAction(nextAction, location, idempotencyKey);
       setShift(updated);
       if (nextAction === "clock_out") {
         setFinishRequested(false);
@@ -431,7 +472,11 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       }
       setMessage("Saved with a fresh location check.");
     } catch (caught) {
-      setMessage(messageFrom(caught, "We could not save that action."));
+      if (!online || (caught instanceof Error && caught.message.includes("fetch"))) {
+        setMessage("Network failed. Action saved offline and queued for automatic sync.");
+      } else {
+        setMessage(messageFrom(caught, "We could not save that action."));
+      }
     } finally {
       setBusy(null);
     }
@@ -450,14 +495,46 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   return (
     <Shell title="My shift" user={user} onSignOut={onSignOut}>
       <div className="mx-auto max-w-3xl space-y-6">
+        {/* Offline & Queue Status Banner */}
+        {(!online || pendingQueueCount > 0) && (
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs font-semibold text-warning-foreground">
+            <div className="flex items-center gap-2">
+              {!online ? <WifiOff className="h-4 w-4 text-warning" /> : <RefreshCw className="h-4 w-4 animate-spin text-warning" />}
+              <span>
+                {!online ? "Working Offline" : "Network restored"} — {pendingQueueCount} action(s) pending sync.
+              </span>
+            </div>
+            {online && (
+              <button
+                type="button"
+                onClick={() => void triggerSync()}
+                className="rounded-lg bg-warning/20 px-3 py-1.5 hover:bg-warning/30"
+              >
+                Sync Now
+              </button>
+            )}
+          </div>
+        )}
+
         <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
             <div>
               <p className="label-eyebrow">Today · {new Date().toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</p>
               <h1 className="mt-1 text-2xl font-semibold">Hi, {user.displayName.split(" ")[0]}</h1>
             </div>
-            <div className={`rounded-full px-3 py-1 text-xs font-semibold ${copy.tone === "live" ? "bg-success/15 text-success" : copy.tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
-              {copy.label}
+            <div className="flex items-center gap-2">
+              {online ? (
+                <span className="flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-0.5 text-[11px] font-semibold text-success">
+                  <Wifi className="h-3 w-3" /> Online
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
+                  <WifiOff className="h-3 w-3" /> Offline
+                </span>
+              )}
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${copy.tone === "live" ? "bg-success/15 text-success" : copy.tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
+                {copy.label}
+              </div>
             </div>
           </div>
           <div className="px-5 py-7 sm:px-7 sm:py-10">
@@ -469,7 +546,6 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               <Clock3 className="mb-2 h-9 w-9 text-brand" aria-hidden="true" />
             </div>
             <p className="mt-4 max-w-lg text-sm leading-6 text-muted-foreground">{copy.detail}</p>
-            {!online && <p role="status" className="mt-5 rounded-xl border border-warning/40 bg-warning/10 px-3 py-3 text-sm">Offline — reconnect before recording an action.</p>}
             {message && <p role="status" className="mt-5 rounded-xl border border-border bg-muted/50 px-3 py-3 text-sm">{message}</p>}
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               {finishRequested ? (
@@ -480,7 +556,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                   </div>
                   <div className="flex gap-2">
                     <button type="button" onClick={() => setFinishRequested(false)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-background">Cancel</button>
-                    <button type="button" onClick={() => act("clock_out")} disabled={Boolean(busy) || !online} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+                    <button type="button" onClick={() => act("clock_out")} disabled={Boolean(busy)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">
                       {busy === "clock_out" && <Loader2 className="h-4 w-4 animate-spin" />}
                       {busy === "clock_out" ? "Saving…" : "Confirm finish"}
                     </button>
@@ -489,13 +565,13 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               ) : (
                 <>
                   {action && (
-                    <button type="button" onClick={() => act(action)} disabled={Boolean(busy) || !online} className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"}`}>
+                    <button type="button" onClick={() => act(action)} disabled={Boolean(busy)} className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"}`}>
                       {busy === action ? <Loader2 className="h-5 w-5 animate-spin" /> : action === "clock_in" ? <Play className="h-5 w-5" fill="currentColor" /> : action === "start_break" ? <Pause className="h-5 w-5" fill="currentColor" /> : <ArrowRight className="h-5 w-5" />}
                       {busy === action ? "Saving…" : actionLabel(action)}
                     </button>
                   )}
                   {shift.state === "working" && (
-                    <button type="button" onClick={() => setFinishRequested(true)} disabled={Boolean(busy) || !online} className="flex min-h-14 items-center justify-center gap-3 rounded-2xl border border-border px-5 text-base font-semibold transition hover:bg-muted disabled:opacity-60">
+                    <button type="button" onClick={() => setFinishRequested(true)} disabled={Boolean(busy)} className="flex min-h-14 items-center justify-center gap-3 rounded-2xl border border-border px-5 text-base font-semibold transition hover:bg-muted disabled:opacity-60">
                       <LogOut className="h-5 w-5" /> Finish shift
                     </button>
                   )}

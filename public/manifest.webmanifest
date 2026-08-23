@@ -1,0 +1,19 @@
+{
+  "name": "Field Hours — Workforce Time Clock",
+  "short_name": "Field Hours",
+  "description": "Workforce time tracking with location evidence for construction and field teams",
+  "start_url": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F7F6F3",
+  "theme_color": "#171717",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
