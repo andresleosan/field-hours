@@ -43,13 +43,13 @@ import {
 } from "lucide-react";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import { useI18n } from "@/lib/i18n";
-import { SelfieModal } from "@/components/SelfieModal";
 import {
   actionLabel,
   adjustShift,
   calculateDistanceMeters,
   changePassword,
   createInvitation,
+  createWorkerProject,
   formatMinutes,
   formatCalendarDate,
   formatRecordedDateTime,
@@ -59,6 +59,7 @@ import {
   loadAdminToday,
   loadAdminPayrollProfiles,
   loadAdminPayrollPreview,
+  loadAdminPayrollRuns,
   loadAdminPayrollSettings,
   loadProjects,
   loadSession,
@@ -81,9 +82,11 @@ import {
   requestPasswordReset,
   rejectPasswordReset,
   revealAdminPayrollProfile,
+  reviewAdminPayrollRun,
   reviewAdminPayrollProfile,
   saveAdminPayrollSettings,
   saveWorkerPayrollProfile,
+  submitAdminPayrollRun,
   completePasswordReset,
   startGoogleSignIn,
   type AdminSnapshot,
@@ -94,6 +97,7 @@ import {
   type PayrollProfile,
   type PayrollProfileDetails,
   type PayrollPreview,
+  type PayrollRun,
   type PayrollSettings,
   type WorkerPayrollProfile,
   type WorkerPayrollSummary,
@@ -701,7 +705,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [finishRequested, setFinishRequested] = useState(false);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
-  const [selfieModalOpen, setSelfieModalOpen] = useState(false);
+  const [workerProjectDialogOpen, setWorkerProjectDialogOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
 
   const loadData = useCallback(async () => {
@@ -796,7 +800,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     return projects.find((p) => p.id === (shift.projectId || selectedProjectId));
   }, [projects, shift.projectId, selectedProjectId]);
 
-  async function act(nextAction: ShiftAction, photo?: string) {
+  async function act(nextAction: ShiftAction) {
     if (busy) return;
     if (!nextState(shift.state, nextAction)) {
       setMessage("That action is no longer available. Refresh your shift and try again.");
@@ -811,7 +815,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
       if (!online) {
         // Queue offline
-        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit, photo);
+        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit);
         setPendingQueueCount(getOfflineQueue().length);
         const optimisticNext = nextState(shift.state, nextAction) || shift.state;
         const newEvent: ShiftEvent = {
@@ -819,7 +823,6 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           type: nextAction,
           at: new Date().toISOString(),
           location,
-          photo,
         };
         setShift((prev) => ({
           ...prev,
@@ -833,7 +836,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         return;
       }
 
-      const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit, photo);
+      const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit);
       setShift(updated);
       if (nextAction === "clock_out") {
         setFinishRequested(false);
@@ -852,12 +855,16 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   }
 
   const handleMainActionClick = (actionName: ShiftAction) => {
-    if (actionName === "clock_in") {
-      setSelfieModalOpen(true);
-    } else {
-      void act(actionName);
-    }
+    void act(actionName);
   };
+
+  async function handleWorkerProjectCreated(input: { name: string; description: string }) {
+    const created = await createWorkerProject(input);
+    setProjects((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setSelectedProjectId(created.id);
+    setWorkerProjectDialogOpen(false);
+    setMessage(t("projectCreated"));
+  }
 
   if (loading) {
     return (
@@ -929,9 +936,18 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             <div className="mt-6 rounded-2xl border border-border bg-muted/30 p-4">
               {shift.state === "off_shift" ? (
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-brand" /> {t("assignedProject")}
-                  </label>
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <label className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
+                      <Building2 className="h-3.5 w-3.5 text-brand" /> {t("assignedProject")}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setWorkerProjectDialogOpen(true)}
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-brand hover:bg-brand/10"
+                    >
+                      <Plus className="h-3 w-3" /> {t("newProjectBtn")}
+                    </button>
+                  </div>
                   {projects.length === 0 ? (
                     <p className="text-xs text-muted-foreground">{t("noProjectsAvailable")}</p>
                   ) : (
@@ -990,7 +1006,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     <button
                       type="button"
                       onClick={() => handleMainActionClick(action)}
-                      disabled={Boolean(busy)}
+                      disabled={Boolean(busy) || (action === "clock_in" && !selectedProjectId)}
                       className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${
                         action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"
                       }`}
@@ -1079,14 +1095,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           </div>
         </section>
 
-        {/* Selfie Capture Modal */}
-        {selfieModalOpen && (
-          <SelfieModal
-            onClose={() => setSelfieModalOpen(false)}
-            onCapture={(photo) => {
-              setSelfieModalOpen(false);
-              void act("clock_in", photo || undefined);
-            }}
+        {workerProjectDialogOpen && (
+          <WorkerProjectModal
+            onClose={() => setWorkerProjectDialogOpen(false)}
+            onCreated={handleWorkerProjectCreated}
           />
         )}
 
@@ -1429,6 +1441,99 @@ function toPerson(row: AdminSnapshot, t: (key: any) => string, timezone: string)
       ? `${getActionLabel(latest.type, t)} · ${formatRecordedTime(latest.at, timezone)}`
       : t("stateOffShift"),
   };
+}
+
+function WorkerProjectModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (input: { name: string; description: string }) => Promise<void>;
+}) {
+  const { t } = useI18n();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const trimmedName = name.trim();
+    const trimmedDescription = description.trim();
+    if (trimmedName.length < 2) {
+      setError(t("projectNameMin"));
+      return;
+    }
+    if (!trimmedDescription) {
+      setError(t("projectDescriptionRequired"));
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await onCreated({ name: trimmedName, description: trimmedDescription });
+    } catch (caught) {
+      setError(messageFrom(caught, "Could not create project."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="worker-project-title"
+        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-border pb-4">
+          <div>
+            <p className="label-eyebrow text-brand font-semibold">{t("assignedProject")}</p>
+            <h2 id="worker-project-title" className="mt-1 text-xl font-bold">{t("newProject")}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <div>
+            <label className="block text-xs font-semibold uppercase text-muted-foreground">{t("projectName")}</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={120}
+              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              autoFocus
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold uppercase text-muted-foreground">{t("projectDescription")}</label>
+            <textarea
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              maxLength={300}
+              rows={4}
+              className="mt-1.5 w-full resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              required
+            />
+          </div>
+          <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">{t("workerProjectGpsHint")}</p>
+          {error && <p className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
+            <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {busy ? t("saving") : t("save")}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
 }
 
 function ProjectEditModal({
@@ -1802,6 +1907,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [payrollPreview, setPayrollPreview] = useState<PayrollPreview | null>(null);
   const [payrollPreviewLoading, setPayrollPreviewLoading] = useState(false);
   const [payrollPreviewError, setPayrollPreviewError] = useState("");
+  const [payrollRuns, setPayrollRuns] = useState<PayrollRun[]>([]);
+  const [payrollRunsLoading, setPayrollRunsLoading] = useState(false);
+  const [payrollRunBusy, setPayrollRunBusy] = useState(false);
 
   const refreshToday = useCallback(async () => {
     setLoading(true);
@@ -1886,6 +1994,17 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }, []);
 
+  const refreshPayrollRuns = useCallback(async () => {
+    setPayrollRunsLoading(true);
+    try {
+      setPayrollRuns(await loadAdminPayrollRuns());
+    } catch {
+      // The approval panel is supplementary while its migration is being rolled out.
+    } finally {
+      setPayrollRunsLoading(false);
+    }
+  }, []);
+
   const calculateDateRange = useCallback((period: string) => {
     const today = new Date();
     const toYMD = (d: Date) => d.toISOString().slice(0, 10);
@@ -1950,6 +2069,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     void refreshPayrollProfiles();
     void refreshPayrollSettings();
     void refreshPayrollPreview();
+    void refreshPayrollRuns();
     const timer = window.setInterval(() => {
       setNow(Date.now());
       void refreshToday();
@@ -1959,9 +2079,10 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       void refreshPayrollProfiles();
       void refreshPayrollSettings();
       void refreshPayrollPreview();
+      void refreshPayrollRuns();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles, refreshPayrollSettings, refreshPayrollPreview]);
+  }, [refreshToday, refreshGoogleRequests, refreshPasswordResetRequests, refreshRequestHistory, refreshPayrollProfiles, refreshPayrollSettings, refreshPayrollPreview, refreshPayrollRuns]);
 
   useEffect(() => {
     if (viewMode === "history") {
@@ -2069,6 +2190,38 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       setMessage(messageFrom(caught, "The payroll profile could not be reviewed."));
     } finally {
       setPayrollReviewing(null);
+    }
+  }
+
+  async function submitPayrollRun() {
+    setPayrollRunBusy(true);
+    setMessage("");
+    try {
+      await submitAdminPayrollRun();
+      await refreshPayrollRuns();
+      setMessage("Payroll submitted for administrator approval.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The payroll could not be submitted for approval."));
+    } finally {
+      setPayrollRunBusy(false);
+    }
+  }
+
+  async function reviewPayrollRun(run: PayrollRun, decision: "approved" | "changes_requested") {
+    setPayrollRunBusy(true);
+    setMessage("");
+    try {
+      await reviewAdminPayrollRun(
+        run.id,
+        decision,
+        decision === "changes_requested" ? "Review the payroll details and resubmit the corrected period." : undefined,
+      );
+      await refreshPayrollRuns();
+      setMessage(decision === "approved" ? "Payroll approved and marked payment ready." : "Payroll changes requested.");
+    } catch (caught) {
+      setMessage(messageFrom(caught, "The payroll could not be reviewed."));
+    } finally {
+      setPayrollRunBusy(false);
     }
   }
 
@@ -2407,6 +2560,16 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           loading={payrollPreviewLoading}
           error={payrollPreviewError}
           onRefresh={() => void refreshPayrollPreview()}
+          timezone={user.timezone}
+        />
+
+        <PayrollApprovalCard
+          preview={payrollPreview}
+          runs={payrollRuns}
+          loading={payrollRunsLoading}
+          busy={payrollRunBusy}
+          onSubmit={() => void submitPayrollRun()}
+          onReview={(run, decision) => void reviewPayrollRun(run, decision)}
           timezone={user.timezone}
         />
 
@@ -2992,6 +3155,98 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         )}
       </div>
     </Shell>
+  );
+}
+
+function PayrollApprovalCard({
+  preview,
+  runs,
+  loading,
+  busy,
+  onSubmit,
+  onReview,
+  timezone,
+}: {
+  preview: PayrollPreview | null;
+  runs: PayrollRun[];
+  loading: boolean;
+  busy: boolean;
+  onSubmit: () => void;
+  onReview: (run: PayrollRun, decision: "approved" | "changes_requested") => void;
+  timezone: string;
+}) {
+  const latestRun = preview
+    ? runs.find((run) => run.periodStart === preview.periodStart && run.periodEnd === preview.periodEnd) ?? null
+    : runs[0] ?? null;
+  const canSubmit = Boolean(preview && preview.lines.length > 0 && preview.lines.every((line) => line.profileStatus === "approved" && line.grossPay !== null && line.netPay !== null));
+  const statusLabel = latestRun?.status === "pending_review"
+    ? "Awaiting review"
+    : latestRun?.status === "changes_requested"
+      ? "Changes requested"
+      : latestRun?.status === "approved"
+        ? "Payment ready"
+        : "Not submitted";
+
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="payroll-approval-title">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="label-eyebrow">Payroll · control</p>
+          <h2 id="payroll-approval-title" className="mt-1 text-lg font-semibold">Review and approve payroll</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Submit the calculated period for review. Approval locks the saved snapshot and marks it payment ready; it never starts a bank transfer.</p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${latestRun?.status === "approved" ? "bg-success/15 text-success" : latestRun?.status === "pending_review" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
+          {loading ? "Loading" : statusLabel}
+        </span>
+      </div>
+
+      {latestRun && (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <SalaryMetric label="Period" value={`${formatCalendarDate(latestRun.periodStart, timezone)} – ${formatCalendarDate(latestRun.periodEnd, timezone)}`} />
+          <SalaryMetric label="Pay date" value={formatCalendarDate(latestRun.payDate, timezone)} />
+          <SalaryMetric label="Workers" value={String(latestRun.workerCount)} />
+          <SalaryMetric label="Net pay" value={formatPounds(latestRun.totals.netPay)} />
+        </div>
+      )}
+
+      {!canSubmit && preview && (
+        <p className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">Complete and approve every worker payroll profile before submitting this period.</p>
+      )}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        {latestRun?.status === "pending_review" ? (
+          <>
+            <button type="button" onClick={() => onReview(latestRun, "changes_requested")} disabled={busy} className="rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-60">Request changes</button>
+            <button type="button" onClick={() => onReview(latestRun, "approved")} disabled={busy} className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">Approve and mark ready</button>
+          </>
+        ) : latestRun?.status !== "approved" ? (
+          <button type="button" onClick={onSubmit} disabled={busy || !canSubmit} className="rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-60">{busy ? "Submitting…" : "Submit current preview for approval"}</button>
+        ) : (
+          <p className="rounded-xl bg-success/10 px-3 py-2 text-xs font-semibold text-success">This period is approved and locked. No payment was sent.</p>
+        )}
+      </div>
+
+      {runs.length > 0 && (
+        <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
+          <table className="w-full min-w-[680px] text-left text-xs">
+            <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+              <tr><th className="px-4 py-3 font-semibold">Period</th><th className="px-4 py-3 font-semibold">Submitted</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Net pay</th><th className="px-4 py-3 text-right font-semibold">Note</th></tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {runs.slice(0, 6).map((run) => (
+                <tr key={run.id}>
+                  <td className="px-4 py-3 font-semibold">{formatCalendarDate(run.periodStart, timezone)} – {formatCalendarDate(run.periodEnd, timezone)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{new Date(run.submittedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 font-semibold">{run.status.replace("_", " ")}</span></td>
+                  <td className="px-4 py-3 text-right font-mono">{formatPounds(run.totals.netPay)}</td>
+                  <td className="max-w-[220px] px-4 py-3 text-right text-muted-foreground">{run.reviewNote ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 

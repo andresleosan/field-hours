@@ -36,6 +36,7 @@ export interface ShiftEvent {
 export interface Project {
   id: string;
   name: string;
+  description: string;
   code: string | null;
   address: string | null;
   latitude: number | null;

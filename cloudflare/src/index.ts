@@ -30,6 +30,11 @@ import {
 import { getWorkerPayrollSummary } from "./payrollSummary";
 import { getAdminPayrollPreview } from "./payrollCalculation";
 import {
+  listAdminPayrollRuns,
+  reviewAdminPayrollRun,
+  submitAdminPayrollRun,
+} from "./payrollRuns";
+import {
   getAdminPayrollSettings,
   saveAdminPayrollSettings,
 } from "./payrollSettings";
@@ -44,6 +49,7 @@ import {
 } from "./http";
 import {
   createOrUpdateProject,
+  createWorkerProject,
   listProjects,
 } from "./projects";
 import {
@@ -203,6 +209,21 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await getAdminPayrollPreview(env, auth, url.searchParams));
   }
 
+  if (request.method === "GET" && path === "/api/admin/payroll-runs") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await listAdminPayrollRuns(env, auth));
+  }
+
+  if (request.method === "POST" && path === "/api/admin/payroll-runs") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, await submitAdminPayrollRun(
+      env,
+      auth,
+      await readJson<{ startDate?: unknown; endDate?: unknown }>(request),
+    ), 201);
+  }
+
   if (request.method === "POST" && path === "/api/admin/payroll-settings") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
@@ -233,6 +254,15 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
     const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
     return json(request, env, await reviewAdminPayrollProfile(env, auth, userId, body.decision, body.note));
+  }
+
+  const payrollRunReviewMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)\/review$/);
+  if (payrollRunReviewMatch && request.method === "POST") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const runId = decodeURIComponent(payrollRunReviewMatch[1] ?? "");
+    const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
+    return json(request, env, await reviewAdminPayrollRun(env, auth, runId, body.decision, body.note));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {
@@ -285,6 +315,16 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && path === "/api/projects") {
     const auth = await getAuth(request, env);
     return json(request, env, await listProjects(env, auth));
+  }
+
+  if (request.method === "POST" && path === "/api/worker/projects") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    return json(request, env, await createWorkerProject(
+      env,
+      auth,
+      await readJson<{ name?: unknown; description?: unknown }>(request),
+    ), 201);
   }
 
   if (request.method === "POST" && path === "/api/admin/projects") {

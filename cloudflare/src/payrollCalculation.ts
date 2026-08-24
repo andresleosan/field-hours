@@ -1,6 +1,7 @@
 import { requireRole } from "./auth";
 import { ApiError } from "./http";
 import { getPayrollCalculationSettings } from "./payrollSettings";
+import { aggregateCompletedShifts } from "./shiftMetrics";
 import type { AuthContext } from "./types";
 
 const RULES_YEAR = 2026;
@@ -160,14 +161,7 @@ async function loadPayrollRows(
        p.itis_rate_bps AS itisRateBps,
        p.status AS status,
        COUNT(s.id) AS shiftCount,
-       COALESCE(SUM(
-         MAX(0, CAST((julianday(s.clock_out_at) - julianday(s.clock_in_at)) * 1440 AS INTEGER))
-         - CASE
-             WHEN s.break_started_at IS NOT NULL AND s.break_ended_at IS NOT NULL
-             THEN MAX(0, CAST((julianday(s.break_ended_at) - julianday(s.break_started_at)) * 1440 AS INTEGER))
-             ELSE 0
-           END
-       ), 0) AS netMinutes
+       0 AS netMinutes
      FROM workforce_memberships m
      JOIN workforce_users u ON u.id = m.user_id
      LEFT JOIN workforce_payroll_profiles p
@@ -182,7 +176,14 @@ async function loadPayrollRows(
      GROUP BY m.user_id, m.display_name, u.email, p.employee_number, p.itis_rate_bps, p.status
      ORDER BY m.display_name COLLATE NOCASE ASC`,
   ).bind(organizationId, periodStart, periodEnd).all<PayrollRow>();
-  return result.results;
+  const metrics = await Promise.all(result.results.map((row) =>
+    aggregateCompletedShifts(env, organizationId, row.userId, periodStart, periodEnd),
+  ));
+  return result.results.map((row, index) => ({
+    ...row,
+    shiftCount: metrics[index]?.shifts ?? 0,
+    netMinutes: metrics[index]?.minutes ?? 0,
+  }));
 }
 
 export async function getAdminPayrollPreview(

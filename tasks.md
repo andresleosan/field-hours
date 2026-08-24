@@ -4,9 +4,9 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
-## Fase 7: Payroll, historial administrativo y experiencia móvil (Planificada)
+## Fase 7: Payroll, historial administrativo y experiencia móvil (En curso)
 
-> Estado: el perfil de nómina de Jersey está desplegado en Worker/Vercel; la migración D1 0006 y la clave de cifrado están aplicadas en producción. Los cálculos fiscales, acumulados y payslips siguen pendientes.
+> Estado: el perfil de nómina de Jersey, la configuración y el preview calculado están desplegados en Worker/Vercel; la revisión/aprobación está implementada localmente y la migración D1 0008 aún no se ha aplicado. El payslip final sigue pendiente.
 
 - [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
 - [x] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo. Validado en UI móvil, typecheck/build/lint y despliegue de Worker/Vercel.
@@ -18,12 +18,13 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] Proteger los datos sensibles de nómina con cifrado, acceso restringido al dueño/admin, enmascarado en pantalla, auditoría y opción de actualización controlada. AES-256-GCM, clave secreta de Worker, CSRF, ruta de revelado admin auditada y backup verificado.
 - [x] Permitir que el administrador configure tarifa por hora, periodo de pago, datos del negocio y reglas fiscales de Jersey antes de calcular la nómina. Desplegado con migración D1 0007, endpoint admin+CSRF, cifrado de referencias, auditoría y formulario responsive; verificado en Worker/Vercel. Los cálculos automáticos siguen pendientes.
 - [x] Calcular automáticamente el primer día de cada mes: horas aprobadas, salario bruto, seguro social del trabajador, ITIS/impuestos, deducciones, salario neto y totales acumulados. Desplegado como preview admin protegido con reglas Jersey 2026, advertencia de estimación y validación de Worker/Vercel; pendiente únicamente el flujo de revisión/aprobación antes de considerar una nómina lista.
-- [ ] Crear un proceso de revisión y aprobación de nómina antes de marcar el pago como listo; no ejecutar transferencias bancarias automáticamente sin confirmación del administrador.
+- [~] Crear un proceso de revisión y aprobación de nómina antes de marcar el pago como listo; no ejecutar transferencias bancarias automáticamente sin confirmación del administrador. Implementado localmente en `0008_payroll_runs.sql`, `payrollRuns.ts` y el panel administrativo; pendiente de autocrítica, migración autorizada y despliegue.
+- Evidencia local: `npm.cmd run typecheck`, `npm.cmd run typecheck:worker`, `npm.cmd run lint`, `npm.cmd run build`, `git diff --check` y `wrangler deploy --dry-run` correctos. Backup previo a 0008 verificado: 48.907 bytes, SHA-256 `7F1E2302E499E4EA270A76C611D6C1688B45D38C58ACF8F87E486F269D223486`. Lint conserva dos advertencias preexistentes; `npm audit --omit=dev --audit-level=high` reporta 12 vulnerabilidades altas y 1 moderada. Falta suite/reporte E2E para habilitar producción.
 - [ ] Generar y exportar el payslip de cada trabajador con el formato Salary Advice, incluyendo Allowances, Deductions, Net Pay, Gross Taxable Pay, Tax Paid, Tax Ref y Social Ref.
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 5 — Verificación Fotográfica Selfie y Multi-idioma (COMPLETADA)
-- **Última Actualización**: 22 de Agosto de 2026
+- **Fase Actual**: Fase 7 — Payroll y aprobación administrativa (EN CURSO)
+- **Última Actualización**: 24 de Agosto de 2026
 
 ---
 
@@ -91,3 +92,17 @@ Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, c
 - [x] **Tarea 6.3 (Aprobación)**: Endpoints protegidos para listar, aprobar y rechazar solicitudes; la aprobación registra auditoría y vincula o crea el trabajador.
 - [x] **Tarea 6.4 (Frontend)**: Botón de Google, opción de migración desde el menú de usuario y panel administrativo de solicitudes pendientes.
 - [ ] **Tarea 6.5 (Configuración/QA)**: Configurar OAuth Client ID, secretos y redirect URI en Cloudflare; ejecutar typecheck/build y prueba real de login en staging.
+
+---
+
+## 📌 Backlog: Flexibilidad de jornada y proyectos creados por trabajadores *(Pendiente)*
+
+Objetivo: dar mayor flexibilidad a los trabajadores durante su jornada, manteniendo el registro correcto de horas, ubicación y sitio de trabajo.
+
+- [~] **Tarea B.1 (Breaks)**: Permitir que cada trabajador inicie tantos breaks como necesite al día y durante el tiempo que necesite. El contador de tiempo trabajado debe detenerse mientras el trabajador esté en break y reanudarse al finalizarlo; registrar inicio, fin y duración para historial y reportes.
+- [~] **Tarea B.2 (Turnos)**: Permitir que los trabajadores inicien los shifts que necesiten durante el mismo día, registrando cada turno por separado y evitando solapamientos o cálculos incorrectos de horas.
+- [~] **Tarea B.3 (Proyectos)**: Permitir que los trabajadores creen nuevos proyectos desde la aplicación proporcionando únicamente el nombre y una descripción breve.
+- [~] **Tarea B.4 (Fichaje y ubicación)**: Eliminar la obligación de subir una foto al iniciar un shift. El fichaje debe conservar únicamente la captura de ubicación GPS y la selección del sitio/proyecto donde trabajará el empleado.
+- [ ] **Tarea B.5 (QA)**: Verificar breaks múltiples y de duración variable, múltiples shifts diarios, creación de proyectos por trabajadores y fichaje sin foto en móvil; validar totales, historial, ubicación y permisos.
+
+> Implementación local en revisión: migración `0009_worker_flexibility.sql`, contratos de proyectos de trabajador, cálculo de breaks desde eventos y eliminación de cámara en el fichaje. Pendiente aplicar migración autorizada y ejecutar E2E/smoke en entorno desplegado.

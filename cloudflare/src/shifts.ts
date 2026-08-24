@@ -1,6 +1,7 @@
 import { ApiError, requireString } from "./http";
 import { requireRole } from "./auth";
 import { haversineDistanceMeters } from "./projects";
+import { breakMinutesFromEvents } from "./shiftMetrics";
 import type {
   AuthContext,
   LocationEvidence,
@@ -178,7 +179,9 @@ async function shiftForToday(env: Env, auth: AuthContext): Promise<ShiftRow | nu
        p.name AS projectName
      FROM workforce_shifts s
      LEFT JOIN workforce_projects p ON p.id = s.project_id
-     WHERE s.organization_id = ?1 AND s.user_id = ?2 AND s.work_date = ?3
+       WHERE s.organization_id = ?1 AND s.user_id = ?2 AND s.work_date = ?3
+         AND s.state <> 'complete'
+     ORDER BY s.clock_in_at DESC
      LIMIT 1`,
   ).bind(
     auth.user.organizationId,
@@ -272,7 +275,7 @@ function updateForAction(
   if (action === "start_break") {
     return env.DB.prepare(
       `UPDATE workforce_shifts
-       SET state = 'on_break', break_started_at = ?1
+       SET state = 'on_break', break_started_at = ?1, break_ended_at = NULL
        WHERE id = ?2 AND state = 'working'`,
     ).bind(occurredAt, shift.id);
   }
@@ -298,7 +301,6 @@ export async function performShiftAction(
     location?: unknown;
     idempotencyKey?: unknown;
     projectId?: unknown;
-    photo?: unknown;
   },
 ): Promise<ShiftSnapshot> {
   const action = parseAction(body.action);
@@ -319,10 +321,10 @@ export async function performShiftAction(
   let shift = await shiftForToday(env, auth);
 
   if (action === "clock_in") {
-    if (shift) throw new ApiError(409, "INVALID_TRANSITION", "A shift already exists for today.");
+    if (shift) throw new ApiError(409, "INVALID_TRANSITION", "Finish the current shift before starting another one.");
     const shiftId = crypto.randomUUID();
     const projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : null;
-    const photo = typeof body.photo === "string" && body.photo.startsWith("data:image/") ? body.photo : undefined;
+    if (!projectId) throw new ApiError(400, "PROJECT_REQUIRED", "Select the project where you will work before clocking in.");
 
     let geofenceDistance: number | null = null;
     let outOfBounds = false;
@@ -330,7 +332,7 @@ export async function performShiftAction(
     if (projectId) {
       const project = await env.DB.prepare(
         `SELECT id, name, latitude, longitude, radius_m FROM workforce_projects
-         WHERE id = ?1 AND organization_id = ?2 LIMIT 1`,
+         WHERE id = ?1 AND organization_id = ?2 AND is_active = 1 LIMIT 1`,
       ).bind(projectId, auth.user.organizationId).first<{
         id: string;
         name: string;
@@ -338,6 +340,7 @@ export async function performShiftAction(
         longitude: number | null;
         radius_m: number;
       }>();
+      if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", "The selected project is not available.");
       if (project && project.latitude !== null && project.longitude !== null) {
         geofenceDistance = haversineDistanceMeters(
           location.latitude,
@@ -393,7 +396,6 @@ export async function performShiftAction(
             project_id: projectId,
             geofence_distance_m: geofenceDistance,
             out_of_bounds: outOfBounds,
-            photo,
           }),
         ),
       ]);
@@ -457,7 +459,7 @@ export async function performShiftAction(
     ...shift,
     state: nextState,
     breakStartedAt: action === "start_break" ? occurredAt : shift.breakStartedAt,
-    breakEndedAt: action === "end_break" ? occurredAt : shift.breakEndedAt,
+    breakEndedAt: action === "start_break" ? null : action === "end_break" ? occurredAt : shift.breakEndedAt,
     clockOutAt: action === "clock_out" ? occurredAt : shift.clockOutAt,
   };
   return snapshotFromRow(env, shift);
@@ -482,9 +484,18 @@ export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnap
      FROM workforce_memberships m
      JOIN workforce_users u ON u.id = m.user_id AND u.disabled_at IS NULL
      LEFT JOIN workforce_shifts s
-       ON s.organization_id = m.organization_id
+      ON s.organization_id = m.organization_id
       AND s.user_id = m.user_id
       AND s.work_date = ?2
+      AND s.id = (
+        SELECT latest.id
+        FROM workforce_shifts latest
+        WHERE latest.organization_id = m.organization_id
+          AND latest.user_id = m.user_id
+          AND latest.work_date = ?2
+        ORDER BY latest.clock_in_at DESC
+        LIMIT 1
+      )
      LEFT JOIN workforce_projects p ON p.id = s.project_id
      WHERE m.organization_id = ?1 AND m.role = 'worker'
      ORDER BY m.display_name COLLATE NOCASE ASC`,
@@ -501,7 +512,17 @@ export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnap
        e.accuracy_m AS accuracy
      FROM workforce_shift_events e
      JOIN workforce_shifts s ON s.id = e.shift_id
-     WHERE e.organization_id = ?1 AND s.work_date = ?2
+     WHERE e.organization_id = ?1
+       AND s.work_date = ?2
+       AND s.id = (
+         SELECT latest.id
+         FROM workforce_shifts latest
+         WHERE latest.organization_id = s.organization_id
+           AND latest.user_id = s.user_id
+           AND latest.work_date = ?2
+         ORDER BY latest.clock_in_at DESC
+         LIMIT 1
+       )
      ORDER BY e.rowid ASC`,
   ).bind(auth.user.organizationId, date).all<EventRow>();
 
@@ -617,12 +638,8 @@ export async function adminShiftHistory(
     const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
     const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
     
-    let breakMinutes = 0;
-    if (row.breakStartedAt && row.breakEndedAt) {
-      breakMinutes = Math.max(0, Math.round((new Date(row.breakEndedAt).getTime() - new Date(row.breakStartedAt).getTime()) / 60000));
-    } else if (row.breakStartedAt && !row.breakEndedAt) {
-      breakMinutes = Math.max(0, Math.round((Date.now() - new Date(row.breakStartedAt).getTime()) / 60000));
-    }
+    const events = eventsByShift.get(row.id) ?? [];
+    const breakMinutes = breakMinutesFromEvents(events);
     const netMinutes = Math.max(0, durationMinutes - breakMinutes);
 
     return {
@@ -640,7 +657,7 @@ export async function adminShiftHistory(
       duration_minutes: durationMinutes,
       break_minutes: breakMinutes,
       net_minutes: netMinutes,
-      events: eventsByShift.get(row.id) ?? [],
+      events,
     };
   });
 }
@@ -720,12 +737,8 @@ export async function workerShiftHistory(
     const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
     const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
     
-    let breakMinutes = 0;
-    if (row.breakStartedAt && row.breakEndedAt) {
-      breakMinutes = Math.max(0, Math.round((new Date(row.breakEndedAt).getTime() - new Date(row.breakStartedAt).getTime()) / 60000));
-    } else if (row.breakStartedAt && !row.breakEndedAt) {
-      breakMinutes = Math.max(0, Math.round((Date.now() - new Date(row.breakStartedAt).getTime()) / 60000));
-    }
+    const events = eventsByShift.get(row.id) ?? [];
+    const breakMinutes = breakMinutesFromEvents(events);
     const netMinutes = Math.max(0, durationMinutes - breakMinutes);
 
     return {
@@ -743,7 +756,7 @@ export async function workerShiftHistory(
       duration_minutes: durationMinutes,
       break_minutes: breakMinutes,
       net_minutes: netMinutes,
-      events: eventsByShift.get(row.id) ?? [],
+      events,
     };
   });
 }

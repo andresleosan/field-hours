@@ -1,6 +1,7 @@
 import { requireRole } from "./auth";
 import { ApiError } from "./http";
 import { getPayrollSchedule } from "./payrollSettings";
+import { aggregateCompletedShifts } from "./shiftMetrics";
 import type { AuthContext } from "./types";
 
 export interface WorkerPayrollSummary {
@@ -19,11 +20,6 @@ interface CalendarParts {
   year: number;
   month: number;
   day: number;
-}
-
-interface AggregateRow {
-  minutes: number | null;
-  shifts: number | null;
 }
 
 function calendarParts(timezone: string, value: Date): CalendarParts {
@@ -53,48 +49,6 @@ function addMonth(year: number, month: number): { year: number; month: number } 
 
 function subtractMonth(year: number, month: number): { year: number; month: number } {
   return month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-}
-
-async function aggregateCompletedShifts(
-  env: Env,
-  organizationId: string,
-  userId: string,
-  startDate?: string,
-  endDate?: string,
-): Promise<{ minutes: number; shifts: number }> {
-  let query = `
-    SELECT
-      COALESCE(SUM(
-        MAX(0, CAST((julianday(s.clock_out_at) - julianday(s.clock_in_at)) * 1440 AS INTEGER))
-        - CASE
-            WHEN s.break_started_at IS NOT NULL AND s.break_ended_at IS NOT NULL
-            THEN MAX(0, CAST((julianday(s.break_ended_at) - julianday(s.break_started_at)) * 1440 AS INTEGER))
-            ELSE 0
-          END
-      ), 0) AS minutes,
-      COUNT(*) AS shifts
-    FROM workforce_shifts s
-    WHERE s.organization_id = ?1
-      AND s.user_id = ?2
-      AND s.state = 'complete'
-      AND s.clock_out_at IS NOT NULL`;
-  const bindings: unknown[] = [organizationId, userId];
-  let bindIndex = 3;
-  if (startDate) {
-    query += ` AND s.work_date >= ?${bindIndex}`;
-    bindings.push(startDate);
-    bindIndex += 1;
-  }
-  if (endDate) {
-    query += ` AND s.work_date <= ?${bindIndex}`;
-    bindings.push(endDate);
-  }
-  const row = await env.DB.prepare(query).bind(...bindings).first<AggregateRow>();
-  if (!row) throw new ApiError(500, "INTERNAL_ERROR", "The payroll summary could not be calculated.");
-  return {
-    minutes: Math.max(0, Number(row.minutes ?? 0)),
-    shifts: Math.max(0, Number(row.shifts ?? 0)),
-  };
 }
 
 export async function getWorkerPayrollSummary(env: Env, auth: AuthContext): Promise<WorkerPayrollSummary> {

@@ -94,6 +94,23 @@ export interface PayrollPreview {
   };
 }
 
+export type PayrollRunStatus = "pending_review" | "approved" | "changes_requested";
+
+export interface PayrollRun {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  payDate: string;
+  currency: "GBP";
+  status: PayrollRunStatus;
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  totals: PayrollPreview["totals"];
+  workerCount: number;
+}
+
 export interface WorkerPayrollSummary {
   timezone: string;
   asOfDate: string;
@@ -159,6 +176,7 @@ export interface ShiftEvent {
 export interface Project {
   id: string;
   name: string;
+  description: string;
   code: string | null;
   address: string | null;
   latitude: number | null;
@@ -335,6 +353,29 @@ export async function loadAdminPayrollPreview(): Promise<PayrollPreview> {
   return backend.get<PayrollPreview>("/api/admin/payroll-preview");
 }
 
+export async function loadAdminPayrollRuns(): Promise<PayrollRun[]> {
+  return backend.get<PayrollRun[]>("/api/admin/payroll-runs");
+}
+
+export async function submitAdminPayrollRun(input?: {
+  startDate?: string;
+  endDate?: string;
+}): Promise<PayrollRun> {
+  return backend.post<PayrollRun>("/api/admin/payroll-runs", input ?? {}, true);
+}
+
+export async function reviewAdminPayrollRun(
+  runId: string,
+  decision: "approved" | "changes_requested",
+  note?: string,
+): Promise<PayrollRun> {
+  return backend.post<PayrollRun>(
+    `/api/admin/payroll-runs/${encodeURIComponent(runId)}/review`,
+    { decision, note },
+    true,
+  );
+}
+
 export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {
   return backend.post<PayrollProfileDetails>(
     `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/reveal`,
@@ -360,14 +401,12 @@ export async function runShiftAction(
   location: LocationEvidence,
   idempotencyKey: string,
   projectId?: string,
-  photo?: string,
 ): Promise<ShiftSnapshot> {
   return backend.post<ShiftSnapshot>("/api/shift/action", {
     action,
     location,
     idempotencyKey,
     projectId,
-    photo,
   }, true);
 }
 
@@ -430,6 +469,13 @@ export async function saveProject(input: {
   isActive?: boolean;
 }): Promise<Project> {
   return backend.post<Project>("/api/admin/projects", input, true);
+}
+
+export async function createWorkerProject(input: {
+  name: string;
+  description: string;
+}): Promise<Project> {
+  return backend.post<Project>("/api/worker/projects", input, true);
 }
 
 export async function loadWorkerShift(): Promise<ShiftSnapshot> {

@@ -159,6 +159,11 @@ export interface Translations {
   editProject: string;
   newProject: string;
   projectName: string;
+  projectDescription: string;
+  projectNameMin: string;
+  projectDescriptionRequired: string;
+  workerProjectGpsHint: string;
+  projectCreated: string;
   projectCode: string;
   siteAddress: string;
   geofenceRadius: string;
@@ -214,7 +219,7 @@ export const translations: Record<Language, Translations> = {
     workedToday: "Trabajado hoy",
     assignedProject: "Proyecto / Obra Asignada",
     selectProject: "Seleccionar obra o proyecto...",
-    noProjectsAvailable: "No hay proyectos activos configurados por el administrador.",
+    noProjectsAvailable: "No hay proyectos activos. Puedes crear uno nuevo.",
     generalWork: "Trabajo General",
     geofenceActive: "Perímetro de geocerca activo: tolerancia de",
     stateOffShift: "Fuera de turno",
@@ -325,6 +330,11 @@ export const translations: Record<Language, Translations> = {
     editProject: "Editar Proyecto / Obra",
     newProject: "Nueva Obra / Proyecto",
     projectName: "Nombre del Proyecto / Obra *",
+    projectDescription: "Descripción breve *",
+    projectNameMin: "El nombre debe tener al menos 2 caracteres.",
+    projectDescriptionRequired: "La descripción del proyecto es obligatoria.",
+    workerProjectGpsHint: "La ubicación GPS se capturará al iniciar el turno y seleccionar este proyecto.",
+    projectCreated: "Proyecto creado y seleccionado para tu próximo turno.",
     projectCode: "Código de Obra",
     siteAddress: "Dirección",
     geofenceRadius: "Radio de Geocerca (metros)",
@@ -378,7 +388,7 @@ export const translations: Record<Language, Translations> = {
     workedToday: "Worked today",
     assignedProject: "Assigned Project / Job Site",
     selectProject: "Select Job Site / Project...",
-    noProjectsAvailable: "No active projects configured by admin.",
+    noProjectsAvailable: "No active projects available. You can create one.",
     generalWork: "General Work",
     geofenceActive: "Geofence perimeter active: tolerance of",
     stateOffShift: "Off shift",
@@ -489,6 +499,11 @@ export const translations: Record<Language, Translations> = {
     editProject: "Edit Project",
     newProject: "New Project",
     projectName: "Project Name *",
+    projectDescription: "Short description *",
+    projectNameMin: "The name must contain at least 2 characters.",
+    projectDescriptionRequired: "Project description is required.",
+    workerProjectGpsHint: "GPS will be captured when you start the shift and select this project.",
+    projectCreated: "Project created and selected for your next shift.",
     projectCode: "Project Code",
     siteAddress: "Site Address",
     geofenceRadius: "Geofence Radius (meters)",
@@ -542,7 +557,7 @@ export const translations: Record<Language, Translations> = {
     workedToday: "Trabalhado hoje",
     assignedProject: "Obra / Projeto Atribuído",
     selectProject: "Selecionar obra ou projeto...",
-    noProjectsAvailable: "Nenhuma obra ativa cadastrada pelo administrador.",
+    noProjectsAvailable: "Nenhuma obra ativa disponível. Você pode criar uma nova.",
     generalWork: "Trabalho Geral",
     geofenceActive: "Perímetro de geocerca ativo: tolerância de",
     stateOffShift: "Fora de turno",
@@ -653,6 +668,11 @@ export const translations: Record<Language, Translations> = {
     editProject: "Editar Obra",
     newProject: "Nova Obra / Projeto",
     projectName: "Nome da Obra / Projeto *",
+    projectDescription: "Descrição breve *",
+    projectNameMin: "O nome deve ter pelo menos 2 caracteres.",
+    projectDescriptionRequired: "A descrição do projeto é obrigatória.",
+    workerProjectGpsHint: "A localização GPS será capturada ao iniciar o turno e selecionar este projeto.",
+    projectCreated: "Projeto criado e selecionado para seu próximo turno.",
     projectCode: "Código da Obra",
     siteAddress: "Endereço",
     geofenceRadius: "Raio de Geocerca (metros)",
