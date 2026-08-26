@@ -11,6 +11,7 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     message: string,
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = "ApiError";
@@ -39,9 +40,11 @@ export function json(
   value: unknown,
   status = 200,
   cookies: string[] = [],
+  extraHeaders: Record<string, string> = {},
 ): Response {
   const headers = responseHeaders(request, env);
   for (const cookie of cookies) headers.append("Set-Cookie", cookie);
+  for (const [name, value] of Object.entries(extraHeaders)) headers.set(name, value);
   return new Response(JSON.stringify(value), { status, headers });
 }
 

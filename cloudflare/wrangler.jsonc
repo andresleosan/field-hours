@@ -9,6 +9,10 @@
     "SESSION_TTL_SECONDS": "43200",
     "INVITE_TTL_SECONDS": "1800",
     "ENVIRONMENT": "production",
+    "PAYROLL_PROFILE_REVEAL_LIMIT": "10",
+    "PAYROLL_PROFILE_REVEAL_WINDOW_SECONDS": "900",
+    "PAYROLL_PAYSLIP_LIMIT": "30",
+    "PAYROLL_PAYSLIP_WINDOW_SECONDS": "900",
     "APP_ORIGIN": "https://field-hours.vercel.app",
     "GOOGLE_REDIRECT_URI": "https://field-hours.vercel.app/api/auth/google/callback"
   },

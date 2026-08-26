@@ -40,6 +40,7 @@ import {
   getAdminPayrollSettings,
   saveAdminPayrollSettings,
 } from "./payrollSettings";
+import { enforcePayrollRateLimit } from "./rateLimit";
 import {
   ApiError,
   assertAllowedOrigin,
@@ -252,6 +253,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     await assertCsrf(request, auth);
     const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
     if (payrollProfileMatch[2] === "reveal") {
+      await enforcePayrollRateLimit(env, auth, "profile_reveal");
       return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
     }
     const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
@@ -275,6 +277,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (!body || Array.isArray(body) || typeof body !== "object" || Object.keys(body).length > 0) {
       throw new ApiError(400, "INVALID_INPUT", "Salary Advice preparation does not accept input fields.");
     }
+    await enforcePayrollRateLimit(env, auth, "payslip_generate");
     return json(request, env, await generateAdminPayrollPayslip(
       env,
       auth,
@@ -443,6 +446,7 @@ export default {
           { error: error.message, code: error.code },
           error.status,
           cookies,
+          error.retryAfterSeconds ? { "Retry-After": String(error.retryAfterSeconds) } : {},
         );
       }
       console.error(JSON.stringify({

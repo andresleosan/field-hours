@@ -51,6 +51,12 @@ Estado al 25 de agosto de 2026: implementación local lista, todavía no despleg
 - Seguridad: ambas rutas requieren admin y permanecen acotadas a la organización; el POST exige origen permitido, sesión y CSRF. La respuesta no contiene Social Security Number completo ni datos bancarios, usa `Cache-Control: no-store`, y la auditoría guarda únicamente run, periodo y trabajador.
 - Inyección: nombre, dirección, referencias, ID de run y descripciones se escapan antes de escribir el HTML del popup. El documento no carga recursos externos ni ejecuta scripts embebidos.
 - UX: se eliminó el flujo anterior de importes manuales. La preparación asíncrona y la impresión son acciones separadas para que `window.open` ocurra directamente desde el clic del administrador y no sea bloqueado por el navegador.
+
+Las operaciones de revelado de identidad y preparación de Salary Advice están protegidas por
+límites por administrador; consulta `docs/RATE_LIMITING.md` para la política y configuración por
+entorno.
 - QA Nivel 3: Playwright valida snapshot pendiente sin acción de documento, snapshot aprobado, cifras exactas, campos obligatorios, escape de HTML, ausencia de rutas de transferencia, separación de rol y viewport 390x844. La API de la suite es simulada; el contrato del Worker se valida además por TypeScript y bundle dry-run, y requerirá smoke autenticado después de un despliegue autorizado.
 
-No se detectaron hallazgos críticos. Como defensa en profundidad no bloqueante se registró la Tarea O.6 en `tasks.md` para limitar el abuso repetitivo de las operaciones privilegiadas de descifrado/preparación.
+No se detectaron hallazgos críticos. Como defensa en profundidad no bloqueante se implementó la
+Tarea O.6 en `tasks.md` para limitar el abuso repetitivo de las operaciones privilegiadas de
+descifrado/preparación; queda pendiente su smoke HTTP local antes del despliegue.
