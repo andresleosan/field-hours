@@ -13,6 +13,7 @@
     "test:e2e:headed": "node scripts/run-playwright.mjs --headed",
     "test:e2e:install": "node scripts/run-playwright.mjs --install",
     "test:xlsx": "node scripts/check-xlsx.mjs",
+    "verify": "node scripts/verify.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
     "typecheck:worker": "tsc --noEmit -p cloudflare/tsconfig.json",
     "preview": "vite preview"
@@ -83,6 +84,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^4.3.3",
     "autoprefixer": "^10.4.21",
+    "caniuse-lite": "^1.0.30001810",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

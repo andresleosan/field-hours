@@ -19,6 +19,8 @@ Resultado: **6/6 pruebas aprobadas**
 npm.cmd run test:e2e:list    -> 6 pruebas detectadas en 2 archivos
 npm.cmd run test:e2e         -> 6 passed (8.7s), también tras React Router 7 / Vite 8
 npm.cmd run test:xlsx        -> SheetJS 0.20.3 write/read/JSON/CSV correcto
+npm.cmd run verify           -> gate completo en verde (typechecks, lint, build, SheetJS, E2E y audit)
+npm.cmd ls caniuse-lite      -> caniuse-lite@1.0.30001810 deduplicado
 npm.cmd run lint             -> 0 errores, 2 advertencias preexistentes
 npm.cmd run typecheck        -> correcto
 npm.cmd run typecheck:worker -> correcto

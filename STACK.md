@@ -44,7 +44,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 - Cloudflare D1/SQLite: fuente de datos del módulo workforce/payroll y sus migraciones versionadas en `cloudflare/migrations/`.
 - Supabase/PostgreSQL: fuente de datos de los módulos BuildTrack; migraciones en `supabase/migrations/`.
-- Estado: `0008_payroll_runs.sql` y `0009_worker_flexibility.sql` están pendientes en D1 remoto.
+- Estado: `0008_payroll_runs.sql` y `0009_worker_flexibility.sql` están aplicadas en D1 remoto; no quedan migraciones pendientes.
 - Regla: toda migración lleva rollback; las destructivas requieren además backup verificado y autorización explícita.
 
 ## Hosting / Despliegue
@@ -52,7 +52,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Frontend: Vercel.
 - API: Cloudflare Workers.
 - Datos: Cloudflare D1 y Supabase.
-- CI/CD: despliegue de Vercel asociado al repositorio; Worker operado con Wrangler. No hay evidencia en el repositorio de un pipeline único que ejecute todos los gates.
+- CI/CD: `.github/workflows/ci.yml` ejecuta `npm run verify` en push/PR; Vercel se despliega asociado al repositorio y el Worker se opera con Wrangler.
 - Gate: no desplegar ni migrar para “probar”; primero seguridad, E2E limpio, backup/rollback y confirmación del operador.
 
 ## Testing
@@ -62,7 +62,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Ruta elegida: Playwright Test CLI con fixtures y datos sintéticos, sin cuentas ni escrituras de producción.
 - Ubicación de la suite E2E: `e2e/`; runner reproducible en `scripts/run-playwright.mjs` y scripts `test:e2e*` en `package.json`.
 - Reportes: `qa/reports/` y artefactos de Playwright, no versionados.
-- Última corrida: 5/5 pruebas aprobadas en Chromium; cubren nómina, separación de roles, CSRF y flexibilidad de jornada en móvil sin tráfico externo.
+- Última corrida: 6/6 pruebas aprobadas en Chromium; cubren nómina/Salary Advice, separación de roles, CSRF y flexibilidad de jornada en móvil sin tráfico externo.
 
 ## Integraciones externas
 
