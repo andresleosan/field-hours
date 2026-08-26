@@ -59,4 +59,5 @@ entorno.
 
 No se detectaron hallazgos críticos. Como defensa en profundidad no bloqueante se implementó la
 Tarea O.6 en `tasks.md` para limitar el abuso repetitivo de las operaciones privilegiadas de
-descifrado/preparación; queda pendiente su smoke HTTP local antes del despliegue.
+descifrado/preparación; su smoke HTTP local de límite `429` y recuperación quedó validado el 26 de
+agosto de 2026. El despliegue de estas variables aún requiere autorización.

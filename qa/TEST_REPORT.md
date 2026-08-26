@@ -36,6 +36,13 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 
 - **Contrato UI/API:** el mock valida método y ruta, cuerpos exactos de proyecto, decisiones de nómina y preparación de Salary Advice, idempotency key, GPS, CSRF, ausencia de `photo` y ausencia de rutas de pago/transferencia.
 - **Casos límite de seguridad:** separación de rol worker/admin, run pendiente sin controles de documento, escape de contenido malicioso en el HTML imprimible, fallo cerrado sin CSRF y bloqueo de toda solicitud hacia hosts externos durante la suite.
+
+## Verificación adicional — O.6 (26 de agosto de 2026)
+
+- Worker local con D1 aislada: 10 solicitudes de revelado sintético devolvieron `404`; la número 11
+  devolvió `429 PAYROLL_RATE_LIMITED` con `Retry-After: 900`.
+- Tras mover el contador sintético fuera de la ventana, la siguiente solicitud volvió a `404`, lo
+  que confirma la recuperación sin exponer referencias, importes ni datos de perfil.
 - **Carga:** no aplica a esta tarea de infraestructura E2E local. No se ejecutará carga contra producción; se difiere hasta disponer de staging aislado y datos sintéticos.
 
 ## Gate y smoke de producción

@@ -17,5 +17,8 @@ se pueden diferenciar por entorno con `PAYROLL_PROFILE_REVEAL_LIMIT`,
 `PAYROLL_PAYSLIP_WINDOW_SECONDS`; los valores inválidos vuelven a los defaults seguros.
 
 La comprobación ocurre después de autenticación y CSRF, antes de descifrar o generar el documento.
-El cambio está preparado para local/staging/producción; aún requiere un despliegue aprobado para
-activar las variables nuevas en el Worker remoto.
+Prueba local completada el 26 de agosto de 2026: los intentos 1–10 de revelado devolvieron
+`404` (perfil sintético inexistente), el 11 devolvió `429` con `Retry-After: 900`, y al mover el
+contador fuera de la ventana la siguiente llamada volvió a `404`. El cambio está preparado para
+local/staging/producción; activar las variables nuevas en el Worker remoto requiere un despliegue
+aprobado.
