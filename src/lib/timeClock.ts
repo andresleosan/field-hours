@@ -111,6 +111,66 @@ export interface PayrollRun {
   workerCount: number;
 }
 
+export interface PayrollRunLine {
+  userId: string;
+  displayName: string;
+  employeeNumber: string | null;
+  profileStatus: "pending_review" | "approved" | "changes_requested";
+  shiftCount: number;
+  netMinutes: number;
+  itisRate: number;
+  grossPay: number;
+  workerSocialSecurity: number;
+  incomeTax: number;
+  netPay: number;
+  employerSocialSecurity: number;
+  employerTotalCost: number;
+  warnings: string[];
+}
+
+export interface PayrollRunDetails extends PayrollRun {
+  lines: PayrollRunLine[];
+}
+
+export interface PayrollPayslip {
+  generatedAt: string;
+  currency: "GBP";
+  run: {
+    id: string;
+    periodStart: string;
+    periodEnd: string;
+    payDate: string;
+    submittedAt: string;
+    approvedAt: string;
+  };
+  employer: { name: string; address: string };
+  worker: {
+    userId: string;
+    displayName: string;
+    legalName: string;
+    address: string;
+    employeeNumber: string;
+    taxReference: string;
+    socialReference: string;
+  };
+  allowances: Array<{
+    code: "basic_pay";
+    description: string;
+    shiftCount: number;
+    netMinutes: number;
+    hours: number;
+    amount: number;
+  }>;
+  deductions: {
+    workerSocialSecurity: number;
+    incomeTax: number;
+    total: number;
+  };
+  grossTaxablePay: number;
+  netPay: number;
+  itisRate: number;
+}
+
 export interface WorkerPayrollSummary {
   timezone: string;
   asOfDate: string;
@@ -355,6 +415,18 @@ export async function loadAdminPayrollPreview(): Promise<PayrollPreview> {
 
 export async function loadAdminPayrollRuns(): Promise<PayrollRun[]> {
   return backend.get<PayrollRun[]>("/api/admin/payroll-runs");
+}
+
+export async function loadAdminPayrollRunDetails(runId: string): Promise<PayrollRunDetails> {
+  return backend.get<PayrollRunDetails>(`/api/admin/payroll-runs/${encodeURIComponent(runId)}`);
+}
+
+export async function prepareAdminPayrollPayslip(runId: string, userId: string): Promise<PayrollPayslip> {
+  return backend.post<PayrollPayslip>(
+    `/api/admin/payroll-runs/${encodeURIComponent(runId)}/payslips/${encodeURIComponent(userId)}`,
+    {},
+    true,
+  );
 }
 
 export async function submitAdminPayrollRun(input?: {

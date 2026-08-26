@@ -1,6 +1,8 @@
 import { requireRole } from "./auth";
 import { ApiError, requireString } from "./http";
 import { getAdminPayrollPreview, type PayrollPreview } from "./payrollCalculation";
+import { getAdminPayrollPayslipIdentity } from "./payrollProfiles";
+import { getAdminPayrollSettings } from "./payrollSettings";
 import type { AuthContext } from "./types";
 
 export type PayrollRunStatus = "pending_review" | "approved" | "changes_requested";
@@ -18,6 +20,69 @@ export interface PayrollRun {
   reviewNote: string | null;
   totals: PayrollPreview["totals"];
   workerCount: number;
+}
+
+export interface PayrollRunLine {
+  userId: string;
+  displayName: string;
+  employeeNumber: string | null;
+  profileStatus: "pending_review" | "approved" | "changes_requested";
+  shiftCount: number;
+  netMinutes: number;
+  itisRate: number;
+  grossPay: number;
+  workerSocialSecurity: number;
+  incomeTax: number;
+  netPay: number;
+  employerSocialSecurity: number;
+  employerTotalCost: number;
+  warnings: string[];
+}
+
+export interface PayrollRunDetails extends PayrollRun {
+  lines: PayrollRunLine[];
+}
+
+export interface PayrollPayslip {
+  generatedAt: string;
+  currency: "GBP";
+  run: {
+    id: string;
+    periodStart: string;
+    periodEnd: string;
+    payDate: string;
+    submittedAt: string;
+    approvedAt: string;
+  };
+  employer: {
+    name: string;
+    address: string;
+  };
+  worker: {
+    userId: string;
+    displayName: string;
+    legalName: string;
+    address: string;
+    employeeNumber: string;
+    taxReference: string;
+    socialReference: string;
+  };
+  allowances: Array<{
+    code: "basic_pay";
+    description: string;
+    shiftCount: number;
+    netMinutes: number;
+    hours: number;
+    amount: number;
+  }>;
+  deductions: {
+    workerSocialSecurity: number;
+    incomeTax: number;
+    total: number;
+  };
+  grossTaxablePay: number;
+  netPay: number;
+  itisRate: number;
 }
 
 interface PayrollRunRow {
@@ -38,6 +103,23 @@ interface PayrollRunRow {
   reviewedBy: string | null;
   reviewNote: string | null;
   workerCount: number;
+}
+
+interface PayrollRunLineRow {
+  userId: string;
+  displayName: string;
+  employeeNumber: string | null;
+  profileStatus: PayrollRunLine["profileStatus"];
+  shiftCount: number;
+  netMinutes: number;
+  itisRateBps: number;
+  grossPayPence: number;
+  workerSocialSecurityPence: number;
+  incomeTaxPence: number;
+  netPayPence: number;
+  employerSocialSecurityPence: number;
+  employerTotalCostPence: number;
+  warningsJson: string;
 }
 
 function validDate(value: unknown, field: string): string {
@@ -82,6 +164,46 @@ function toRun(row: PayrollRunRow): PayrollRun {
     workerCount: Number(row.workerCount ?? 0),
   };
 }
+
+function parseWarnings(value: string): string[] {
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((warning): warning is string => typeof warning === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function toRunLine(row: PayrollRunLineRow): PayrollRunLine {
+  return {
+    userId: row.userId,
+    displayName: row.displayName,
+    employeeNumber: row.employeeNumber,
+    profileStatus: row.profileStatus,
+    shiftCount: Number(row.shiftCount),
+    netMinutes: Number(row.netMinutes),
+    itisRate: Number((Number(row.itisRateBps) / 100).toFixed(2)),
+    grossPay: pounds(row.grossPayPence),
+    workerSocialSecurity: pounds(row.workerSocialSecurityPence),
+    incomeTax: pounds(row.incomeTaxPence),
+    netPay: pounds(row.netPayPence),
+    employerSocialSecurity: pounds(row.employerSocialSecurityPence),
+    employerTotalCost: pounds(row.employerTotalCostPence),
+    warnings: parseWarnings(row.warningsJson),
+  };
+}
+
+const PAYROLL_RUN_LINE_SELECT = `SELECT
+  l.user_id AS userId, l.display_name AS displayName,
+  l.employee_number AS employeeNumber, l.profile_status AS profileStatus,
+  l.shift_count AS shiftCount, l.net_minutes AS netMinutes,
+  l.itis_rate_bps AS itisRateBps, l.gross_pay_pence AS grossPayPence,
+  l.worker_social_security_pence AS workerSocialSecurityPence,
+  l.income_tax_pence AS incomeTaxPence, l.net_pay_pence AS netPayPence,
+  l.employer_social_security_pence AS employerSocialSecurityPence,
+  l.employer_total_cost_pence AS employerTotalCostPence,
+  l.warnings_json AS warningsJson
+ FROM workforce_payroll_run_lines l`;
 
 async function loadRun(env: Env, organizationId: string, runId: string): Promise<PayrollRunRow | null> {
   return env.DB.prepare(
@@ -145,6 +267,105 @@ export async function listAdminPayrollRuns(env: Env, auth: AuthContext): Promise
      LIMIT 12`,
   ).bind(auth.user.organizationId).all<PayrollRunRow>();
   return rows.results.map(toRun);
+}
+
+export async function getAdminPayrollRun(
+  env: Env,
+  auth: AuthContext,
+  runIdValue: string,
+): Promise<PayrollRunDetails> {
+  requireRole(auth, "admin");
+  const runId = requireString(runIdValue, "Payroll run", 1, 100);
+  const run = await loadRun(env, auth.user.organizationId, runId);
+  if (!run) throw new ApiError(404, "NOT_FOUND", "Payroll run not found.");
+  const rows = await env.DB.prepare(
+    `${PAYROLL_RUN_LINE_SELECT}
+     WHERE l.payroll_run_id = ?1
+     ORDER BY l.display_name COLLATE NOCASE, l.user_id`,
+  ).bind(runId).all<PayrollRunLineRow>();
+  return { ...toRun(run), lines: rows.results.map(toRunLine) };
+}
+
+export async function generateAdminPayrollPayslip(
+  env: Env,
+  auth: AuthContext,
+  runIdValue: string,
+  userIdValue: string,
+): Promise<PayrollPayslip> {
+  requireRole(auth, "admin");
+  const runId = requireString(runIdValue, "Payroll run", 1, 100);
+  const userId = requireString(userIdValue, "Worker", 1, 100);
+  const run = await loadRun(env, auth.user.organizationId, runId);
+  if (!run) throw new ApiError(404, "NOT_FOUND", "Payroll run not found.");
+  if (run.status !== "approved") {
+    throw new ApiError(409, "PAYROLL_RUN_NOT_APPROVED", "Only an approved payroll run can generate a Salary Advice.");
+  }
+  const row = await env.DB.prepare(
+    `${PAYROLL_RUN_LINE_SELECT}
+     WHERE l.payroll_run_id = ?1 AND l.user_id = ?2
+     LIMIT 1`,
+  ).bind(runId, userId).first<PayrollRunLineRow>();
+  if (!row) throw new ApiError(404, "NOT_FOUND", "Worker payroll line not found.");
+
+  const identity = await getAdminPayrollPayslipIdentity(env, auth, userId);
+  const settings = await getAdminPayrollSettings(env, auth);
+  if (!settings) {
+    throw new ApiError(409, "PAYROLL_NOT_CONFIGURED", "Configure payroll settings before generating a Salary Advice.");
+  }
+  const line = toRunLine(row);
+  const generatedAt = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO workforce_audit_events
+     (organization_id, actor_user_id, action, subject_id, metadata_json)
+     VALUES (?1, ?2, 'payroll.payslip.generated', ?3, ?4)`,
+  ).bind(
+    auth.user.organizationId,
+    auth.user.id,
+    userId,
+    JSON.stringify({ runId, periodStart: run.periodStart, periodEnd: run.periodEnd }),
+  ).run();
+
+  return {
+    generatedAt,
+    currency: "GBP",
+    run: {
+      id: run.id,
+      periodStart: run.periodStart,
+      periodEnd: run.periodEnd,
+      payDate: run.payDate,
+      submittedAt: run.submittedAt,
+      approvedAt: run.reviewedAt ?? run.submittedAt,
+    },
+    employer: {
+      name: settings.businessName,
+      address: settings.businessAddress,
+    },
+    worker: {
+      userId,
+      displayName: line.displayName,
+      legalName: identity.legalName,
+      address: identity.address,
+      employeeNumber: line.employeeNumber ?? identity.employeeNumber,
+      taxReference: identity.taxReference,
+      socialReference: identity.socialReference,
+    },
+    allowances: [{
+      code: "basic_pay",
+      description: "Basic pay",
+      shiftCount: line.shiftCount,
+      netMinutes: line.netMinutes,
+      hours: Number((line.netMinutes / 60).toFixed(2)),
+      amount: line.grossPay,
+    }],
+    deductions: {
+      workerSocialSecurity: line.workerSocialSecurity,
+      incomeTax: line.incomeTax,
+      total: Number((line.workerSocialSecurity + line.incomeTax).toFixed(2)),
+    },
+    grossTaxablePay: line.grossPay,
+    netPay: line.netPay,
+    itisRate: line.itisRate,
+  };
 }
 
 export async function submitAdminPayrollRun(

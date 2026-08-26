@@ -39,6 +39,14 @@ export interface PayrollProfileDetails extends PayrollProfileSummary {
   bankAccountNumber: string | null;
 }
 
+export interface PayrollPayslipIdentity {
+  legalName: string;
+  address: string;
+  employeeNumber: string;
+  taxReference: string;
+  socialReference: string;
+}
+
 interface ProfileRow {
   userId: string;
   organizationId: string;
@@ -294,6 +302,38 @@ export async function revealAdminPayrollProfile(
     bankAccountName,
     bankSortCode,
     bankAccountNumber,
+  };
+}
+
+export async function getAdminPayrollPayslipIdentity(
+  env: Env,
+  auth: AuthContext,
+  userId: string,
+): Promise<PayrollPayslipIdentity> {
+  requireRole(auth, "admin");
+  const row = await loadProfile(env, auth.user.organizationId, userId);
+  if (!row) throw new ApiError(404, "NOT_FOUND", "Payroll profile not found.");
+  if (
+    !profileExists(row)
+    || !row.taxReferenceCiphertext
+    || !row.socialReferenceCiphertext
+  ) {
+    throw new ApiError(
+      409,
+      "PAYROLL_PROFILE_INCOMPLETE",
+      "The worker payroll identity is incomplete.",
+    );
+  }
+  const [taxReference, socialReference] = await Promise.all([
+    decryptPayrollValue(env, row.taxReferenceCiphertext),
+    decryptPayrollValue(env, row.socialReferenceCiphertext),
+  ]);
+  return {
+    legalName: row.legalName,
+    address: row.address,
+    employeeNumber: row.employeeNumber,
+    taxReference,
+    socialReference,
   };
 }
 

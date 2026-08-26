@@ -24,6 +24,10 @@ dist-ssr
 *.sw?
 .vercel
 graphify-out/
+.cache/ms-playwright/
+qa/reports/
+playwright-report/
+test-results/
 cloudflare/.wrangler/
 cloudflare/backups/
 .env*

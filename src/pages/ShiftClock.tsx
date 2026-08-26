@@ -59,6 +59,7 @@ import {
   loadAdminToday,
   loadAdminPayrollProfiles,
   loadAdminPayrollPreview,
+  loadAdminPayrollRunDetails,
   loadAdminPayrollRuns,
   loadAdminPayrollSettings,
   loadProjects,
@@ -78,6 +79,7 @@ import {
   loadPasswordResetRequests,
   loadRequestHistory,
   issuePasswordReset,
+  prepareAdminPayrollPayslip,
   reviewGoogleAuthRequest,
   requestPasswordReset,
   rejectPasswordReset,
@@ -97,7 +99,9 @@ import {
   type PayrollProfile,
   type PayrollProfileDetails,
   type PayrollPreview,
+  type PayrollPayslip,
   type PayrollRun,
+  type PayrollRunDetails,
   type PayrollSettings,
   type WorkerPayrollProfile,
   type WorkerPayrollSummary,
@@ -1901,7 +1905,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [payrollReviewing, setPayrollReviewing] = useState<string | null>(null);
   const [payrollRevealBusy, setPayrollRevealBusy] = useState<string | null>(null);
   const [revealedPayrollProfile, setRevealedPayrollProfile] = useState<PayrollProfileDetails | null>(null);
-  const [salaryAdviceProfile, setSalaryAdviceProfile] = useState<PayrollProfile | null>(null);
+  const [salaryAdviceRun, setSalaryAdviceRun] = useState<PayrollRun | null>(null);
   const [payrollSettings, setPayrollSettings] = useState<PayrollSettings | null>(null);
   const [payrollSettingsLoading, setPayrollSettingsLoading] = useState(false);
   const [payrollPreview, setPayrollPreview] = useState<PayrollPreview | null>(null);
@@ -2519,11 +2523,6 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                             {payrollRevealBusy === profile.userId ? "Opening…" : "View details"}
                           </button>
                         )}
-                        {profile.status === "approved" && (
-                          <button type="button" onClick={() => setSalaryAdviceProfile(profile)} className="rounded-xl bg-brand px-3 py-2 font-semibold text-brand-foreground hover:bg-brand/90">
-                            Salary Advice
-                          </button>
-                        )}
                         {profile.status === "pending_review" && (
                           <>
                             <button type="button" onClick={() => void reviewPayrollProfile(profile, "changes_requested")} disabled={payrollReviewing === profile.userId} className="rounded-xl border border-border px-3 py-2 font-semibold hover:bg-muted disabled:opacity-60">Request changes</button>
@@ -2570,6 +2569,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           busy={payrollRunBusy}
           onSubmit={() => void submitPayrollRun()}
           onReview={(run, decision) => void reviewPayrollRun(run, decision)}
+          onOpenPayslips={setSalaryAdviceRun}
           timezone={user.timezone}
         />
 
@@ -3143,13 +3143,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           </div>
         )}
 
-        {salaryAdviceProfile && (
+        {salaryAdviceRun && (
           <SalaryAdviceModal
-            profile={salaryAdviceProfile}
-            settings={payrollSettings}
-            organizationName={user.organizationName}
+            run={salaryAdviceRun}
             timezone={user.timezone}
-            onClose={() => setSalaryAdviceProfile(null)}
+            onClose={() => setSalaryAdviceRun(null)}
             onMessage={setMessage}
           />
         )}
@@ -3165,6 +3163,7 @@ function PayrollApprovalCard({
   busy,
   onSubmit,
   onReview,
+  onOpenPayslips,
   timezone,
 }: {
   preview: PayrollPreview | null;
@@ -3173,6 +3172,7 @@ function PayrollApprovalCard({
   busy: boolean;
   onSubmit: () => void;
   onReview: (run: PayrollRun, decision: "approved" | "changes_requested") => void;
+  onOpenPayslips: (run: PayrollRun) => void;
   timezone: string;
 }) {
   const latestRun = preview
@@ -3228,9 +3228,9 @@ function PayrollApprovalCard({
 
       {runs.length > 0 && (
         <div className="mt-5 overflow-x-auto rounded-2xl border border-border">
-          <table className="w-full min-w-[680px] text-left text-xs">
+          <table className="w-full min-w-[780px] text-left text-xs">
             <thead className="border-b border-border bg-muted/40 text-muted-foreground">
-              <tr><th className="px-4 py-3 font-semibold">Period</th><th className="px-4 py-3 font-semibold">Submitted</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Net pay</th><th className="px-4 py-3 text-right font-semibold">Note</th></tr>
+              <tr><th className="px-4 py-3 font-semibold">Period</th><th className="px-4 py-3 font-semibold">Submitted</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 text-right font-semibold">Net pay</th><th className="px-4 py-3 text-right font-semibold">Note</th><th className="px-4 py-3 text-right font-semibold">Documents</th></tr>
             </thead>
             <tbody className="divide-y divide-border">
               {runs.slice(0, 6).map((run) => (
@@ -3240,6 +3240,13 @@ function PayrollApprovalCard({
                   <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 font-semibold">{run.status.replace("_", " ")}</span></td>
                   <td className="px-4 py-3 text-right font-mono">{formatPounds(run.totals.netPay)}</td>
                   <td className="max-w-[220px] px-4 py-3 text-right text-muted-foreground">{run.reviewNote ?? "—"}</td>
+                  <td className="px-4 py-3 text-right">
+                    {run.status === "approved" ? (
+                      <button type="button" onClick={() => onOpenPayslips(run)} className="rounded-xl bg-brand px-3 py-2 font-semibold text-brand-foreground hover:bg-brand/90">Open Salary Advice</button>
+                    ) : (
+                      <span className="text-muted-foreground">Locked until approved</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -3433,89 +3440,58 @@ function PayrollSettingsCard({
 }
 
 function SalaryAdviceModal({
-  profile,
-  settings,
-  organizationName,
+  run,
   timezone,
   onClose,
   onMessage,
 }: {
-  profile: PayrollProfile;
-  settings: PayrollSettings | null;
-  organizationName: string;
+  run: PayrollRun;
   timezone: string;
   onClose: () => void;
   onMessage: (message: string) => void;
 }) {
-  const [details, setDetails] = useState<PayrollProfileDetails | null>(null);
-  const [records, setRecords] = useState<ShiftHistoryRecord[]>([]);
-  const [periodStart, setPeriodStart] = useState(() => firstOfMonthInTimezone(timezone));
-  const [periodEnd, setPeriodEnd] = useState(() => todayInTimezone(timezone));
-  const [payDate, setPayDate] = useState(() => firstOfNextMonth(periodStart));
-  const [hourlyRate, setHourlyRate] = useState(() => settings?.hourlyRate.toFixed(2) ?? "");
-  const [incomeTax, setIncomeTax] = useState("0");
-  const [socialSecurity, setSocialSecurity] = useState("0");
+  const [details, setDetails] = useState<PayrollRunDetails | null>(null);
+  const [prepared, setPrepared] = useState<PayrollPayslip | null>(null);
+  const [preparingUserId, setPreparingUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    if (!hourlyRate && settings?.hourlyRate) setHourlyRate(settings.hourlyRate.toFixed(2));
-  }, [hourlyRate, settings]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError("");
-    Promise.all([
-      revealAdminPayrollProfile(profile.userId),
-      loadAdminHistory({ userId: profile.userId, startDate: periodStart, endDate: periodEnd }),
-    ]).then(([loadedDetails, loadedRecords]) => {
+    setPrepared(null);
+    loadAdminPayrollRunDetails(run.id).then((loadedDetails) => {
       if (!active) return;
       setDetails(loadedDetails);
-      setRecords(loadedRecords);
     }).catch((caught) => {
-      if (active) setError(messageFrom(caught, "The Salary Advice data could not be loaded."));
+      if (active) setError(messageFrom(caught, "The approved payroll snapshot could not be loaded."));
     }).finally(() => {
       if (active) setLoading(false);
     });
     return () => {
       active = false;
     };
-  }, [periodEnd, periodStart, profile.userId]);
+  }, [run.id]);
 
-  const hours = records.reduce((total, record) => total + record.net_minutes, 0) / 60;
-  const rate = Number(hourlyRate);
-  const tax = Number(incomeTax);
-  const social = Number(socialSecurity);
-  const gross = Number.isFinite(rate) && rate >= 0 ? hours * rate : 0;
-  const deductions = (Number.isFinite(tax) ? Math.max(0, tax) : 0) + (Number.isFinite(social) ? Math.max(0, social) : 0);
-  const net = gross - deductions;
+  async function prepareSalaryAdvice(userId: string) {
+    setPreparingUserId(userId);
+    setError("");
+    setPrepared(null);
+    try {
+      const payslip = await prepareAdminPayrollPayslip(run.id, userId);
+      setPrepared(payslip);
+      onMessage(`Salary Advice prepared for ${payslip.worker.displayName}.`);
+    } catch (caught) {
+      setError(messageFrom(caught, "The Salary Advice could not be prepared."));
+    } finally {
+      setPreparingUserId(null);
+    }
+  }
 
-  function exportSalaryAdvice(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!details) return;
-    if (!Number.isFinite(rate) || rate <= 0) {
-      setError("Enter a valid hourly rate before exporting.");
-      return;
-    }
-    if (net < 0) {
-      setError("Deductions cannot be greater than gross pay.");
-      return;
-    }
-    const opened = printSalaryAdvice({
-      organizationName: settings?.businessName || organizationName,
-      organizationAddress: settings?.businessAddress || "",
-      details,
-      periodStart,
-      periodEnd,
-      payDate,
-      hours,
-      hourlyRate: rate,
-      incomeTax: Math.max(0, tax),
-      socialSecurity: Math.max(0, social),
-      gross,
-      net,
-    });
+  function exportSalaryAdvice() {
+    if (!prepared) return;
+    const opened = printSalaryAdvice(prepared);
     if (!opened) {
       setError("The print window was blocked. Allow pop-ups for this site and try again.");
       return;
@@ -3525,44 +3501,61 @@ function SalaryAdviceModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/30 p-3 sm:items-center sm:p-4" role="presentation" onClick={onClose}>
-      <section role="dialog" aria-modal="true" aria-labelledby="salary-advice-title" className="max-h-[94vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-4 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
+      <section role="dialog" aria-modal="true" aria-labelledby="salary-advice-title" className="max-h-[94vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-border bg-card p-4 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
         <div className="flex items-start justify-between gap-3 border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow">Salary Advice · draft</p>
-            <h2 id="salary-advice-title" className="mt-1 text-xl font-semibold">Export worker payslip</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{profile.displayName}. Values marked manual will be replaced by configured Jersey payroll rules later.</p>
+            <p className="label-eyebrow">Salary Advice · approved snapshot</p>
+            <h2 id="salary-advice-title" className="mt-1 text-xl font-semibold">Final worker documents</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{formatCalendarDate(run.periodStart, timezone)} – {formatCalendarDate(run.periodEnd, timezone)}. Amounts are locked to run <span className="font-mono">{run.id}</span>.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close Salary Advice"><X className="h-5 w-5" /></button>
         </div>
         {loading ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">Loading hours and payroll details…</p>
-        ) : error && !details ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">Loading approved payroll snapshot…</p>
+        ) : !details ? (
           <p role="alert" className="mt-5 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>
         ) : (
-          <form className="mt-5 space-y-5" onSubmit={exportSalaryAdvice}>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium">Period start<input type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
-              <label className="text-sm font-medium">Period end<input type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
-              <label className="text-sm font-medium">Payment date<input type="date" value={payDate} onChange={(event) => setPayDate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
-              <label className="text-sm font-medium">Hourly rate (£)<input type="number" min="0.01" step="0.01" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" placeholder="Manual for now" required /></label>
-              <label className="text-sm font-medium">Income Tax / ITIS (£)<input type="number" min="0" step="0.01" value={incomeTax} onChange={(event) => setIncomeTax(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
-              <label className="text-sm font-medium">Worker Social Security (£)<input type="number" min="0" step="0.01" value={socialSecurity} onChange={(event) => setSocialSecurity(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
+          <div className="mt-5 space-y-5">
+            <div className="grid grid-cols-2 gap-3 rounded-2xl border border-success/25 bg-success/10 p-4 sm:grid-cols-4">
+              <SalaryMetric label="Status" value="Approved · locked" />
+              <SalaryMetric label="Pay date" value={formatCalendarDate(details.payDate, timezone)} />
+              <SalaryMetric label="Workers" value={String(details.workerCount)} />
+              <SalaryMetric label="Run net pay" value={formatPounds(details.totals.netPay)} />
             </div>
-            <div className="grid grid-cols-2 gap-3 rounded-2xl bg-muted/40 p-4 sm:grid-cols-4">
-              <SalaryMetric label="Hours" value={hours.toFixed(2)} />
-              <SalaryMetric label="Gross" value={formatPounds(gross)} />
-              <SalaryMetric label="Deductions" value={formatPounds(deductions)} />
-              <SalaryMetric label="Net pay" value={formatPounds(net)} />
-            </div>
-            <div className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">
-              Draft export: the hourly rate, ITIS amount and Social Security amount are manual inputs until the Jersey payroll configuration and statutory calculations are implemented.
+            <p className="text-xs text-muted-foreground">Preparing a document decrypts only the current Tax Ref and Social Ref for that worker and records the action in the audit log. It does not reveal bank details or send payment.</p>
+            <p className="mb-2 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para revisar todos los importes.</p>
+            <div className="overflow-x-auto rounded-2xl border border-border">
+              <table className="w-full min-w-[720px] text-left text-xs">
+                <thead className="border-b border-border bg-muted/40 text-muted-foreground">
+                  <tr><th className="px-4 py-3 font-semibold">Worker</th><th className="px-4 py-3 font-semibold">Hours</th><th className="px-4 py-3 font-semibold">Gross</th><th className="px-4 py-3 font-semibold">Deductions</th><th className="px-4 py-3 font-semibold">Net pay</th><th className="px-4 py-3 text-right font-semibold">Document</th></tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {details.lines.map((line) => (
+                    <tr key={line.userId}>
+                      <td className="px-4 py-3"><p className="font-semibold">{line.displayName}</p><p className="font-mono text-muted-foreground">{line.employeeNumber ?? "—"}</p></td>
+                      <td className="px-4 py-3 font-mono">{(line.netMinutes / 60).toFixed(2)}</td>
+                      <td className="px-4 py-3 font-mono">{formatPounds(line.grossPay)}</td>
+                      <td className="px-4 py-3 font-mono">{formatPounds(line.workerSocialSecurity + line.incomeTax)}</td>
+                      <td className="px-4 py-3 font-mono font-semibold">{formatPounds(line.netPay)}</td>
+                      <td className="px-4 py-3 text-right"><button type="button" onClick={() => void prepareSalaryAdvice(line.userId)} disabled={preparingUserId !== null} className="rounded-xl bg-brand px-3 py-2 font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-60">{preparingUserId === line.userId ? "Preparing…" : "Prepare Salary Advice"}</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
             {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+            {prepared && (
+              <div className="rounded-2xl border border-brand/30 bg-brand/10 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div><p className="text-sm font-semibold">Prepared for {prepared.worker.displayName}</p><p className="mt-1 text-xs text-muted-foreground">Final figures: gross {formatPounds(prepared.grossTaxablePay)} · deductions {formatPounds(prepared.deductions.total)} · net {formatPounds(prepared.netPay)}.</p></div>
+                  <button type="button" onClick={exportSalaryAdvice} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"><Download className="h-4 w-4" /> Print / save final Salary Advice</button>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">Cancel</button>
-              <button type="submit" disabled={!details || loading} className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60"><Download className="h-4 w-4" /> Print / save Salary Advice</button>
+              <button type="button" onClick={onClose} className="min-h-11 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:bg-muted">Close</button>
             </div>
-          </form>
+          </div>
         )}
       </section>
     </div>
@@ -3582,31 +3575,6 @@ function formatPounds(value: number): string {
   return `£${value.toFixed(2)}`;
 }
 
-function todayInTimezone(timezone: string): string {
-  return calendarDateInTimezone(new Date(), timezone);
-}
-
-function firstOfMonthInTimezone(timezone: string): string {
-  return `${todayInTimezone(timezone).slice(0, 7)}-01`;
-}
-
-function firstOfNextMonth(periodStart: string): string {
-  const [year, month] = periodStart.split("-").map(Number);
-  if (!year || !month) return periodStart;
-  return month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, "0")}-01`;
-}
-
-function calendarDateInTimezone(value: Date, timezone: string): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(value);
-  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
 function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => ({
     "&": "&amp;",
@@ -3617,32 +3585,23 @@ function escapeHtml(value: string): string {
   })[character] ?? character);
 }
 
-function printSalaryAdvice(input: {
-  organizationName: string;
-  organizationAddress: string;
-  details: PayrollProfileDetails;
-  periodStart: string;
-  periodEnd: string;
-  payDate: string;
-  hours: number;
-  hourlyRate: number;
-  incomeTax: number;
-  socialSecurity: number;
-  gross: number;
-  net: number;
-}): boolean {
+function printSalaryAdvice(input: PayrollPayslip): boolean {
   // The same-origin popup is required so the browser can render the generated
   // document before opening its print dialog. All user-controlled values are
   // escaped below, and the action is only available to an authenticated admin.
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
-  const details = input.details;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(details.legalName ?? details.displayName)}</title><style>
-    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#111;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.draft{border:2px solid #b45309;color:#92400e;padding:7px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta strong{display:block}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f4f4;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:145px}.lower>div+div{border-left:1px solid #222}.line{margin:0 0 10px}.line strong{display:inline-block;min-width:145px}.notice{margin-top:16px;font-size:10px;color:#555}@media print{.draft{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
-  </style></head><body><main class="sheet"><div class="draft">Draft · manual payroll inputs</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.organizationName)}</strong><span>${escapeHtml(input.organizationAddress)}</span><span>Pay date: ${escapeHtml(input.payDate)}</span></div><div><strong>${escapeHtml(input.periodStart)} to ${escapeHtml(input.periodEnd)}</strong><span>Payment period</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody><tr><td>Basic Hourly Pay<br><small>£${input.hourlyRate.toFixed(2)} / hour</small></td><td>${input.hours.toFixed(2)}</td><td>${formatPounds(input.gross)}</td></tr></tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.gross)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS</td><td>${formatPounds(input.incomeTax)}</td></tr><tr><td>Social Security</td><td>${formatPounds(input.socialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.incomeTax + input.socialSecurity)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong>${escapeHtml(details.legalName ?? details.displayName)}</p><p class="line"><strong>Employee No.</strong>${escapeHtml(details.employeeNumber ?? "")}</p><p class="line"><strong>Address</strong>${escapeHtml(details.address ?? "")}</p><p class="line"><strong>Tax Ref</strong>${escapeHtml(details.taxReference)}</p><p class="line"><strong>Social Ref</strong>${escapeHtml(details.socialReference)}</p></div><div><p class="line"><strong>BACS · Net Pay</strong>${formatPounds(input.net)}</p><p class="line"><strong>Gross Taxable Pay</strong>${formatPounds(input.gross)}</p><p class="line"><strong>Tax Paid</strong>${formatPounds(input.incomeTax)}</p></div></div><p class="notice">This document is a draft Salary Advice generated from approved attendance and manual payroll inputs. Statutory Jersey tax and social security calculations will be applied after payroll rules are configured.</p></main><script>window.onload=()=>window.print();</script></body></html>`;
+  const allowanceRows = input.allowances.map((allowance) => `<tr><td>${escapeHtml(allowance.description)}<br><small>${allowance.shiftCount} completed shift${allowance.shiftCount === 1 ? "" : "s"}</small></td><td>${allowance.hours.toFixed(2)}</td><td>${formatPounds(allowance.amount)}</td></tr>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(input.worker.legalName)}</title><style>
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Archivo,Arial,sans-serif;color:#1d1d1b;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.approved{border:2px solid #9a5b13;background:#fff8e8;color:#6f3f0b;padding:8px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta>div{display:grid;gap:3px}.meta strong{display:block}.mono{font-family:"JetBrains Mono",Consolas,monospace}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f0e6;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:155px}.lower>div+div{border-left:1px solid #222}.line{display:grid;grid-template-columns:130px 1fr;gap:10px;margin:0 0 10px}.address{white-space:pre-line}.notice{margin-top:16px;border-left:3px solid #9a5b13;padding-left:10px;font-size:10px;line-height:1.45;color:#555}@media print{.approved,.tables th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
+  </style></head><body><main class="sheet"><div class="approved">Approved · locked snapshot</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.employer.name)}</strong><span class="address">${escapeHtml(input.employer.address)}</span><span>Pay date: <span class="mono">${escapeHtml(input.run.payDate)}</span></span></div><div><strong>${escapeHtml(input.run.periodStart)} to ${escapeHtml(input.run.periodEnd)}</strong><span>Payment period</span><span class="mono">Run ${escapeHtml(input.run.id)}</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody>${allowanceRows}</tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.grossTaxablePay)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS<br><small>${input.itisRate.toFixed(2)}%</small></td><td>${formatPounds(input.deductions.incomeTax)}</td></tr><tr><td>Worker Social Security</td><td>${formatPounds(input.deductions.workerSocialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.deductions.total)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong><span>${escapeHtml(input.worker.legalName)}</span></p><p class="line"><strong>Employee No.</strong><span class="mono">${escapeHtml(input.worker.employeeNumber)}</span></p><p class="line"><strong>Address</strong><span class="address">${escapeHtml(input.worker.address)}</span></p><p class="line"><strong>Tax Ref</strong><span class="mono">${escapeHtml(input.worker.taxReference)}</span></p><p class="line"><strong>Social Ref</strong><span class="mono">${escapeHtml(input.worker.socialReference)}</span></p></div><div><p class="line"><strong>Net Pay</strong><span class="mono">${formatPounds(input.netPay)}</span></p><p class="line"><strong>Gross Taxable Pay</strong><span class="mono">${formatPounds(input.grossTaxablePay)}</span></p><p class="line"><strong>Tax Paid</strong><span class="mono">${formatPounds(input.deductions.incomeTax)}</span></p><p class="line"><strong>Approved at</strong><span class="mono">${escapeHtml(input.run.approvedAt)}</span></p></div></div><p class="notice">Generated from an approved, locked payroll snapshot. Payroll approval confirms the calculation; this document does not confirm that funds were transferred.</p></main></body></html>`;
   printWindow.document.open();
   printWindow.document.write(html);
   printWindow.document.close();
+  window.setTimeout(() => {
+    printWindow.focus();
+    printWindow.print();
+  }, 100);
   return true;
 }
 

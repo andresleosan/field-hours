@@ -30,6 +30,8 @@ import {
 import { getWorkerPayrollSummary } from "./payrollSummary";
 import { getAdminPayrollPreview } from "./payrollCalculation";
 import {
+  generateAdminPayrollPayslip,
+  getAdminPayrollRun,
   listAdminPayrollRuns,
   reviewAdminPayrollRun,
   submitAdminPayrollRun,
@@ -263,6 +265,32 @@ async function route(request: Request, env: Env): Promise<Response> {
     const runId = decodeURIComponent(payrollRunReviewMatch[1] ?? "");
     const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
     return json(request, env, await reviewAdminPayrollRun(env, auth, runId, body.decision, body.note));
+  }
+
+  const payrollPayslipMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)\/payslips\/([^/]+)$/);
+  if (payrollPayslipMatch && request.method === "POST") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const body = await readJson<Record<string, unknown>>(request);
+    if (!body || Array.isArray(body) || typeof body !== "object" || Object.keys(body).length > 0) {
+      throw new ApiError(400, "INVALID_INPUT", "Salary Advice preparation does not accept input fields.");
+    }
+    return json(request, env, await generateAdminPayrollPayslip(
+      env,
+      auth,
+      decodeURIComponent(payrollPayslipMatch[1] ?? ""),
+      decodeURIComponent(payrollPayslipMatch[2] ?? ""),
+    ));
+  }
+
+  const payrollRunMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)$/);
+  if (payrollRunMatch && request.method === "GET") {
+    const auth = await getAuth(request, env);
+    return json(request, env, await getAdminPayrollRun(
+      env,
+      auth,
+      decodeURIComponent(payrollRunMatch[1] ?? ""),
+    ));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {
