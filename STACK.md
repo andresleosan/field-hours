@@ -32,6 +32,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Design DNA — tipografía: Archivo Variable para interfaz y JetBrains Mono Variable para cifras/identificadores.
 - Design DNA — tono: operativo, sobrio, legible en móvil y orientado al trabajo de campo.
 - Default genérico evitado: dashboards con gradientes, exceso de tarjetas anidadas y múltiples colores decorativos sin significado.
+- Regla de contraste semántico: los tokens `*-foreground` se reservan para fondos semánticos sólidos; sobre fondos translúcidos (`*/10`, `*/15`) se usa `text-foreground` para contenido o el color semántico oscuro para etiquetas breves. Todo texto normal debe alcanzar al menos 4.5:1 en modo claro.
 
 ## Backend
 
@@ -62,7 +63,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Ruta elegida: Playwright Test CLI con fixtures y datos sintéticos, sin cuentas ni escrituras de producción.
 - Ubicación de la suite E2E: `e2e/`; runner reproducible en `scripts/run-playwright.mjs` y scripts `test:e2e*` en `package.json`.
 - Reportes: `qa/reports/` y artefactos de Playwright, no versionados.
-- Última corrida: 6/6 pruebas aprobadas en Chromium; cubren nómina/Salary Advice, separación de roles, CSRF y flexibilidad de jornada en móvil sin tráfico externo.
+- Última corrida: 16/16 pruebas aprobadas en Chromium; cubren nómina/Salary Advice, separación de roles, CSRF, flexibilidad de jornada y auditoría de contraste/foco/nombres accesibles/overflow para admin y trabajador en escritorio y móvil, sin tráfico externo.
 
 ## Integraciones externas
 

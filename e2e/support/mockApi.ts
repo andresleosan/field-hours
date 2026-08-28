@@ -134,7 +134,10 @@ function assertCsrf(route: Route): boolean {
   return route.request().headers()["x-csrf-token"] === CSRF_TOKEN;
 }
 
-export async function installAdminApi(context: BrowserContext): Promise<MockApiControl> {
+export async function installAdminApi(
+  context: BrowserContext,
+  options: { payrollPreviewError?: boolean } = {},
+): Promise<MockApiControl> {
   const adminPeople = [{
     user_id: "worker-1",
     display_name: "Worker Test",
@@ -261,7 +264,11 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
     if (method === "GET" && path === "/api/admin/request-history") return json(route, []);
     if (method === "GET" && path === "/api/admin/payroll-profiles") return json(route, [profile]);
     if (method === "GET" && path === "/api/admin/payroll-settings") return json(route, settings);
-    if (method === "GET" && path === "/api/admin/payroll-preview") return json(route, preview);
+    if (method === "GET" && path === "/api/admin/payroll-preview") {
+      return options.payrollPreviewError
+        ? json(route, { error: "Configure payroll settings before calculating payroll.", code: "PAYROLL_SETTINGS_REQUIRED" }, 409)
+        : json(route, preview);
+    }
     if (method === "GET" && path === "/api/admin/payroll-runs") return json(route, runs);
     if (method === "GET" && path === "/api/admin/payroll-runs/payroll-run-1") {
       if (!runs[0]) return json(route, { error: "Payroll run not found", code: "NOT_FOUND" }, 404);

@@ -159,6 +159,12 @@
     text-rendering: optimizeLegibility;
   }
 
+  input::placeholder,
+  textarea::placeholder {
+    color: hsl(var(--muted-foreground));
+    opacity: 1;
+  }
+
   /* Editorial hierarchy: headings are tight, body is airy. */
   h1,
   h2,

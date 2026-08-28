@@ -256,15 +256,16 @@ function PhotoEvidenceModal({
       <section
         role="dialog"
         aria-modal="true"
+        aria-labelledby="photo-evidence-title"
         className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h3 className="text-sm font-bold">{title}</h3>
+            <h3 id="photo-evidence-title" className="text-sm font-bold">{title}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label="Close photo evidence">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -480,7 +481,7 @@ function LoginScreen({ onLogin }: { onLogin: (user: SessionUser) => void }) {
                     setResetEmail(email);
                     setResetMessage("");
                   }}
-                  className="mt-3 w-full text-center text-sm font-medium text-brand underline-offset-4 hover:underline"
+                  className="mt-3 w-full text-center text-sm font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   {showResetRequest ? "Cancelar restablecimiento" : "¿Olvidaste tu contraseña?"}
                 </button>
@@ -916,7 +917,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Offline & Queue Status Banner */}
         {(!online || pendingQueueCount > 0) && (
-          <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs font-semibold text-warning-foreground">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs font-semibold text-foreground">
             <div className="flex items-center gap-2">
               {!online ? <WifiOff className="h-4 w-4 text-warning" /> : <RefreshCw className="h-4 w-4 animate-spin text-warning" />}
               <span>
@@ -949,11 +950,11 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                   <Wifi className="h-3 w-3" /> {t("online")}
                 </span>
               ) : (
-                <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-semibold text-warning">
+                <span className="flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
                   <WifiOff className="h-3 w-3" /> {t("offline")}
                 </span>
               )}
-              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${copy.tone === "live" ? "bg-success/15 text-success" : copy.tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
+              <div className={`rounded-full px-3 py-1 text-xs font-semibold ${copy.tone === "live" ? "bg-success/15 text-success" : copy.tone === "break" ? "bg-warning/15 text-foreground" : "bg-muted text-muted-foreground"}`}>
                 {copy.label}
               </div>
             </div>
@@ -978,7 +979,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     <button
                       type="button"
                       onClick={() => setWorkerProjectDialogOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-brand hover:bg-brand/10"
+                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-brand/10"
                     >
                       <Plus className="h-3 w-3" /> {t("newProjectBtn")}
                     </button>
@@ -987,6 +988,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     <p className="text-xs text-muted-foreground">{t("noProjectsAvailable")}</p>
                   ) : (
                     <select
+                      aria-label={t("assignedProject")}
                       value={selectedProjectId}
                       onChange={(e) => setSelectedProjectId(e.target.value)}
                       className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -1435,8 +1437,8 @@ function LocationEvidenceList({
                 <p className="text-sm font-semibold flex items-center gap-1.5">
                   {getActionLabel(event.type, t)}
                   {event.photo && (
-                    <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand flex items-center gap-1">
-                      <Camera className="h-3 w-3" /> {t("photoVerified")}
+                    <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-foreground flex items-center gap-1">
+                      <Camera className="h-3 w-3 text-brand" /> {t("photoVerified")}
                     </span>
                   )}
                 </p>
@@ -1450,7 +1452,7 @@ function LocationEvidenceList({
                 <button
                   type="button"
                   onClick={() => onViewPhoto?.(event.photo!, event)}
-                  className="text-xs font-semibold text-brand underline-offset-4 hover:underline flex items-center gap-1"
+                  className="text-xs font-semibold text-info underline-offset-4 hover:underline flex items-center gap-1"
                 >
                   <Camera className="h-3 w-3" /> {t("viewPhoto")}
                 </button>
@@ -1531,7 +1533,7 @@ function WorkerProjectModal({
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-brand font-semibold">{t("assignedProject")}</p>
+            <p className="label-eyebrow text-muted-foreground font-semibold">{t("assignedProject")}</p>
             <h2 id="worker-project-title" className="mt-1 text-xl font-bold">{t("newProject")}</h2>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
@@ -1543,6 +1545,7 @@ function WorkerProjectModal({
           <div>
             <label className="block text-xs font-semibold uppercase text-muted-foreground">{t("projectName")}</label>
             <input
+              aria-label={t("projectName")}
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
@@ -1555,6 +1558,7 @@ function WorkerProjectModal({
           <div>
             <label className="block text-xs font-semibold uppercase text-muted-foreground">{t("projectDescription")}</label>
             <textarea
+              aria-label={t("projectDescription")}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               maxLength={300}
@@ -1645,15 +1649,16 @@ function ProjectEditModal({
       <section
         role="dialog"
         aria-modal="true"
+        aria-labelledby="admin-project-title"
         className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-brand font-semibold">{t("projectsSubtitle")}</p>
-            <h2 className="mt-1 text-xl font-bold">{project ? t("editProject") : t("newProject")}</h2>
+            <p className="label-eyebrow text-muted-foreground font-semibold">{t("projectsSubtitle")}</p>
+            <h2 id="admin-project-title" className="mt-1 text-xl font-bold">{project ? t("editProject") : t("newProject")}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1662,6 +1667,7 @@ function ProjectEditModal({
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("projectName")}</label>
             <input
+              aria-label={t("projectName")}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -1675,6 +1681,7 @@ function ProjectEditModal({
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("projectCode")}</label>
               <input
+                aria-label={t("projectCode")}
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
@@ -1685,6 +1692,7 @@ function ProjectEditModal({
             <div>
               <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("geofenceRadius")}</label>
               <input
+                aria-label={t("geofenceRadius")}
                 type="number"
                 min={20}
                 max={50000}
@@ -1699,6 +1707,7 @@ function ProjectEditModal({
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("siteAddress")}</label>
             <input
+              aria-label={t("siteAddress")}
               type="text"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
@@ -1717,7 +1726,7 @@ function ProjectEditModal({
                 type="button"
                 onClick={handleCaptureCurrentGPS}
                 disabled={gpsBusy}
-                className="flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                className="flex items-center gap-1 text-[11px] font-semibold text-info hover:underline"
               >
                 {gpsBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Crosshair className="h-3 w-3" />}
                 {t("useMyLocation")}
@@ -1725,6 +1734,7 @@ function ProjectEditModal({
             </div>
             <div className="grid grid-cols-2 gap-2 font-mono text-xs">
               <input
+                aria-label="Latitude"
                 type="number"
                 step="any"
                 placeholder="Latitude"
@@ -1733,6 +1743,7 @@ function ProjectEditModal({
                 className="h-9 rounded-lg border border-input bg-background px-2"
               />
               <input
+                aria-label="Longitude"
                 type="number"
                 step="any"
                 placeholder="Longitude"
@@ -1854,7 +1865,7 @@ function CreateAdminShiftModal({
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-warning font-semibold">{t("auditAdjustment")}</p>
+            <p className="label-eyebrow text-muted-foreground font-semibold">{t("auditAdjustment")}</p>
             <h2 id="create-workday-title" className="mt-1 text-xl font-bold">{t("createWorkdayTitle")}</h2>
           </div>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
@@ -1958,16 +1969,17 @@ function AdjustShiftModal({
       <section
         role="dialog"
         aria-modal="true"
+        aria-labelledby="adjust-shift-title"
         className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
           <div>
-            <p className="label-eyebrow text-warning font-semibold">{t("auditAdjustment")}</p>
-            <h2 className="mt-1 text-xl font-bold">{t("adjustShiftTimes")}</h2>
+            <p className="label-eyebrow text-muted-foreground font-semibold">{t("auditAdjustment")}</p>
+            <h2 id="adjust-shift-title" className="mt-1 text-xl font-bold">{t("adjustShiftTimes")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{shift.display_name} · {shift.work_date}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1976,6 +1988,7 @@ function AdjustShiftModal({
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockInTime")}</label>
             <input
+              aria-label={t("clockInTime")}
               type="datetime-local"
               value={clockIn}
               onChange={(e) => setClockIn(e.target.value)}
@@ -1987,6 +2000,7 @@ function AdjustShiftModal({
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockOutTime")}</label>
             <input
+              aria-label={t("clockOutTime")}
               type="datetime-local"
               value={clockOut}
               onChange={(e) => setClockOut(e.target.value)}
@@ -1998,6 +2012,7 @@ function AdjustShiftModal({
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("adjustReason")}</label>
             <textarea
+              aria-label={t("adjustReason")}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("adjustReasonPlaceholder")}
@@ -2864,6 +2879,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
                     <select
+                      aria-label={t("periodFilter")}
                       value={historyFilterPeriod}
                       onChange={(e: any) => setHistoryFilterPeriod(e.target.value)}
                       className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -2878,6 +2894,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
                   {/* Worker Filter */}
                   <select
+                    aria-label={t("workerFilter")}
                     value={historyFilterWorker}
                     onChange={(e) => setHistoryFilterWorker(e.target.value)}
                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -2890,6 +2907,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
                   {/* Project Filter */}
                   <select
+                    aria-label={t("projectFilter")}
                     value={historyFilterProject}
                     onChange={(e) => setHistoryFilterProject(e.target.value)}
                     className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
@@ -2994,9 +3012,9 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                             r.state === "complete"
                               ? "bg-success/15 text-success"
                               : r.state === "working"
-                                ? "bg-brand/15 text-brand"
+                                ? "bg-brand/15 text-foreground"
                                 : r.state === "on_break"
-                                  ? "bg-warning/15 text-warning"
+                                  ? "bg-warning/15 text-foreground"
                                   : "bg-muted text-muted-foreground"
                           }`}>
                             {r.state}
@@ -3017,7 +3035,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                                     });
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand hover:bg-brand/20"
+                                className="inline-flex items-center gap-1 rounded-lg border border-brand/40 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-foreground hover:bg-brand/20"
                                 title={t("viewPhoto")}
                               >
                                 <Camera className="h-3.5 w-3.5" /> {t("viewPhoto")}
@@ -3114,7 +3132,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                               <span>· {proj.radius_m}m</span>
                             </>
                           ) : (
-                            <span className="text-warning">{t("noGpsSet")}</span>
+                            <span className="text-muted-foreground">{t("noGpsSet")}</span>
                           )}
                         </div>
                       </div>
@@ -3381,7 +3399,7 @@ function PayrollApprovalCard({
           <h2 id="payroll-approval-title" className="mt-1 text-lg font-semibold">Review and approve payroll</h2>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Submit the calculated period for review. Approval locks the saved snapshot and marks it payment ready; it never starts a bank transfer.</p>
         </div>
-        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${latestRun?.status === "approved" ? "bg-success/15 text-success" : latestRun?.status === "pending_review" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${latestRun?.status === "approved" ? "bg-success/15 text-success" : latestRun?.status === "pending_review" ? "bg-warning/15 text-foreground" : "bg-muted text-muted-foreground"}`}>
           {loading ? "Loading" : statusLabel}
         </span>
       </div>
@@ -3396,7 +3414,7 @@ function PayrollApprovalCard({
       )}
 
       {!canSubmit && preview && (
-        <p className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">Complete and approve every worker payroll profile before submitting this period.</p>
+        <p className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">Complete and approve every worker payroll profile before submitting this period.</p>
       )}
 
       <div className="mt-5 flex flex-wrap gap-2">
@@ -3469,13 +3487,13 @@ function PayrollPreviewCard({
       {loading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">Calculating payroll preview…</p>
       ) : error ? (
-        <p role="alert" className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-4 text-sm text-warning-foreground">{error}</p>
+        <p role="alert" className="mt-5 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-4 text-sm text-foreground">{error}</p>
       ) : preview ? (
         <>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
             <span>Period: <strong className="text-foreground">{formatCalendarDate(preview.periodStart, timezone)} – {formatCalendarDate(preview.periodEnd, timezone)}</strong></span>
             <span>Pay date: <strong className="text-foreground">{formatCalendarDate(preview.payDate, timezone)}</strong></span>
-            <span className="rounded-full bg-warning/15 px-2 py-1 font-semibold text-warning-foreground">Estimate · rules {preview.rules.year}</span>
+            <span className="rounded-full bg-warning/15 px-2 py-1 font-semibold text-foreground">Estimate · rules {preview.rules.year}</span>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
             <SalaryMetric label="Gross pay" value={formatPounds(preview.totals.grossPay)} />
@@ -3485,7 +3503,7 @@ function PayrollPreviewCard({
             <SalaryMetric label="Employer Social Security" value={formatPounds(preview.totals.employerSocialSecurity)} />
             <SalaryMetric label="Employer cost" value={formatPounds(preview.totals.employerTotalCost)} />
           </div>
-          <p className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">Guidance only: 2026 rules use the official monthly threshold £{preview.rules.minimumEarningsThreshold.toLocaleString()}, SEL £{preview.rules.standardEarningsLimit.toLocaleString()} and UEL £{preview.rules.upperEarningsLimit.toLocaleString()}. Confirm the result against Revenue Jersey before filing.</p>
+          <p className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">Guidance only: 2026 rules use the official monthly threshold £{preview.rules.minimumEarningsThreshold.toLocaleString()}, SEL £{preview.rules.standardEarningsLimit.toLocaleString()} and UEL £{preview.rules.upperEarningsLimit.toLocaleString()}. Confirm the result against Revenue Jersey before filing.</p>
           <p className="mb-2 mt-5 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para revisar todas las columnas.</p>
           <div className="overflow-x-auto rounded-2xl border border-border">
             <table className="w-full min-w-[980px] text-left text-xs">
@@ -3595,7 +3613,7 @@ function PayrollSettingsCard({
           <h2 id="payroll-settings-title" className="mt-1 text-lg font-semibold">Payroll configuration</h2>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Set the business details and schedule that will feed future Salary Advice calculations. Jersey tax rules are not inferred from these fields.</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings ? "bg-success/15 text-success" : "bg-warning/15 text-warning"}`}>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings ? "bg-success/15 text-success" : "bg-warning/15 text-foreground"}`}>
           {loading ? "Loading" : settings ? "Configured" : "Not configured"}
         </span>
       </div>
@@ -3614,7 +3632,7 @@ function PayrollSettingsCard({
             <label className="text-sm font-medium">Business Tax Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessTaxReference} onChange={(event) => setBusinessTaxReference(event.target.value)} placeholder={settings?.hasBusinessTaxReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
             <label className="text-sm font-medium">Business Social Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessSocialReference} onChange={(event) => setBusinessSocialReference(event.target.value)} placeholder={settings?.hasBusinessSocialReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           </div>
-          <p className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning-foreground">These rates are stored as configuration only. The system will not mark a payroll as ready or submit a payment until the statutory calculation and review steps are implemented.</p>
+          <p className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">These rates are stored as configuration only. The system will not mark a payroll as ready or submit a payment until the statutory calculation and review steps are implemented.</p>
           {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
           <div className="flex justify-end">
             <button type="submit" disabled={saving} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save configuration"}</button>
@@ -3863,7 +3881,7 @@ function Shell({
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
             <LanguageSwitcher />
             <div className="relative">
-              <button type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen}>
+              <button type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen} aria-label={`${user.displayName} · account menu`}>
                 <span className="hidden sm:inline">{user.displayName}</span><Menu className="h-4 w-4" />
               </button>
               {menuOpen && (

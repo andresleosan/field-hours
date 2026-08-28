@@ -2,7 +2,7 @@
 
 Fecha: 28 de agosto de 2026
 Entorno: local, Chromium Playwright 1.57, API completamente simulada
-Resultado actual: **11/11 pruebas E2E y 6/6 regresiones del Worker aprobadas**
+Resultado actual: **16/16 pruebas E2E y 6/6 regresiones del Worker aprobadas**
 
 ## Alcance validado
 
@@ -16,11 +16,11 @@ Resultado actual: **11/11 pruebas E2E y 6/6 regresiones del Worker aprobadas**
 ## Evidencia ejecutada
 
 ```text
-npm.cmd run test:e2e:list    -> 9 pruebas detectadas en 2 archivos
-npm.cmd run test:e2e         -> 9 passed (10.6s), también tras React Router 7 / Vite 8
+npm.cmd run test:e2e:list    -> 16 pruebas detectadas en 4 archivos
+npm.cmd run test:e2e         -> 16 passed (19.6s), sin reintentos
 npm.cmd run test:worker      -> 2 passed (turno abierto sin filtro de fecha)
 npm.cmd run test:xlsx        -> SheetJS 0.20.3 write/read/JSON/CSV correcto
-npm.cmd run verify           -> typechecks, lint, build, SheetJS, Worker 2/2 y E2E 9/9 en verde; `audit` se repitió por separado porque el sandbox bloqueó el registro
+npm.cmd run verify           -> typechecks, lint, build, SheetJS, Worker 6/6 y E2E 16/16 en verde; `audit` se repitió por separado porque el sandbox bloqueó el registro
 npm.cmd ls caniuse-lite      -> caniuse-lite@1.0.30001810 deduplicado
 npm.cmd run lint             -> 0 errores, 2 advertencias preexistentes
 npm.cmd run typecheck        -> correcto
@@ -67,6 +67,17 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Gate:** `npm.cmd run verify` aprobó typechecks, lint, build, SheetJS, Worker 6/6 y E2E 11/11; el subcomando final de audit no pudo consultar el registro dentro del sandbox, por lo que se repitió de forma aislada con acceso de red y quedó en 0 vulnerabilidades. `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` empaquetó 155.53 KiB / 29.94 KiB gzip y salió sin desplegar.
 - **Estabilidad del gate:** una primera corrida detectó que `refreshToday()` borraba el aviso de éxito después de crear la jornada. Se corrigió la carrera de estado y la prueba administrativa pasó 5/5 veces consecutivas con `--retries=0`; después, el gate completo volvió a pasar 11/11 sin reintentos.
 - **Producción:** commit `ade5a6d`, GitHub Actions `Verify` run `33218897389` aprobado, Worker `4b8794db-af54-42a4-b22c-8b084abd0725` y Vercel `dpl_8bpJsaJuwQYupSdKxijg1PqRutZW`. Health directo/proxy HTTP 200 con `ok=true`; historial admin sin sesión 401 directo/proxy y creación admin sin sesión 401. El bundle `index-D8UnqKpE.js` responde 200 y contiene la ruta/interfaz nueva; CSP, HSTS, `nosniff` y `frame-ancestors` están presentes. No se insertaron jornadas sintéticas ni se aplicaron migraciones.
+
+## Verificación adicional — O.10 (28 de agosto de 2026, no desplegada)
+
+- **Baseline reproducible:** la primera corrida falló 5/5 y midió avisos de nómina en `1.07:1`, el distintivo de estimación en `1.14:1`, placeholders administrativos en `2.33:1` y la acción `Add Project` del trabajador en `2.10:1`.
+- **Cobertura visual:** Playwright recorre administrador y trabajador en 1440x900 y 390x844. Incluye Live Today, historial/nómina, proyectos, perfil salarial e historial del trabajador, creación/ajuste de jornada, creación de proyecto y error de configuración de nómina.
+- **Criterios automáticos:** todo texto y placeholder visible debe alcanzar WCAG AA (`4.5:1`, o `3:1` para texto grande); no puede existir overflow horizontal de página, controles o diálogos visibles sin nombre accesible, ni ausencia de indicador al navegar por teclado.
+- **Correcciones:** placeholders globales opacos con `muted-foreground`; contenido textual oscuro sobre fondos semánticos translúcidos; enlaces informativos con `text-info`; selectores y menú móvil etiquetados; títulos y cierres accesibles en los diálogos de evidencia, proyectos y ajustes.
+- **Inspección humana:** se revisaron capturas completas de escritorio y móvil para ambos perfiles. Los avisos de nómina, la descripción administrativa, el formulario salarial con un único Social Security Number y los modales conservan jerarquía y lectura clara.
+- **Estabilidad:** la especificación crítica pasó 15/15 (`--repeat-each=3 --retries=0`) y luego el gate completo pasó Worker 6/6 y E2E 16/16 sin reintentos.
+- **Seguridad y pruebas avanzadas:** no cambian endpoints, autorización, persistencia ni tratamiento de datos; el mock sigue bloqueando tráfico externo. Contratos y roles permanecen cubiertos por la suite existente. Carga no aplica a este cambio puramente visual. `npm.cmd audit --audit-level=high` reportó 0 vulnerabilidades.
+- **Despliegue:** no se ejecutó despliegue, migración ni escritura productiva.
 
 ## Gate y smoke de producción
 
