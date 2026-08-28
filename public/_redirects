@@ -1,0 +1,2 @@
+/api/* https://field-hours-api-staging.andres-san1404.workers.dev/api/:splat 200
+/* /index.html 200

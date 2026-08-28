@@ -8,7 +8,7 @@
 .vercel
 dist
 cloudflare
-supabase
+/supabase
 docs
 e2e
 qa

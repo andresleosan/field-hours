@@ -27,5 +27,30 @@
       "database_id": "63196c41-282b-4839-ab61-27f104defb89",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
+  "env": {
+    "staging": {
+      "name": "field-hours-api-staging",
+      "vars": {
+        "ALLOWED_ORIGINS": "https://field-hours-staging.pages.dev,http://localhost:5173,http://127.0.0.1:5173",
+        "SESSION_TTL_SECONDS": "43200",
+        "INVITE_TTL_SECONDS": "1800",
+        "ENVIRONMENT": "staging",
+        "PAYROLL_PROFILE_REVEAL_LIMIT": "10",
+        "PAYROLL_PROFILE_REVEAL_WINDOW_SECONDS": "900",
+        "PAYROLL_PAYSLIP_LIMIT": "30",
+        "PAYROLL_PAYSLIP_WINDOW_SECONDS": "900",
+        "APP_ORIGIN": "https://field-hours-staging.pages.dev",
+        "GOOGLE_REDIRECT_URI": "https://field-hours-staging.pages.dev/api/auth/google/callback"
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "field-hours-staging",
+          "database_id": "7b945f18-96c5-4535-a117-7156474e3ca2",
+          "migrations_dir": "migrations"
+        }
+      ]
+    }
+  }
 }
