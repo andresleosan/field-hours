@@ -57,6 +57,7 @@ import {
 } from "./projects";
 import {
   adminAdjustShift,
+  adminCreateShift,
   adminShiftHistory,
   adminToday,
   performShiftAction,
@@ -409,6 +410,23 @@ async function route(request: Request, env: Env): Promise<Response> {
         clockInAt?: unknown;
         clockOutAt?: unknown;
         reason?: unknown;
+      }>(request),
+    );
+    return json(request, env, result);
+  }
+
+  if (request.method === "POST" && path === "/api/admin/shifts/create") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const result = await adminCreateShift(
+      env,
+      auth,
+      await readJson<{
+        userId?: unknown;
+        projectId?: unknown;
+        clockInAt?: unknown;
+        clockOutAt?: unknown;
+        description?: unknown;
       }>(request),
     );
     return json(request, env, result);

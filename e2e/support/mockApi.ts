@@ -135,6 +135,32 @@ function assertCsrf(route: Route): boolean {
 }
 
 export async function installAdminApi(context: BrowserContext): Promise<MockApiControl> {
+  const adminPeople = [{
+    user_id: "worker-1",
+    display_name: "Worker Test",
+    role: "worker",
+    state: "off_shift",
+    clock_in_at: null,
+    break_started_at: null,
+    break_ended_at: null,
+    clock_out_at: null,
+    project_id: null,
+    project_name: null,
+    events: [],
+  }];
+  const adminProjects: Project[] = [{
+    id: "project-1",
+    name: "Existing Site",
+    description: "Existing test project",
+    code: "SITE-1",
+    address: "1 Existing Road",
+    latitude: null,
+    longitude: null,
+    radius_m: 200,
+    is_active: true,
+    created_at: NOW,
+  }];
+  let adminHistory: Array<Record<string, unknown>> = [];
   const totals = {
     grossPay: 2400,
     workerSocialSecurity: 144,
@@ -227,8 +253,9 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
 
   return prepareContext(context, async (route, path, method, body) => {
     if (method === "GET" && path === "/api/session") return json(route, { user: sessionUser("admin") });
-    if (method === "GET" && path === "/api/admin/today") return json(route, []);
-    if (method === "GET" && path === "/api/projects") return json(route, []);
+    if (method === "GET" && path === "/api/admin/today") return json(route, adminPeople);
+    if (method === "GET" && path === "/api/projects") return json(route, adminProjects);
+    if (method === "GET" && path === "/api/admin/shifts/history") return json(route, adminHistory);
     if (method === "GET" && path === "/api/admin/auth-requests") return json(route, []);
     if (method === "GET" && path === "/api/admin/password-reset-requests") return json(route, []);
     if (method === "GET" && path === "/api/admin/request-history") return json(route, []);
@@ -260,6 +287,52 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
       };
       runs = [run];
       return json(route, run);
+    }
+
+    if (method === "POST" && path === "/api/admin/shifts/create") {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as {
+        userId?: unknown;
+        projectId?: unknown;
+        clockInAt?: unknown;
+        clockOutAt?: unknown;
+        description?: unknown;
+      };
+      if (
+        input?.userId !== "worker-1"
+        || (input.projectId !== undefined && input.projectId !== "project-1")
+        || typeof input.clockInAt !== "string"
+        || typeof input.clockOutAt !== "string"
+        || typeof input.description !== "string"
+        || input.description.trim().length < 3
+        || Date.parse(input.clockOutAt) <= Date.parse(input.clockInAt)
+      ) {
+        return json(route, { error: "Workday data is invalid", code: "INVALID_INPUT" }, 400);
+      }
+      const shiftId = "admin-created-shift-1";
+      adminHistory = [{
+        id: shiftId,
+        user_id: "worker-1",
+        display_name: "Worker Test",
+        work_date: input.clockInAt.slice(0, 10),
+        state: "complete",
+        clock_in_at: input.clockInAt,
+        break_started_at: null,
+        break_ended_at: null,
+        clock_out_at: input.clockOutAt,
+        project_id: input.projectId ?? null,
+        project_name: input.projectId === "project-1" ? "Existing Site" : null,
+        duration_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60_000),
+        break_minutes: 0,
+        net_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60_000),
+        events: [],
+        admin_adjustment: {
+          kind: "created",
+          reason: input.description.trim(),
+          adjusted_at: NOW,
+        },
+      }];
+      return json(route, { ok: true, shiftId });
     }
 
     if (method === "POST" && path === "/api/admin/payroll-runs/payroll-run-1/review") {
@@ -329,6 +402,7 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
 export async function installWorkerApi(
   context: BrowserContext,
   options: {
+    adminCreatedHistory?: boolean;
     adjustedHistory?: boolean;
     failFirstClockOutNetwork?: boolean;
     overnightOpenShift?: boolean;
@@ -365,9 +439,9 @@ export async function installWorkerApi(
     }
     : null;
   let activeWorkDate = options.overnightOpenShift ? "2026-08-24" : "2026-08-25";
-  const completed: Array<Record<string, unknown>> = options.adjustedHistory
+  const completed: Array<Record<string, unknown>> = options.adjustedHistory || options.adminCreatedHistory
     ? [{
-      id: "adjusted-shift-1",
+      id: options.adminCreatedHistory ? "admin-created-shift-1" : "adjusted-shift-1",
       user_id: "worker-1",
       display_name: "Worker Test",
       work_date: "2026-08-24",
@@ -383,7 +457,10 @@ export async function installWorkerApi(
       net_minutes: 480,
       events: [],
       admin_adjustment: {
-        reason: "Worker forgot to clock out at the end of the shift.",
+        kind: options.adminCreatedHistory ? "created" : "adjusted",
+        reason: options.adminCreatedHistory
+          ? "Approved paper timesheet for site work."
+          : "Worker forgot to clock out at the end of the shift.",
         adjusted_at: "2026-08-25T09:00:00.000Z",
       },
     }]

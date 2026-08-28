@@ -28,7 +28,6 @@ export interface WorkerPayrollProfile extends PayrollProfile {
 }
 
 export interface PayrollProfileDetails extends PayrollProfile {
-  socialSecurityNumber: string;
   taxReference: string;
   socialReference: string;
   bankAccountName: string | null;
@@ -292,6 +291,7 @@ export interface ShiftHistoryRecord {
 }
 
 export interface ShiftAdjustmentNotice {
+  kind: "created" | "adjusted";
   reason: string;
   adjusted_at: string;
 }
@@ -597,6 +597,16 @@ export async function adjustShift(input: {
   reason: string;
 }): Promise<{ ok: true; shiftId: string }> {
   return backend.post<{ ok: true; shiftId: string }>("/api/admin/shifts/adjust", input, true);
+}
+
+export async function createAdminShift(input: {
+  userId: string;
+  projectId?: string;
+  clockInAt: string;
+  clockOutAt: string;
+  description: string;
+}): Promise<{ ok: true; shiftId: string }> {
+  return backend.post<{ ok: true; shiftId: string }>("/api/admin/shifts/create", input, true);
 }
 
 export function calculateDistanceMeters(

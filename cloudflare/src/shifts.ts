@@ -73,6 +73,7 @@ export interface ShiftHistoryRecord {
 }
 
 export interface ShiftAdjustmentNotice {
+  kind: "created" | "adjusted";
   reason: string;
   adjusted_at: string;
 }
@@ -93,6 +94,7 @@ interface HistoryRow {
 
 interface AdjustmentAuditRow {
   shiftId: string;
+  action: "shift.admin_created" | "shift.admin_adjusted";
   metadataJson: string;
   adjustedAt: string;
 }
@@ -139,11 +141,12 @@ async function adjustmentsForShifts(
   const result = await env.DB.prepare(
     `SELECT
        subject_id AS shiftId,
+       action,
        metadata_json AS metadataJson,
        created_at AS adjustedAt
      FROM workforce_audit_events
      WHERE organization_id = ?1
-       AND action = 'shift.admin_adjusted'
+       AND action IN ('shift.admin_created', 'shift.admin_adjusted')
        AND subject_id IN (${placeholders})
      ORDER BY created_at DESC, id DESC`,
   ).bind(organizationId, ...shiftIds).all<AdjustmentAuditRow>();
@@ -152,10 +155,12 @@ async function adjustmentsForShifts(
   for (const row of result.results) {
     if (adjustments.has(row.shiftId)) continue;
     try {
-      const metadata = JSON.parse(row.metadataJson) as { reason?: unknown };
-      if (typeof metadata.reason === "string" && metadata.reason.trim()) {
+      const metadata = JSON.parse(row.metadataJson) as { description?: unknown; reason?: unknown };
+      const reason = row.action === "shift.admin_created" ? metadata.description : metadata.reason;
+      if (typeof reason === "string" && reason.trim()) {
         adjustments.set(row.shiftId, {
-          reason: metadata.reason,
+          kind: row.action === "shift.admin_created" ? "created" : "adjusted",
+          reason: reason.trim(),
           adjusted_at: row.adjustedAt,
         });
       }
@@ -204,6 +209,42 @@ function optionalTimestamp(value: unknown, field: string): string | null {
     throw new ApiError(400, "INVALID_INPUT", `${field} must be a valid date and time.`);
   }
   return new Date(timestamp).toISOString();
+}
+
+function requiredTimestamp(value: unknown, field: string): string {
+  const timestamp = optionalTimestamp(value, field);
+  if (!timestamp) throw new ApiError(400, "INVALID_INPUT", `${field} is required.`);
+  return timestamp;
+}
+
+async function assertNoShiftOverlap(
+  env: Env,
+  organizationId: string,
+  userId: string,
+  clockInAt: string,
+  clockOutAt: string | null,
+  excludedShiftId: string | null = null,
+): Promise<void> {
+  const overlapping = await env.DB.prepare(
+    `SELECT id
+     FROM workforce_shifts
+     WHERE organization_id = ?1
+       AND user_id = ?2
+       AND (?3 IS NULL OR id <> ?3)
+       AND clock_in_at < ?4
+       AND (clock_out_at IS NULL OR clock_out_at > ?5)
+     LIMIT 1`,
+  ).bind(
+    organizationId,
+    userId,
+    excludedShiftId,
+    clockOutAt ?? "9999-12-31T23:59:59.999Z",
+    clockInAt,
+  ).first<{ id: string }>();
+
+  if (overlapping) {
+    throw new ApiError(409, "SHIFT_OVERLAP", "The selected times overlap another shift for this worker.");
+  }
 }
 
 async function eventsForShift(env: Env, shiftId: string): Promise<ShiftEvent[]> {
@@ -792,6 +833,85 @@ export async function workerShiftHistory(
   ));
 }
 
+export async function adminCreateShift(
+  env: Env,
+  auth: AuthContext,
+  body: {
+    userId?: unknown;
+    projectId?: unknown;
+    clockInAt?: unknown;
+    clockOutAt?: unknown;
+    description?: unknown;
+  },
+): Promise<{ ok: true; shiftId: string }> {
+  requireRole(auth, "admin");
+  const userId = requireString(body.userId, "Worker", 5, 80);
+  const description = requireString(body.description, "Description", 3, 300);
+  const clockInAt = requiredTimestamp(body.clockInAt, "Clock-in time");
+  const clockOutAt = requiredTimestamp(body.clockOutAt, "Clock-out time");
+  const projectId = body.projectId === undefined || body.projectId === null || body.projectId === ""
+    ? null
+    : requireString(body.projectId, "Project", 5, 80);
+
+  if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
+    throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
+  }
+
+  const worker = await env.DB.prepare(
+    `SELECT m.user_id AS id
+     FROM workforce_memberships m
+     JOIN workforce_users u ON u.id = m.user_id AND u.disabled_at IS NULL
+     WHERE m.organization_id = ?1 AND m.user_id = ?2 AND m.role = 'worker'
+     LIMIT 1`,
+  ).bind(auth.user.organizationId, userId).first<{ id: string }>();
+  if (!worker) throw new ApiError(404, "WORKER_NOT_FOUND", "The selected worker is not available.");
+
+  if (projectId) {
+    const project = await env.DB.prepare(
+      `SELECT id FROM workforce_projects
+       WHERE organization_id = ?1 AND id = ?2 LIMIT 1`,
+    ).bind(auth.user.organizationId, projectId).first<{ id: string }>();
+    if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", "The selected project is not available.");
+  }
+
+  await assertNoShiftOverlap(env, auth.user.organizationId, userId, clockInAt, clockOutAt);
+
+  const shiftId = crypto.randomUUID();
+  const metadata = JSON.stringify({
+    description,
+    clock_in: clockInAt,
+    clock_out: clockOutAt,
+    target_user_id: userId,
+    project_id: projectId,
+    created_by: auth.user.email,
+  });
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO workforce_shifts
+       (id, organization_id, user_id, state, clock_in_at, clock_out_at, work_date, project_id)
+       VALUES (?1, ?2, ?3, 'complete', ?4, ?5, ?6, ?7)`,
+    ).bind(
+      shiftId,
+      auth.user.organizationId,
+      userId,
+      clockInAt,
+      clockOutAt,
+      workDate(auth.user.timezone, new Date(clockInAt)),
+      projectId,
+    ),
+    env.DB.prepare(
+      `INSERT INTO workforce_audit_events
+       (organization_id, actor_user_id, action, subject_id, metadata_json)
+       VALUES (?1, ?2, 'shift.admin_created', ?3, ?4)`,
+    ).bind(auth.user.organizationId, auth.user.id, shiftId, metadata),
+  ]);
+  if (Number(results[0]?.meta.changes ?? 0) !== 1) {
+    throw new ApiError(409, "SHIFT_CREATE_FAILED", "The shift could not be created. Refresh and try again.");
+  }
+
+  return { ok: true, shiftId };
+}
+
 export async function adminAdjustShift(
   env: Env,
   auth: AuthContext,
@@ -826,10 +946,19 @@ export async function adminAdjustShift(
 
   const finalClockIn = clockInAt || currentShift.clock_in_at;
   const finalClockOut = clockOutAt || currentShift.clock_out_at;
-  if (finalClockOut && Date.parse(finalClockOut) < Date.parse(finalClockIn)) {
+  if (finalClockOut && Date.parse(finalClockOut) <= Date.parse(finalClockIn)) {
     throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
   }
   const finalState = finalClockOut ? "complete" : currentShift.state;
+
+  await assertNoShiftOverlap(
+    env,
+    auth.user.organizationId,
+    currentShift.user_id,
+    finalClockIn,
+    finalClockOut,
+    shiftId,
+  );
 
   const metadata = JSON.stringify({
     reason,
@@ -841,18 +970,28 @@ export async function adminAdjustShift(
     adjusted_by: auth.user.email,
   });
 
-  await env.DB.batch([
+  const results = await env.DB.batch([
     env.DB.prepare(
       `UPDATE workforce_shifts
-       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3
-       WHERE id = ?4 AND organization_id = ?5`,
-    ).bind(finalClockIn, finalClockOut, finalState, shiftId, auth.user.organizationId),
+       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3, work_date = ?4
+       WHERE id = ?5 AND organization_id = ?6`,
+    ).bind(
+      finalClockIn,
+      finalClockOut,
+      finalState,
+      workDate(auth.user.timezone, new Date(finalClockIn)),
+      shiftId,
+      auth.user.organizationId,
+    ),
     env.DB.prepare(
       `INSERT INTO workforce_audit_events
        (organization_id, actor_user_id, action, subject_id, metadata_json)
        VALUES (?1, ?2, 'shift.admin_adjusted', ?3, ?4)`,
     ).bind(auth.user.organizationId, auth.user.id, shiftId, metadata),
   ]);
+  if (Number(results[0]?.meta.changes ?? 0) !== 1) {
+    throw new ApiError(409, "SHIFT_ADJUST_FAILED", "The shift changed before the adjustment was saved.");
+  }
 
   return { ok: true, shiftId };
 }

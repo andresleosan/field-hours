@@ -133,3 +133,54 @@ test("worker sees an administrator adjustment notice and the updated payroll lab
   await expect(page.getByLabel("Social Reference", { exact: true })).toHaveCount(0);
   expectNoExternalRequests(api);
 });
+
+test("worker sees the mandatory description for an admin-created workday with readable contrast", async ({ context, page }) => {
+  const api = await installWorkerApi(context, { adminCreatedHistory: true });
+
+  await page.goto("/");
+  const heading = page.getByText("Workday added by an administrator", { exact: true });
+  await expect(heading).toBeVisible();
+  await expect(page.getByText(/Approved paper timesheet for site work\./)).toBeVisible();
+
+  const notice = heading.locator("..");
+  const contrast = await notice.evaluate((element) => {
+    const textStyle = getComputedStyle(element).color;
+    const backgroundStyle = getComputedStyle(element).backgroundColor;
+    const parse = (value: string) => (value.match(/[\d.]+/g) ?? []).map(Number);
+    const text = parse(textStyle);
+    const rawBackground = parse(backgroundStyle);
+    let ancestor = element.parentElement;
+    let parentStyle = "rgb(255, 255, 255)";
+    while (ancestor) {
+      const candidate = getComputedStyle(ancestor).backgroundColor;
+      const parsed = parse(candidate);
+      if ((parsed[3] ?? 1) === 1) {
+        parentStyle = candidate;
+        break;
+      }
+      ancestor = ancestor.parentElement;
+    }
+    const parentBackground = parse(parentStyle);
+    const alpha = rawBackground[3] ?? 1;
+    const background = rawBackground.slice(0, 3).map((channel, index) => (
+      channel * alpha + (parentBackground[index] ?? 255) * (1 - alpha)
+    ));
+    const luminance = (rgb: number[]) => {
+      const linear = rgb.slice(0, 3).map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    };
+    const lighter = Math.max(luminance(text), luminance(background));
+    const darker = Math.min(luminance(text), luminance(background));
+    return {
+      ratio: (lighter + 0.05) / (darker + 0.05),
+      textStyle,
+      backgroundStyle,
+      parentStyle,
+    };
+  });
+  expect(contrast.ratio, JSON.stringify(contrast)).toBeGreaterThanOrEqual(4.5);
+  expectNoExternalRequests(api);
+});

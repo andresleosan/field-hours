@@ -1,8 +1,8 @@
-# Reporte de QA — O.2 E2E reproducible
+# Reporte de QA — Fase 7
 
 Fecha: 28 de agosto de 2026
 Entorno: local, Chromium Playwright 1.57, API completamente simulada
-Resultado: **9/9 pruebas E2E y 2/2 regresiones del Worker aprobadas**
+Resultado actual: **11/11 pruebas E2E y 6/6 regresiones del Worker aprobadas**
 
 ## Alcance validado
 
@@ -55,6 +55,17 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Carga:** no aplica; el cambio añade como máximo un reintento inmediato y uno cada 15 segundos únicamente mientras exista una cola pendiente. No se ejecutó carga contra producción.
 - **Bundle Worker:** `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` correcto (151,22 KiB / 29,33 KiB gzip); desplegado como `a65b0a37-6f03-4658-9b89-7f83ea769861`.
 - **Producción:** frontend y asset HTTP 200; health directo/proxy HTTP 200; `/api/worker/today` sin sesión HTTP 401 y mutación directa sin CSRF HTTP 403. CSP, HSTS y `nosniff` presentes. GitHub Actions `Verify #15` (`33150543683`) aprobado tras alinear la ruta de cache de Chromium entre instalación y ejecución.
+
+## Verificación adicional — O.9 (28 de agosto de 2026, no desplegada)
+
+- **Perfil de nómina:** la interfaz solicita una sola vez `Social Security Number`; se retiró el campo social heredado duplicado sin borrar su ciphertext existente. El endpoint ya no lo exige ni lo descifra al revelar el perfil administrativo.
+- **Contrato UI/API:** el administrador crea una jornada completa mediante `POST /api/admin/shifts/create` con trabajador, proyecto opcional, entrada, salida y descripción obligatoria. La mutación usa CSRF y el historial devuelve la descripción para la interfaz del empleado.
+- **Regresiones Worker:** 6/6 pruebas: creación auditada, descripción obligatoria, rol trabajador rechazado con `403`, solapamiento rechazado al crear y ajustar, y recuperación del turno abierto.
+- **E2E móvil:** 11/11 en Chromium a 390x844. La prueba administrativa comprueba el cuerpo del contrato, CSRF y ausencia de overflow; la prueba del trabajador comprueba la descripción y una relación de contraste medida `>= 4.5:1`.
+- **Seguridad:** trabajador y proyecto se validan dentro de la organización, la descripción se limita a 300 caracteres y React la escapa, no se fabrican eventos GPS para una jornada manual y `npm.cmd audit --audit-level=high` reportó `found 0 vulnerabilities`.
+- **Pruebas avanzadas:** aplicaron pruebas de contrato y casos límite de autorización/cronología/solapamiento. No se ejecutó carga: es una mutación administrativa puntual y no una release de capacidad; tampoco se hicieron escrituras en staging o producción.
+- **Gate:** `npm.cmd run verify` aprobó typechecks, lint, build, SheetJS, Worker 6/6 y E2E 11/11; el subcomando final de audit no pudo consultar el registro dentro del sandbox, por lo que se repitió de forma aislada con acceso de red y quedó en 0 vulnerabilidades. `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` empaquetó 155.53 KiB / 29.94 KiB gzip y salió sin desplegar.
+- **Estabilidad del gate:** una primera corrida detectó que `refreshToday()` borraba el aviso de éxito después de crear la jornada. Se corrigió la carrera de estado y la prueba administrativa pasó 5/5 veces consecutivas con `--retries=0`; después, el gate completo volvió a pasar 11/11 sin reintentos.
 
 ## Gate y smoke de producción
 

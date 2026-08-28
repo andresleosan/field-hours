@@ -138,6 +138,13 @@ export interface Translations {
   colStatus: string;
   colActions: string;
   noShiftsFound: string;
+  createWorkday: string;
+  createWorkdayTitle: string;
+  selectWorker: string;
+  optionalProject: string;
+  workDescription: string;
+  workDescriptionPlaceholder: string;
+  saveWorkday: string;
   adjustShift: string;
   auditAdjustment: string;
   adjustShiftTimes: string;
@@ -147,8 +154,11 @@ export interface Translations {
   adjustReasonPlaceholder: string;
   saveAdjustment: string;
   adminAdjustedNotice: string;
+  adminCreatedNotice: string;
   adminAdjustedReason: string;
+  adminCreatedDescription: string;
   adminAdjustedAt: string;
+  adminCreatedAt: string;
   mapWithCount: string;
 
   // Projects View
@@ -313,6 +323,13 @@ export const translations: Record<Language, Translations> = {
     colStatus: "Estado",
     colActions: "Acciones",
     noShiftsFound: "No se encontraron turnos para este período. Prueba seleccionando 'Todos los registros'.",
+    createWorkday: "Agregar jornada",
+    createWorkdayTitle: "Crear jornada de horas",
+    selectWorker: "Trabajador *",
+    optionalProject: "Proyecto / Obra (opcional)",
+    workDescription: "Descripción de la jornada *",
+    workDescriptionPlaceholder: "Ej. Jornada agregada por parte manual entregado por el trabajador",
+    saveWorkday: "Guardar Jornada",
     adjustShift: "Ajustar",
     auditAdjustment: "Ajuste de Auditoría",
     adjustShiftTimes: "Ajustar Horas del Turno",
@@ -322,8 +339,11 @@ export const translations: Record<Language, Translations> = {
     adjustReasonPlaceholder: "Ej. El trabajador olvidó fichar su salida al finalizar el turno",
     saveAdjustment: "Guardar Ajuste",
     adminAdjustedNotice: "Horas modificadas por un administrador",
+    adminCreatedNotice: "Jornada agregada por un administrador",
     adminAdjustedReason: "Motivo",
+    adminCreatedDescription: "Descripción",
     adminAdjustedAt: "Modificado el",
+    adminCreatedAt: "Agregado el",
     mapWithCount: "Mapa",
 
     projectsTitle: "Gestión de Proyectos y Obras",
@@ -485,6 +505,13 @@ export const translations: Record<Language, Translations> = {
     colStatus: "Status",
     colActions: "Actions",
     noShiftsFound: "No shift records found for this period. Try selecting 'All Records'.",
+    createWorkday: "Add workday",
+    createWorkdayTitle: "Create workday hours",
+    selectWorker: "Worker *",
+    optionalProject: "Project / Site (optional)",
+    workDescription: "Workday description *",
+    workDescriptionPlaceholder: "e.g. Workday added from the worker's approved paper timesheet",
+    saveWorkday: "Save Workday",
     adjustShift: "Adjust",
     auditAdjustment: "Audit Adjustment",
     adjustShiftTimes: "Adjust Shift Times",
@@ -494,8 +521,11 @@ export const translations: Record<Language, Translations> = {
     adjustReasonPlaceholder: "e.g. Worker forgot to clock out at the end of the shift",
     saveAdjustment: "Save Adjustment",
     adminAdjustedNotice: "Hours modified by an administrator",
+    adminCreatedNotice: "Workday added by an administrator",
     adminAdjustedReason: "Reason",
+    adminCreatedDescription: "Description",
     adminAdjustedAt: "Modified on",
+    adminCreatedAt: "Added on",
     mapWithCount: "Map",
 
     projectsTitle: "Manage Construction Projects",
@@ -657,6 +687,13 @@ export const translations: Record<Language, Translations> = {
     colStatus: "Status",
     colActions: "Ações",
     noShiftsFound: "Nenhum registro encontrado para este período. Tente selecionar 'Todos os registros'.",
+    createWorkday: "Adicionar jornada",
+    createWorkdayTitle: "Criar jornada de horas",
+    selectWorker: "Funcionário *",
+    optionalProject: "Projeto / Obra (opcional)",
+    workDescription: "Descrição da jornada *",
+    workDescriptionPlaceholder: "Ex. Jornada adicionada a partir da folha de ponto aprovada do funcionário",
+    saveWorkday: "Salvar Jornada",
     adjustShift: "Ajustar",
     auditAdjustment: "Ajuste de Auditoria",
     adjustShiftTimes: "Ajustar Horários do Turno",
@@ -666,8 +703,11 @@ export const translations: Record<Language, Translations> = {
     adjustReasonPlaceholder: "Ex. O funcionário esqueceu de registrar a saída ao fim do expediente",
     saveAdjustment: "Salvar Ajuste",
     adminAdjustedNotice: "Horas modificadas por um administrador",
+    adminCreatedNotice: "Jornada adicionada por um administrador",
     adminAdjustedReason: "Motivo",
+    adminCreatedDescription: "Descrição",
     adminAdjustedAt: "Modificado em",
+    adminCreatedAt: "Adicionado em",
     mapWithCount: "Mapa",
 
     projectsTitle: "Gestão de Obras e Projetos",

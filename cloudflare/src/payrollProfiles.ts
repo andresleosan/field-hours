@@ -31,7 +31,6 @@ export interface WorkerPayrollProfile extends PayrollProfileSummary {
 }
 
 export interface PayrollProfileDetails extends PayrollProfileSummary {
-  socialSecurityNumber: string;
   taxReference: string;
   socialReference: string;
   bankAccountName: string | null;
@@ -187,8 +186,8 @@ export async function saveWorkerPayrollProfile(
   const bankSortCode = optionalString(body.bankSortCode, "Bank sort code", 1, 40);
   const bankAccountNumber = optionalString(body.bankAccountNumber, "Bank account number", 1, 80);
 
-  if (!existingComplete && (!socialSecurityNumber || !taxReference || !socialReference)) {
-    throw new ApiError(400, "PROFILE_INCOMPLETE", "Social security number, Tax Reference (ITIS) and Social Security Number are required.");
+  if (!existingComplete && (!taxReference || !socialReference)) {
+    throw new ApiError(400, "PROFILE_INCOMPLETE", "Tax Reference (ITIS) and Social Security Number are required.");
   }
 
   const [socialSecurityCiphertext, taxReferenceCiphertext, socialReferenceCiphertext, bankAccountNameCiphertext, bankSortCodeCiphertext, bankAccountNumberCiphertext] = await Promise.all([
@@ -278,11 +277,10 @@ export async function revealAdminPayrollProfile(
 ): Promise<PayrollProfileDetails> {
   requireRole(auth, "admin");
   const row = await loadProfile(env, auth.user.organizationId, userId);
-  if (!row || !profileExists(row) || !row.socialSecurityCiphertext || !row.taxReferenceCiphertext || !row.socialReferenceCiphertext) {
+  if (!row || !profileExists(row) || !row.taxReferenceCiphertext || !row.socialReferenceCiphertext) {
     throw new ApiError(404, "NOT_FOUND", "A complete payroll profile was not found.");
   }
-  const [socialSecurityNumber, taxReference, socialReference, bankAccountName, bankSortCode, bankAccountNumber] = await Promise.all([
-    decryptPayrollValue(env, row.socialSecurityCiphertext),
+  const [taxReference, socialReference, bankAccountName, bankSortCode, bankAccountNumber] = await Promise.all([
     decryptPayrollValue(env, row.taxReferenceCiphertext),
     decryptPayrollValue(env, row.socialReferenceCiphertext),
     row.bankAccountNameCiphertext ? decryptPayrollValue(env, row.bankAccountNameCiphertext) : Promise.resolve(null),
@@ -296,7 +294,6 @@ export async function revealAdminPayrollProfile(
   ).bind(auth.user.organizationId, auth.user.id, userId).run();
   return {
     ...toSummary(row),
-    socialSecurityNumber,
     taxReference,
     socialReference,
     bankAccountName,

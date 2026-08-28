@@ -49,6 +49,7 @@ import {
   adjustShift,
   calculateDistanceMeters,
   changePassword,
+  createAdminShift,
   createInvitation,
   createWorkerProject,
   formatMinutes,
@@ -1104,8 +1105,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               <p className="py-6 text-center text-xs text-muted-foreground">{t("noPastShiftsYet")}</p>
             )}
             {history.map((record) => (
-              <div key={record.id} className="flex items-center justify-between py-3">
-                <div>
+              <div key={record.id} className="flex items-start justify-between gap-3 py-3">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{record.work_date}</p>
                     {record.project_name && (
@@ -1120,14 +1121,18 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     {record.break_minutes > 0 && ` · ${t("colBreak")}: ${formatMinutes(record.break_minutes)}`}
                   </p>
                   {record.admin_adjustment && (
-                    <div className="mt-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
-                      <p className="font-semibold">{t("adminAdjustedNotice")}</p>
-                      <p className="mt-0.5"><span className="font-semibold">{t("adminAdjustedReason")}:</span> {record.admin_adjustment.reason}</p>
-                      <p className="mt-0.5 text-[11px] opacity-80">{t("adminAdjustedAt")} {formatRecordedDateTime(record.admin_adjustment.adjusted_at, user.timezone)}</p>
+                    <div className="mt-2 rounded-lg border border-warning/50 bg-warning/15 px-3 py-2 text-xs leading-5 text-foreground">
+                      <p className="font-semibold">
+                        {record.admin_adjustment.kind === "created" ? t("adminCreatedNotice") : t("adminAdjustedNotice")}
+                      </p>
+                      <p className="mt-0.5"><span className="font-semibold">{record.admin_adjustment.kind === "created" ? t("adminCreatedDescription") : t("adminAdjustedReason")}:</span> {record.admin_adjustment.reason}</p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {record.admin_adjustment.kind === "created" ? t("adminCreatedAt") : t("adminAdjustedAt")} {formatRecordedDateTime(record.admin_adjustment.adjusted_at, user.timezone)}
+                      </p>
                     </div>
                   )}
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className="font-mono text-sm font-bold text-foreground">{formatMinutes(record.net_minutes)}</p>
                   <p className="text-[11px] text-success font-medium">{t("logged")}</p>
                 </div>
@@ -1240,7 +1245,6 @@ function WorkerPayrollProfileForm({
         legalName: form.legalName,
         address: form.address,
         employeeNumber: form.employeeNumber,
-        socialSecurityNumber: form.socialSecurityNumber || undefined,
         taxReference: form.taxReference || undefined,
         socialReference: form.socialReference || undefined,
         bankAccountName: form.bankAccountName || undefined,
@@ -1250,7 +1254,6 @@ function WorkerPayrollProfileForm({
       });
       setForm((previous) => ({
         ...previous,
-        socialSecurityNumber: "",
         taxReference: "",
         socialReference: "",
         bankAccountName: "",
@@ -1294,7 +1297,6 @@ function WorkerPayrollProfileForm({
         </div>
         <PayrollInput label="Home address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} required autoComplete="street-address" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <PayrollInput label="Social security number" type="password" value={form.socialSecurityNumber} onChange={(value) => setForm({ ...form, socialSecurityNumber: value })} required={!profile?.hasSocialSecurityNumber} autoComplete="off" placeholder={profile?.hasSocialSecurityNumber ? "Already stored · leave blank to keep" : "Required"} />
           <PayrollInput label="Tax Reference (ITIS)" type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? "Already stored · leave blank to keep" : "Required"} />
           <PayrollInput label="Social Security Number" type="password" value={form.socialReference} onChange={(value) => setForm({ ...form, socialReference: value })} required={!profile?.hasSocialReference} autoComplete="off" placeholder={profile?.hasSocialReference ? "Already stored · leave blank to keep" : "Required"} />
           <PayrollInput label="ITIS percentage" type="number" min="0" max="100" step="0.01" value={form.itisRate} onChange={(value) => setForm({ ...form, itisRate: value })} required placeholder="Example: 15" suffix="%" />
@@ -1323,7 +1325,6 @@ type PayrollFormState = {
   legalName: string;
   address: string;
   employeeNumber: string;
-  socialSecurityNumber: string;
   taxReference: string;
   socialReference: string;
   bankAccountName: string;
@@ -1337,7 +1338,6 @@ function payrollFormFromProfile(profile: WorkerPayrollProfile | null): PayrollFo
     legalName: profile?.legalName ?? "",
     address: profile?.address ?? "",
     employeeNumber: profile?.employeeNumber ?? "",
-    socialSecurityNumber: "",
     taxReference: "",
     socialReference: "",
     bankAccountName: "",
@@ -1386,7 +1386,7 @@ function PayrollInput({
           min={min}
           max={max}
           step={step}
-          className={`h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring ${suffix ? "pr-9" : ""}`}
+          className={`h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground placeholder:opacity-100 outline-none focus-visible:ring-2 focus-visible:ring-ring ${suffix ? "pr-9" : ""}`}
         />
         {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">{suffix}</span>}
       </span>
@@ -1781,6 +1781,134 @@ function ProjectEditModal({
   );
 }
 
+function CreateAdminShiftModal({
+  workers,
+  projects,
+  onClose,
+  onSaved,
+}: {
+  workers: Person[];
+  projects: Project[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useI18n();
+  const localDateTime = (hour: number) => {
+    const value = new Date();
+    value.setHours(hour, 0, 0, 0);
+    const offset = value.getTimezoneOffset() * 60_000;
+    return new Date(value.getTime() - offset).toISOString().slice(0, 16);
+  };
+  const [workerId, setWorkerId] = useState(workers[0]?.id ?? "");
+  const [projectId, setProjectId] = useState("");
+  const [clockIn, setClockIn] = useState(() => localDateTime(8));
+  const [clockOut, setClockOut] = useState(() => localDateTime(17));
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!workerId) {
+      setError(t("selectWorker"));
+      return;
+    }
+    if (description.trim().length < 3) {
+      setError(t("workDescription"));
+      return;
+    }
+    const clockInAt = new Date(clockIn);
+    const clockOutAt = new Date(clockOut);
+    if (!clockIn || !clockOut || !Number.isFinite(clockInAt.getTime()) || !Number.isFinite(clockOutAt.getTime()) || clockOutAt <= clockInAt) {
+      setError("Clock-out time must be after clock-in time.");
+      return;
+    }
+
+    setError("");
+    setBusy(true);
+    try {
+      await createAdminShift({
+        userId: workerId,
+        projectId: projectId || undefined,
+        clockInAt: clockInAt.toISOString(),
+        clockOutAt: clockOutAt.toISOString(),
+        description: description.trim(),
+      });
+      onSaved();
+      onClose();
+    } catch (caught) {
+      setError(messageFrom(caught, "Could not create the workday."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/40 p-4 sm:items-center" onClick={onClose}>
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="create-workday-title"
+        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-border pb-4">
+          <div>
+            <p className="label-eyebrow text-warning font-semibold">{t("auditAdjustment")}</p>
+            <h2 id="create-workday-title" className="mt-1 text-xl font-bold">{t("createWorkdayTitle")}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+          <label className="block text-xs font-semibold uppercase text-muted-foreground">
+            {t("selectWorker")}
+            <select value={workerId} onChange={(event) => setWorkerId(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="" disabled>{t("selectWorker")}</option>
+              {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
+            </select>
+          </label>
+
+          <label className="block text-xs font-semibold uppercase text-muted-foreground">
+            {t("optionalProject")}
+            <select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <option value="">{t("generalWork")}</option>
+              {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+            </select>
+          </label>
+
+          <label className="block text-xs font-semibold uppercase text-muted-foreground">
+            {t("clockInTime")}
+            <input type="datetime-local" value={clockIn} onChange={(event) => setClockIn(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </label>
+
+          <label className="block text-xs font-semibold uppercase text-muted-foreground">
+            {t("clockOutTime")}
+            <input type="datetime-local" value={clockOut} onChange={(event) => setClockOut(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </label>
+
+          <label className="block text-xs font-semibold uppercase text-muted-foreground">
+            {t("workDescription")}
+            <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t("workDescriptionPlaceholder")} minLength={3} maxLength={300} rows={3} required className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </label>
+
+          {error && <p className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
+
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
+            <button type="submit" disabled={busy || workers.length === 0} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t("saveWorkday")}
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+  );
+}
+
 function AdjustShiftModal({
   shift,
   onClose,
@@ -1924,6 +2052,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [selectedPersonHistory, setSelectedPersonHistory] = useState<ShiftHistoryRecord[]>([]);
   const [selectedPersonLoading, setSelectedPersonLoading] = useState(false);
+  const [createShiftOpen, setCreateShiftOpen] = useState(false);
   const [shiftToAdjust, setShiftToAdjust] = useState<ShiftHistoryRecord | null>(null);
   const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1958,7 +2087,6 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
       const members = await loadAdminToday();
       setPeople(members.map((m) => toPerson(m, t, user.timezone)));
       setUpdatedAt(new Date());
-      setMessage("");
     } catch (caught) {
       setMessage(messageFrom(caught, "Today’s team could not be loaded."));
     } finally {
@@ -2550,7 +2678,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     </td>
                     <td className="px-4 py-3 font-mono font-semibold">{profile.itisRate === null ? "—" : `${profile.itisRate.toFixed(2)}%`}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {profile.status === "not_started" ? "Not submitted" : `SSN ${profile.maskedSocialSecurityNumber ?? "—"} · Tax ${profile.maskedTaxReference ?? "—"} · Social ${profile.maskedSocialReference ?? "—"}`}
+                      {profile.status === "not_started" ? "Not submitted" : `Tax ${profile.maskedTaxReference ?? "—"} · Social Security ${profile.maskedSocialReference ?? "—"}`}
                     </td>
                     <td className="px-4 py-3"><span className="rounded-full bg-muted px-2 py-1 font-semibold capitalize">{profile.status.replace("_", " ")}</span></td>
                     <td className="px-4 py-3 text-right">
@@ -2723,6 +2851,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                   <h2 className="mt-1 text-2xl font-bold">{t("reportsTitle")}</h2>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setCreateShiftOpen(true)}
+                    disabled={people.length === 0}
+                    className="flex items-center gap-2 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {t("createWorkday")}
+                  </button>
                   {/* Period Filter */}
                   <div className="flex items-center gap-2">
                     <Filter className="h-4 w-4 text-muted-foreground" />
@@ -3118,6 +3255,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         )}
 
         {/* Adjust Shift Modal */}
+        {createShiftOpen && (
+          <CreateAdminShiftModal
+            workers={people}
+            projects={projects}
+            onClose={() => setCreateShiftOpen(false)}
+            onSaved={() => {
+              setMessage("Workday created successfully with audit description recorded.");
+              void refreshHistory();
+              void refreshToday();
+            }}
+          />
+        )}
+
         {shiftToAdjust && (
           <AdjustShiftModal
             shift={shiftToAdjust}
@@ -3169,7 +3319,6 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 <PayrollDetail label="Employee number" value={revealedPayrollProfile.employeeNumber} />
                 <PayrollDetail label="Address" value={revealedPayrollProfile.address} />
                 <PayrollDetail label="ITIS" value={revealedPayrollProfile.itisRate === null ? null : `${revealedPayrollProfile.itisRate.toFixed(2)}%`} />
-                <PayrollDetail label="Social security number" value={revealedPayrollProfile.socialSecurityNumber} />
                 <PayrollDetail label="Tax Reference (ITIS)" value={revealedPayrollProfile.taxReference} />
                 <PayrollDetail label="Social Security Number" value={revealedPayrollProfile.socialReference} />
                 <PayrollDetail label="Bank account name" value={revealedPayrollProfile.bankAccountName} />
