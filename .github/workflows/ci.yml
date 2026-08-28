@@ -31,8 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
 
       - name: Run verification gate
         run: npm run verify
+
+      - name: Run critical cross-browser matrix
+        run: npm run test:e2e:cross-browser

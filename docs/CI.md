@@ -6,7 +6,7 @@
 
 ## Pipeline
 
-`.github/workflows/ci.yml` corre el mismo gate en `ubuntu-latest` para cada push a `main` y cada pull request. Usa `npm ci`, instala solo Chromium para Playwright y tiene permisos `contents: read`, timeout de 15 minutos y cancelación de ejecuciones obsoletas. No despliega, migra ni crea datos remotos.
+`.github/workflows/ci.yml` corre el mismo gate en `ubuntu-latest` para cada push a `main` y cada pull request. Usa `npm ci`, instala Chromium, Firefox y WebKit, ejecuta el gate funcional completo en Chromium y después la auditoría crítica de legibilidad en los tres motores. Conserva permisos `contents: read`, timeout de 15 minutos y cancelación de ejecuciones obsoletas. El workflow no despliega, migra ni crea datos remotos; el repositorio sí tiene una integración Vercel separada que publica automáticamente los pushes a `main`.
 
 ## Browserslist
 
@@ -14,7 +14,7 @@
 
 ## Estado
 
-Validado el 25 de agosto de 2026: `npm run verify` completó todos los gates, Playwright 6/6 y audit 0. ESLint conserva únicamente dos advertencias preexistentes de Fast Refresh en `src/lib/i18n.tsx`.
+Validado localmente el 28 de agosto de 2026: `npm run verify` completó typechecks, lint sin advertencias, build, SheetJS, Worker 6/6 y Playwright 16/16 en Chromium; la consulta de `npm audit --audit-level=high` se repitió fuera del sandbox y devolvió 0 vulnerabilidades. `npm run test:e2e:cross-browser -- --retries=0` aprobó 15/15 escenarios críticos: cinco en Chromium, cinco en Firefox y cinco en WebKit. La confirmación del workflow remoto queda pendiente del próximo push autorizado a `main`.
 
 La política de scripts de npm también está fijada en `package.json`: solo `@swc/core@1.16.1` y `esbuild@0.25.0` están permitidos, porque sus binarios son necesarios para compilar; cualquier script nuevo queda pendiente de revisión explícita.
 

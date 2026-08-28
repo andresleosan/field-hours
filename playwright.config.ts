@@ -1,9 +1,11 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:4187";
+const crossBrowser = process.env.E2E_CROSS_BROWSER === "1";
 
 export default defineConfig({
   testDir: "./e2e",
+  testMatch: crossBrowser ? /legibility-audit\.spec\.ts/ : undefined,
   outputDir: "qa/reports/playwright-artifacts",
   fullyParallel: false,
   workers: 1,
@@ -27,10 +29,13 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
   },
-  projects: [
-    {
-      name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
-    },
-  ],
+  projects: crossBrowser
+    ? [
+        { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+        { name: "firefox", use: { ...devices["Desktop Firefox"] } },
+        { name: "webkit", use: { ...devices["Desktop Safari"] } },
+      ]
+    : [
+        { name: "chromium", use: { ...devices["Desktop Chrome"] } },
+      ],
 });

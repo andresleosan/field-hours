@@ -27,13 +27,13 @@ Centralizar en una experiencia móvil y auditable la jornada laboral y la operac
 
 ## Prioridad actual
 
-Cerrar la Fase 7 con evidencia verificable:
+Estabilizar la operación ya desplegada antes de abrir otra función grande:
 
-1. Restaurar la gobernanza Cronos/DDD del proyecto.
-2. Reparar y ejecutar la suite E2E reproducible.
-3. Validar el flujo de revisión/aprobación de nómina y la flexibilidad laboral.
-4. Solo con autorización del operador, aplicar las migraciones D1 `0008` y `0009` y desplegar.
-5. Completar después el payslip final con todos los campos de Salary Advice.
+1. Mantener un gate reproducible para administrador y trabajador en Chromium, Firefox y WebKit.
+2. Cerrar cada release con evidencia de CI, alias productivo, smoke HTTP y rollback documentado.
+3. Completar la validación productiva de Google OAuth para cerrar la Fase 6.
+4. Añadir alertas operativas y practicar la recuperación de D1 sin usar datos reales en pruebas.
+5. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
 
 ## Reglas de negocio y restricciones
 
@@ -50,7 +50,7 @@ Cerrar la Fase 7 con evidencia verificable:
 - Transferencias bancarias o integración automática con un proveedor de pagos.
 - Cálculos para jurisdicciones distintas de Jersey.
 - Migraciones o despliegues automáticos sin gate humano.
-- Rediseño general de los módulos que ya están operativos mientras se cierra el gate de QA.
+- Rediseño general de los módulos que ya están operativos mientras se consolida la operación multiplataforma.
 
 ## Criterios de éxito de la fase actual
 
@@ -62,4 +62,4 @@ Cerrar la Fase 7 con evidencia verificable:
 
 ## Estado de este documento
 
-Reconstruido el 25 de agosto de 2026 a partir del código, `tasks.md`, documentos de release y configuración existente. Requiere confirmación del operador junto con `STACK.md` antes de retomar cambios funcionales.
+Reconciliado el 28 de agosto de 2026 con `tasks.md`, los despliegues registrados y el gate vigente. El siguiente bloque funcional nuevo requiere confirmación del operador junto con `STACK.md`.

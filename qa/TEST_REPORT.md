@@ -1,8 +1,8 @@
 # Reporte de QA — Fase 7
 
 Fecha: 28 de agosto de 2026
-Entorno: local, Chromium Playwright 1.57, API completamente simulada
-Resultado actual: **16/16 pruebas E2E y 6/6 regresiones del Worker aprobadas**
+Entorno: local, Chromium/Firefox/WebKit con Playwright 1.57, API completamente simulada
+Resultado actual: **16/16 pruebas E2E funcionales, 15/15 escenarios críticos multinavegador y 6/6 regresiones del Worker aprobadas**
 
 ## Alcance validado
 
@@ -68,7 +68,7 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Estabilidad del gate:** una primera corrida detectó que `refreshToday()` borraba el aviso de éxito después de crear la jornada. Se corrigió la carrera de estado y la prueba administrativa pasó 5/5 veces consecutivas con `--retries=0`; después, el gate completo volvió a pasar 11/11 sin reintentos.
 - **Producción:** commit `ade5a6d`, GitHub Actions `Verify` run `33218897389` aprobado, Worker `4b8794db-af54-42a4-b22c-8b084abd0725` y Vercel `dpl_8bpJsaJuwQYupSdKxijg1PqRutZW`. Health directo/proxy HTTP 200 con `ok=true`; historial admin sin sesión 401 directo/proxy y creación admin sin sesión 401. El bundle `index-D8UnqKpE.js` responde 200 y contiene la ruta/interfaz nueva; CSP, HSTS, `nosniff` y `frame-ancestors` están presentes. No se insertaron jornadas sintéticas ni se aplicaron migraciones.
 
-## Verificación adicional — O.10 (28 de agosto de 2026, no desplegada)
+## Verificación adicional — O.10 (28 de agosto de 2026, desplegada)
 
 - **Baseline reproducible:** la primera corrida falló 5/5 y midió avisos de nómina en `1.07:1`, el distintivo de estimación en `1.14:1`, placeholders administrativos en `2.33:1` y la acción `Add Project` del trabajador en `2.10:1`.
 - **Cobertura visual:** Playwright recorre administrador y trabajador en 1440x900 y 390x844. Incluye Live Today, historial/nómina, proyectos, perfil salarial e historial del trabajador, creación/ajuste de jornada, creación de proyecto y error de configuración de nómina.
@@ -77,7 +77,16 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Inspección humana:** se revisaron capturas completas de escritorio y móvil para ambos perfiles. Los avisos de nómina, la descripción administrativa, el formulario salarial con un único Social Security Number y los modales conservan jerarquía y lectura clara.
 - **Estabilidad:** la especificación crítica pasó 15/15 (`--repeat-each=3 --retries=0`) y luego el gate completo pasó Worker 6/6 y E2E 16/16 sin reintentos.
 - **Seguridad y pruebas avanzadas:** no cambian endpoints, autorización, persistencia ni tratamiento de datos; el mock sigue bloqueando tráfico externo. Contratos y roles permanecen cubiertos por la suite existente. Carga no aplica a este cambio puramente visual. `npm.cmd audit --audit-level=high` reportó 0 vulnerabilidades.
-- **Despliegue:** no se ejecutó despliegue, migración ni escritura productiva.
+- **Despliegue observado:** commit `7334a64`, GitHub Actions `Verify #17` (`33220506253`) y checks Vercel aprobados. El alias productivo sirve `index-By-75Z5C.js`; frontend y health directo/proxy responden 200, las rutas protegidas 401 sin sesión y CSP/HSTS/`nosniff` están presentes. No hubo cambios de Worker, migraciones ni escrituras productivas.
+
+## Verificación adicional — O.11 (28 de agosto de 2026, pendiente de CI remoto)
+
+- **Matriz crítica:** `npm.cmd run test:e2e:cross-browser -- --retries=0` ejecutó únicamente `legibility-audit.spec.ts` y aprobó 15/15 casos: 5 Chromium, 5 Firefox y 5 WebKit.
+- **Cobertura:** administrador y trabajador en 1440x900 y 390x844, más el estado de error de configuración de nómina; se validan contraste WCAG AA, placeholders, foco visible, nombres accesibles y ausencia de overflow horizontal.
+- **Gate funcional:** `npm.cmd run verify` aprobó typechecks, lint sin advertencias, build, SheetJS, Worker 6/6 y Playwright 16/16 en Chromium. La consulta final al registro quedó bloqueada por el sandbox y `npm.cmd audit --audit-level=high`, repetido con acceso de red, devolvió 0 vulnerabilidades.
+- **Incidente de entorno:** Firefox quedó bloqueado al inicializar su compositor SWGL dentro del sandbox de Windows, antes de iniciar una prueba. El caso aislado y la matriz completa pasaron fuera de ese sandbox, siempre en headless, con Vite local, datos simulados y tráfico externo bloqueado. El workflow remoto usará Ubuntu y será la evidencia independiente del entorno Windows.
+- **Pruebas avanzadas:** no cambian contratos entre UI y API, endpoints, autenticación, autorización ni persistencia. La suite funcional existente mantiene las pruebas de contrato y seguridad; carga no aplica a un cambio exclusivo del gate de QA.
+- **Seguridad:** el workflow mantiene permisos mínimos `contents: read`; los scripts no conocen credenciales ni endpoints productivos y no hacen despliegues, migraciones ni escrituras remotas.
 
 ## Gate y smoke de producción
 

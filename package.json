@@ -12,6 +12,8 @@
     "test:e2e:list": "node scripts/run-playwright.mjs --list",
     "test:e2e:headed": "node scripts/run-playwright.mjs --headed",
     "test:e2e:install": "node scripts/run-playwright.mjs --install",
+    "test:e2e:install:cross-browser": "node scripts/run-playwright.mjs --install --cross-browser",
+    "test:e2e:cross-browser": "node scripts/run-playwright.mjs --cross-browser",
     "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs",
     "test:xlsx": "node scripts/check-xlsx.mjs",
     "verify": "node scripts/verify.mjs",

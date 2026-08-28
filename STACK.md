@@ -64,6 +64,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Ubicación de la suite E2E: `e2e/`; runner reproducible en `scripts/run-playwright.mjs` y scripts `test:e2e*` en `package.json`.
 - Reportes: `qa/reports/` y artefactos de Playwright, no versionados.
 - Última corrida: 16/16 pruebas aprobadas en Chromium; cubren nómina/Salary Advice, separación de roles, CSRF, flexibilidad de jornada y auditoría de contraste/foco/nombres accesibles/overflow para admin y trabajador en escritorio y móvil, sin tráfico externo.
+- Matriz crítica: la auditoría integral de legibilidad se ejecuta además en Chromium, Firefox y WebKit mediante `npm run test:e2e:cross-browser`; no reemplaza el gate completo de Chromium.
 
 ## Integraciones externas
 

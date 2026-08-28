@@ -11,11 +11,14 @@ const baseURL = "http://127.0.0.1:4187";
 const argumentsFromUser = process.argv.slice(2);
 const installOnly = argumentsFromUser.includes("--install");
 const listOnly = argumentsFromUser.includes("--list");
+const crossBrowser = argumentsFromUser.includes("--cross-browser");
+const playwrightArguments = argumentsFromUser.filter((argument) => argument !== "--cross-browser");
 
 const testEnvironment = {
   ...process.env,
   PLAYWRIGHT_BROWSERS_PATH: browserCache,
   E2E_EXTERNAL_SERVER: "1",
+  E2E_CROSS_BROWSER: crossBrowser ? "1" : "0",
 };
 
 function run(commandArguments) {
@@ -55,9 +58,13 @@ function stopServer(server) {
 }
 
 if (installOnly) {
-  process.exitCode = await run([playwrightCli, "install", "chromium"]);
+  process.exitCode = await run([
+    playwrightCli,
+    "install",
+    ...(crossBrowser ? ["chromium", "firefox", "webkit"] : ["chromium"]),
+  ]);
 } else if (listOnly) {
-  process.exitCode = await run([playwrightCli, "test", ...argumentsFromUser]);
+  process.exitCode = await run([playwrightCli, "test", ...playwrightArguments]);
 } else {
   let server;
   try {
@@ -68,7 +75,7 @@ if (installOnly) {
       windowsHide: true,
     });
     await waitUntilReady(server);
-    process.exitCode = await run([playwrightCli, "test", ...argumentsFromUser]);
+    process.exitCode = await run([playwrightCli, "test", ...playwrightArguments]);
   } finally {
     stopServer(server);
   }
