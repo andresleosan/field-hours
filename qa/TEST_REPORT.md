@@ -56,7 +56,7 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Bundle Worker:** `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` correcto (151,22 KiB / 29,33 KiB gzip); desplegado como `a65b0a37-6f03-4658-9b89-7f83ea769861`.
 - **Producción:** frontend y asset HTTP 200; health directo/proxy HTTP 200; `/api/worker/today` sin sesión HTTP 401 y mutación directa sin CSRF HTTP 403. CSP, HSTS y `nosniff` presentes. GitHub Actions `Verify #15` (`33150543683`) aprobado tras alinear la ruta de cache de Chromium entre instalación y ejecución.
 
-## Verificación adicional — O.9 (28 de agosto de 2026, no desplegada)
+## Verificación adicional — O.9 (28 de agosto de 2026, desplegada)
 
 - **Perfil de nómina:** la interfaz solicita una sola vez `Social Security Number`; se retiró el campo social heredado duplicado sin borrar su ciphertext existente. El endpoint ya no lo exige ni lo descifra al revelar el perfil administrativo.
 - **Contrato UI/API:** el administrador crea una jornada completa mediante `POST /api/admin/shifts/create` con trabajador, proyecto opcional, entrada, salida y descripción obligatoria. La mutación usa CSRF y el historial devuelve la descripción para la interfaz del empleado.
@@ -66,6 +66,7 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Pruebas avanzadas:** aplicaron pruebas de contrato y casos límite de autorización/cronología/solapamiento. No se ejecutó carga: es una mutación administrativa puntual y no una release de capacidad; tampoco se hicieron escrituras en staging o producción.
 - **Gate:** `npm.cmd run verify` aprobó typechecks, lint, build, SheetJS, Worker 6/6 y E2E 11/11; el subcomando final de audit no pudo consultar el registro dentro del sandbox, por lo que se repitió de forma aislada con acceso de red y quedó en 0 vulnerabilidades. `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` empaquetó 155.53 KiB / 29.94 KiB gzip y salió sin desplegar.
 - **Estabilidad del gate:** una primera corrida detectó que `refreshToday()` borraba el aviso de éxito después de crear la jornada. Se corrigió la carrera de estado y la prueba administrativa pasó 5/5 veces consecutivas con `--retries=0`; después, el gate completo volvió a pasar 11/11 sin reintentos.
+- **Producción:** commit `ade5a6d`, GitHub Actions `Verify` run `33218897389` aprobado, Worker `4b8794db-af54-42a4-b22c-8b084abd0725` y Vercel `dpl_8bpJsaJuwQYupSdKxijg1PqRutZW`. Health directo/proxy HTTP 200 con `ok=true`; historial admin sin sesión 401 directo/proxy y creación admin sin sesión 401. El bundle `index-D8UnqKpE.js` responde 200 y contiene la ruta/interfaz nueva; CSP, HSTS, `nosniff` y `frame-ancestors` están presentes. No se insertaron jornadas sintéticas ni se aplicaron migraciones.
 
 ## Gate y smoke de producción
 

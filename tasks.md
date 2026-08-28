@@ -4,7 +4,7 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
-## Fase 7: Payroll, historial administrativo y experiencia móvil (En curso)
+## Fase 7: Payroll, historial administrativo y experiencia móvil (Completada y desplegada)
 
 > Estado: el perfil, configuración, preview, revisión/aprobación y Salary Advice final están desplegados en Worker/Vercel con D1 `0008/0009`; no se ejecutan transferencias automáticas.
 
@@ -32,10 +32,11 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] **Tarea O.6 (Defensa contra abuso de operaciones sensibles)**: Implementado y desplegado el límite por organización/administrador para revelado de perfiles (10/15 min) y preparación de Salary Advice (30/15 min), con `Retry-After`, claves SHA-256 namespaced y variables diferenciadas por entorno; política en `docs/RATE_LIMITING.md`. Prueba HTTP local: intentos 1–10 `404`, intento 11 `429` con `Retry-After: 900`, y recuperación fuera de ventana `404`, sin referencias ni importes en la respuesta. Worker `aae02977-f104-407d-98d8-6d5f0174ac30`; smoke productivo `/api/health` HTTP 200 y `/api/admin/payroll-runs` sin sesión HTTP 401. Release: `docs/RELEASE-2026-08-27-rate-limiting.md`.
 - [x] **Tarea O.7 (Higiene de lint/frontend)**: Separar las constantes/funciones compartidas de `src/lib/i18n.tsx` en `i18n.constants.ts`, `i18nContext.ts` y `useI18n.ts`, manteniendo el contrato de traducciones y eliminando las dos advertencias `react-refresh/only-export-components`. Verificado con `npm.cmd run verify`: typechecks, lint sin advertencias, build, smoke SheetJS, E2E 6/6 y `npm audit` con 0 vulnerabilidades.
 - [x] **Tarea O.8 (Salida fiable y turnos abiertos entre días) — DESPLEGADA**: Corregida la confirmación engañosa que declaraba encolada una salida perdida por red sin guardarla; la acción se preserva con la misma `idempotencyKey`, se reintenta mientras la app está abierta y el GPS pendiente no se registra en consola. El único turno abierto se recupera aunque su `work_date` sea anterior y se prioriza en la vista administrativa. Evidencia: consulta D1 productiva de solo lectura confirmó ausencia del `clock_out` original; `npm.cmd run verify` aprobó typechecks, lint, build, SheetJS, Worker 2/2 y E2E 9/9; `npm.cmd audit` reportó 0 vulnerabilidades, Wrangler dry-run compiló el Worker y GitHub Actions `Verify #15` pasó. Despliegue autorizado explícitamente el 28 de agosto de 2026: Worker `a65b0a37-6f03-4658-9b89-7f83ea769861` y frontend Vercel `dpl_Fe5dUBNdn17sZ6PAxvKKDBXqeZTr`, con alias productivo confirmado en `dpl_EnLDeCBJWDqC5XGKgGCsmgMR8dA3`; health directo/proxy HTTP 200 y contratos protegidos 401/403. Rollback y detalle en `docs/RELEASE-2026-08-28-reliable-clock-out.md`. No se alteraron horas ni se cerraron turnos automáticamente.
-- [x] **Tarea O.9 (QA de datos y jornadas administrativas) — APROBADA, NO DESPLEGADA**: Eliminada la captura duplicada del número de seguridad social sin borrar el ciphertext legado; corregidos contraste y layout del aviso administrativo; agregado el flujo admin para crear una jornada completa con proyecto opcional y descripción obligatoria visible para el empleado. Backend protegido por rol admin+CSRF, pertenencia a organización, cronología, no solapamiento y auditoría. Evidencia: typechecks, lint, build, SheetJS y empaquetado seco correctos; Worker 6/6, Playwright móvil 11/11, contraste `>= 4.5:1`, `git diff --check` limpio y `npm audit` con 0 vulnerabilidades. No se ejecutaron migraciones ni despliegues.
+- [x] **Tarea O.9 (QA de datos y jornadas administrativas) — DESPLEGADA**: Eliminada la captura duplicada del número de seguridad social sin borrar el ciphertext legado; corregidos contraste, layout y persistencia del aviso administrativo; agregado el flujo admin para crear una jornada completa con proyecto opcional y descripción obligatoria visible para el empleado. Backend protegido por rol admin+CSRF, pertenencia a organización, cronología, no solapamiento y auditoría. Gate final: Worker 6/6, Playwright móvil 11/11, regresión estable 5/5 sin reintentos, `npm audit` con 0 vulnerabilidades, Wrangler dry-run y GitHub Actions `Verify` aprobados. Desplegada el 28 de agosto de 2026: commit `ade5a6d`, Worker `4b8794db-af54-42a4-b22c-8b084abd0725` y Vercel `dpl_8bpJsaJuwQYupSdKxijg1PqRutZW`; health directo/proxy HTTP 200, rutas protegidas 401 y bundle productivo verificado. Sin migraciones ni escrituras sintéticas. Rollback y detalle en `docs/RELEASE-2026-08-28-admin-workdays.md`.
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 7 — Payroll y aprobación administrativa (EN CURSO)
+- **Fase Actual**: Fase 7 — Payroll, QA de datos y jornadas administrativas (COMPLETADA Y DESPLEGADA)
+- **Seguimiento separado**: Fase 6 continúa en revisión; Google OAuth está validado en staging, sin declarar aquí una validación productiva no ejecutada.
 - **Última Actualización**: 28 de Agosto de 2026
 
 ---
@@ -107,7 +108,7 @@ Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, c
 
 ---
 
-## 📌 Backlog: Flexibilidad de jornada y proyectos creados por trabajadores *(Pendiente)*
+## 📌 Backlog: Flexibilidad de jornada y proyectos creados por trabajadores *(Completado y desplegado)*
 
 Objetivo: dar mayor flexibilidad a los trabajadores durante su jornada, manteniendo el registro correcto de horas, ubicación y sitio de trabajo.
 
