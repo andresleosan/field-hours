@@ -101,7 +101,7 @@ Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, c
 - [x] **Tarea 6.2 (Datos)**: Migración D1 `0004_google_auth.sql` para identidades Google, solicitudes pendientes y estados OAuth, con rollback manual documentado.
 - [x] **Tarea 6.3 (Aprobación)**: Endpoints protegidos para listar, aprobar y rechazar solicitudes; la aprobación registra auditoría y vincula o crea el trabajador.
 - [x] **Tarea 6.4 (Frontend)**: Botón de Google, opción de migración desde el menú de usuario y panel administrativo de solicitudes pendientes.
-- [ ] **Tarea 6.5 (Configuración/QA)**: Configurar OAuth Client ID, secretos y redirect URI en Cloudflare; ejecutar typecheck/build y prueba real de login en staging. Evidencia actual: secretos OAuth de producción presentes, `GET /api/auth/google/start?mode=invalid` responde `400`, y typecheck/build pasan. Pendiente: disponer de un entorno staging separado y ejecutar allí el login real.
+- [ ] **Tarea 6.5 (Configuración/QA)**: Configurar OAuth Client ID, secretos y redirect URI en Cloudflare; ejecutar typecheck/build y prueba real de login en staging. Evidencia actual: secretos OAuth de producción presentes, `GET /api/auth/google/start?mode=invalid` responde `400`, y typecheck/build pasan. Pendiente: disponer de un entorno staging separado y ejecutar allí el login real. El intento de inventario D1 del 28 de agosto de 2026 devolvió Cloudflare API `10000 Authentication error`, por lo que no se creó infraestructura nueva.
 
 ---
 
