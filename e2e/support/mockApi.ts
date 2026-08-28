@@ -328,7 +328,11 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
 
 export async function installWorkerApi(
   context: BrowserContext,
-  options: { adjustedHistory?: boolean } = {},
+  options: {
+    adjustedHistory?: boolean;
+    failFirstClockOutNetwork?: boolean;
+    overnightOpenShift?: boolean;
+  } = {},
 ): Promise<WorkerMockControl> {
   let projects: Project[] = [{
     id: "project-1",
@@ -342,7 +346,25 @@ export async function installWorkerApi(
     is_active: true,
     created_at: NOW,
   }];
-  let currentShift: ShiftSnapshot | null = null;
+  let currentShift: ShiftSnapshot | null = options.overnightOpenShift
+    ? {
+      id: "overnight-shift-1",
+      state: "working",
+      clockInAt: "2026-08-24T08:00:00.000Z",
+      breakStartedAt: null,
+      breakEndedAt: null,
+      clockOutAt: null,
+      projectId: "project-1",
+      projectName: "Existing Site",
+      events: [{
+        id: "overnight-clock-in",
+        type: "clock_in",
+        at: "2026-08-24T08:00:00.000Z",
+        location: { latitude: 51.5074, longitude: -0.1278, accuracy: 12 },
+      }],
+    }
+    : null;
+  let activeWorkDate = options.overnightOpenShift ? "2026-08-24" : "2026-08-25";
   const completed: Array<Record<string, unknown>> = options.adjustedHistory
     ? [{
       id: "adjusted-shift-1",
@@ -367,7 +389,8 @@ export async function installWorkerApi(
     }]
     : [];
   let shiftSequence = 0;
-  let eventSequence = 0;
+  let eventSequence = currentShift?.events.length ?? 0;
+  let failedClockOutOnce = false;
   const eventOffsetsInMinutes = [0, 15, 25, 40, 65, 90, 120, 150];
 
   const control = await prepareContext(context, async (route, path, method, body) => {
@@ -422,6 +445,11 @@ export async function installWorkerApi(
         projectId?: unknown;
         photo?: unknown;
       };
+      if (options.failFirstClockOutNetwork && input.action === "clock_out" && !failedClockOutOnce) {
+        failedClockOutOnce = true;
+        await route.abort("failed");
+        return;
+      }
       if ("photo" in input) return json(route, { error: "Photo is outside the current contract", code: "INVALID_INPUT" }, 400);
       if (!input.location || typeof input.location.latitude !== "number" || typeof input.location.longitude !== "number" || typeof input.location.accuracy !== "number") {
         return json(route, { error: "Fresh GPS is required", code: "INVALID_LOCATION" }, 400);
@@ -459,6 +487,7 @@ export async function installWorkerApi(
           return json(route, { error: "Select a project", code: "PROJECT_REQUIRED" }, 400);
         }
         shiftSequence += 1;
+        activeWorkDate = "2026-08-25";
         const project = projects.find((item) => item.id === input.projectId)!;
         currentShift = {
           id: `shift-${shiftSequence}`,
@@ -498,7 +527,7 @@ export async function installWorkerApi(
           id: updated.id,
           user_id: "worker-1",
           display_name: "Worker Test",
-          work_date: "2026-08-25",
+          work_date: activeWorkDate,
           state: "complete",
           clock_in_at: updated.clockInAt,
           break_started_at: updated.breakStartedAt,

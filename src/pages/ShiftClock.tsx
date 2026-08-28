@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { QRCodeSVG } from "qrcode.react";
@@ -711,6 +712,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [now, setNow] = useState(Date.now());
   const [workerProjectDialogOpen, setWorkerProjectDialogOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
+  const syncInFlight = useRef(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -759,11 +761,17 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   }, []);
 
   const triggerSync = useCallback(async () => {
-    const res = await syncOfflineQueue((updated) => setShift(updated));
-    setPendingQueueCount(getOfflineQueue().length);
-    if (res.syncedCount > 0) {
-      setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
-      void loadData();
+    if (syncInFlight.current) return;
+    syncInFlight.current = true;
+    try {
+      const res = await syncOfflineQueue((updated) => setShift(updated));
+      setPendingQueueCount(getOfflineQueue().length);
+      if (res.syncedCount > 0) {
+        setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
+        void loadData();
+      }
+    } finally {
+      syncInFlight.current = false;
     }
   }, [loadData]);
 
@@ -784,6 +792,13 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       window.removeEventListener("offline", goOffline);
     };
   }, [triggerSync]);
+
+  useEffect(() => {
+    if (!online || pendingQueueCount === 0) return;
+    void triggerSync();
+    const timer = window.setInterval(() => void triggerSync(), 15_000);
+    return () => window.clearInterval(timer);
+  }, [online, pendingQueueCount, triggerSync]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -812,31 +827,46 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     }
     setMessage("");
     setBusy(nextAction);
+    let fallback: {
+      location: LocationEvidence;
+      idempotencyKey: string;
+      projectId?: string;
+    } | null = null;
+
+    const queueForServerConfirmation = ({ location, idempotencyKey, projectId }: NonNullable<typeof fallback>) => {
+      try {
+        queueOfflineAction(nextAction, location, idempotencyKey, projectId);
+      } catch {
+        setMessage("The network request failed and this device could not preserve the action. Keep this screen open and try again.");
+        return false;
+      }
+      setPendingQueueCount(getOfflineQueue().length);
+      const newEvent: ShiftEvent = {
+        id: idempotencyKey,
+        type: nextAction,
+        at: new Date().toISOString(),
+        location,
+      };
+      setShift((previous) => ({
+        ...previous,
+        state: nextState(previous.state, nextAction) ?? previous.state,
+        projectId: projectId || previous.projectId,
+        projectName: selectedProject?.name || previous.projectName,
+        events: [...previous.events, newEvent],
+      }));
+      if (nextAction === "clock_out") setFinishRequested(false);
+      setMessage("Saved on this device and pending server confirmation. It will retry automatically while this screen is open.");
+      return true;
+    };
+
     try {
       const location = await requestLocation();
       const idempotencyKey = crypto.randomUUID();
       const projectToSubmit = nextAction === "clock_in" ? selectedProjectId : undefined;
+      fallback = { location, idempotencyKey, projectId: projectToSubmit };
 
       if (!online) {
-        // Queue offline
-        queueOfflineAction(nextAction, location, idempotencyKey, projectToSubmit);
-        setPendingQueueCount(getOfflineQueue().length);
-        const optimisticNext = nextState(shift.state, nextAction) || shift.state;
-        const newEvent: ShiftEvent = {
-          id: idempotencyKey,
-          type: nextAction,
-          at: new Date().toISOString(),
-          location,
-        };
-        setShift((prev) => ({
-          ...prev,
-          state: optimisticNext,
-          projectId: projectToSubmit || prev.projectId,
-          projectName: selectedProject?.name || prev.projectName,
-          events: [...prev.events, newEvent],
-        }));
-        if (nextAction === "clock_out") setFinishRequested(false);
-        setMessage("⚡ Saved offline with timestamp & GPS. Will sync automatically once back online.");
+        queueForServerConfirmation(fallback);
         return;
       }
 
@@ -848,8 +878,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       }
       setMessage("Saved with a fresh location check.");
     } catch (caught) {
-      if (!online || (caught instanceof Error && caught.message.includes("fetch"))) {
-        setMessage("Network failed. Action saved offline and queued for automatic sync.");
+      if (fallback && (!online || caught instanceof TypeError)) {
+        queueForServerConfirmation(fallback);
       } else {
         setMessage(messageFrom(caught, "We could not save that action."));
       }

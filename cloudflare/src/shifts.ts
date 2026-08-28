@@ -2,6 +2,7 @@ import { ApiError, requireString } from "./http";
 import { requireRole } from "./auth";
 import { haversineDistanceMeters } from "./projects";
 import { breakMinutesFromEvents } from "./shiftMetrics";
+import { findOpenShiftForWorker, type OpenShiftRow } from "./openShift";
 import type {
   AuthContext,
   LocationEvidence,
@@ -12,16 +13,7 @@ import type {
   ShiftState,
 } from "./types";
 
-interface ShiftRow {
-  id: string;
-  state: Exclude<ShiftState, "off_shift">;
-  clockInAt: string;
-  breakStartedAt: string | null;
-  breakEndedAt: string | null;
-  clockOutAt: string | null;
-  projectId: string | null;
-  projectName: string | null;
-}
+type ShiftRow = OpenShiftRow;
 
 interface EventRow {
   id: string;
@@ -256,30 +248,6 @@ async function eventsForShift(env: Env, shiftId: string): Promise<ShiftEvent[]> 
   });
 }
 
-async function shiftForToday(env: Env, auth: AuthContext): Promise<ShiftRow | null> {
-  return env.DB.prepare(
-    `SELECT
-       s.id,
-       s.state,
-       s.clock_in_at AS clockInAt,
-       s.break_started_at AS breakStartedAt,
-       s.break_ended_at AS breakEndedAt,
-       s.clock_out_at AS clockOutAt,
-       s.project_id AS projectId,
-       p.name AS projectName
-     FROM workforce_shifts s
-     LEFT JOIN workforce_projects p ON p.id = s.project_id
-       WHERE s.organization_id = ?1 AND s.user_id = ?2 AND s.work_date = ?3
-         AND s.state <> 'complete'
-     ORDER BY s.clock_in_at DESC
-     LIMIT 1`,
-  ).bind(
-    auth.user.organizationId,
-    auth.user.id,
-    workDate(auth.user.timezone),
-  ).first<ShiftRow>();
-}
-
 function emptyShift(): ShiftSnapshot {
   return {
     id: "new-shift",
@@ -310,7 +278,10 @@ async function snapshotFromRow(env: Env, row: ShiftRow | null): Promise<ShiftSna
 }
 
 export async function workerToday(env: Env, auth: AuthContext): Promise<ShiftSnapshot> {
-  return snapshotFromRow(env, await shiftForToday(env, auth));
+  return snapshotFromRow(
+    env,
+    await findOpenShiftForWorker(env.DB, auth.user.organizationId, auth.user.id),
+  );
 }
 
 function parseLocation(value: unknown): LocationEvidence {
@@ -408,7 +379,7 @@ export async function performShiftAction(
 
   const occurredAt = new Date().toISOString();
   const eventId = crypto.randomUUID();
-  let shift = await shiftForToday(env, auth);
+  let shift = await findOpenShiftForWorker(env.DB, auth.user.organizationId, auth.user.id);
 
   if (action === "clock_in") {
     if (shift) throw new ApiError(409, "INVALID_TRANSITION", "Finish the current shift before starting another one.");
@@ -576,14 +547,15 @@ export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnap
      LEFT JOIN workforce_shifts s
       ON s.organization_id = m.organization_id
       AND s.user_id = m.user_id
-      AND s.work_date = ?2
       AND s.id = (
         SELECT latest.id
         FROM workforce_shifts latest
         WHERE latest.organization_id = m.organization_id
           AND latest.user_id = m.user_id
-          AND latest.work_date = ?2
-        ORDER BY latest.clock_in_at DESC
+          AND (latest.state <> 'complete' OR latest.work_date = ?2)
+        ORDER BY
+          CASE WHEN latest.state <> 'complete' THEN 0 ELSE 1 END,
+          latest.clock_in_at DESC
         LIMIT 1
       )
      LEFT JOIN workforce_projects p ON p.id = s.project_id
@@ -603,14 +575,15 @@ export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnap
      FROM workforce_shift_events e
      JOIN workforce_shifts s ON s.id = e.shift_id
      WHERE e.organization_id = ?1
-       AND s.work_date = ?2
        AND s.id = (
          SELECT latest.id
          FROM workforce_shifts latest
          WHERE latest.organization_id = s.organization_id
            AND latest.user_id = s.user_id
-           AND latest.work_date = ?2
-         ORDER BY latest.clock_in_at DESC
+           AND (latest.state <> 'complete' OR latest.work_date = ?2)
+         ORDER BY
+           CASE WHEN latest.state <> 'complete' THEN 0 ELSE 1 END,
+           latest.clock_in_at DESC
          LIMIT 1
        )
      ORDER BY e.rowid ASC`,

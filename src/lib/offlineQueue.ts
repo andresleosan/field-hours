@@ -59,7 +59,8 @@ export async function syncOfflineQueue(
       syncedCount++;
       if (onSynced && lastSnapshot) onSynced(lastSnapshot);
     } catch (error) {
-      console.warn("Failed to sync item:", item, error);
+      // Do not expose queued GPS evidence in browser logs.
+      console.warn("Failed to sync an offline shift action.", error);
       break;
     }
   }

@@ -7,6 +7,7 @@ const checks = [
   ["run", "lint"],
   ["run", "build"],
   ["run", "test:xlsx"],
+  ["run", "test:worker"],
   ["run", "test:e2e"],
   ["audit", "--audit-level=high"],
 ];
@@ -27,4 +28,4 @@ for (const args of checks) {
   }
 }
 
-console.log("\nVerification gate passed: typechecks, lint, build, SheetJS, E2E and audit.");
+console.log("\nVerification gate passed: typechecks, lint, build, SheetJS, Worker regression tests, E2E and audit.");

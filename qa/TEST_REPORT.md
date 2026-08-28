@@ -1,8 +1,8 @@
 # Reporte de QA — O.2 E2E reproducible
 
-Fecha: 25 de agosto de 2026
+Fecha: 28 de agosto de 2026
 Entorno: local, Chromium Playwright 1.57, API completamente simulada
-Resultado: **6/6 pruebas aprobadas**
+Resultado: **9/9 pruebas E2E y 2/2 regresiones del Worker aprobadas**
 
 ## Alcance validado
 
@@ -16,10 +16,11 @@ Resultado: **6/6 pruebas aprobadas**
 ## Evidencia ejecutada
 
 ```text
-npm.cmd run test:e2e:list    -> 6 pruebas detectadas en 2 archivos
-npm.cmd run test:e2e         -> 6 passed (8.7s), también tras React Router 7 / Vite 8
+npm.cmd run test:e2e:list    -> 9 pruebas detectadas en 2 archivos
+npm.cmd run test:e2e         -> 9 passed (10.6s), también tras React Router 7 / Vite 8
+npm.cmd run test:worker      -> 2 passed (turno abierto sin filtro de fecha)
 npm.cmd run test:xlsx        -> SheetJS 0.20.3 write/read/JSON/CSV correcto
-npm.cmd run verify           -> gate completo en verde (typechecks, lint, build, SheetJS, E2E y audit)
+npm.cmd run verify           -> typechecks, lint, build, SheetJS, Worker 2/2 y E2E 9/9 en verde; `audit` se repitió por separado porque el sandbox bloqueó el registro
 npm.cmd ls caniuse-lite      -> caniuse-lite@1.0.30001810 deduplicado
 npm.cmd run lint             -> 0 errores, 2 advertencias preexistentes
 npm.cmd run typecheck        -> correcto
@@ -44,6 +45,15 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - Tras mover el contador sintético fuera de la ventana, la siguiente solicitud volvió a `404`, lo
   que confirma la recuperación sin exponer referencias, importes ni datos de perfil.
 - **Carga:** no aplica a esta tarea de infraestructura E2E local. No se ejecutará carga contra producción; se difiere hasta disponer de staging aislado y datos sintéticos.
+
+## Verificación adicional — O.8 (28 de agosto de 2026)
+
+- **Evidencia productiva de solo lectura:** el turno investigado no contenía un evento `clock_out`; la auditoría conservaba `old_clock_out = null` hasta dos ajustes administrativos del 28 de agosto. Esto descarta una reactivación del backend y confirma una salida nunca persistida.
+- **Regresión Worker:** 2/2 pruebas validan que el turno abierto se busca por organización/usuario sin limitarlo a `work_date`, y que la ausencia de turno devuelve `null`.
+- **Contrato UI/API:** Playwright corta la primera respuesta de `clock_out`; la app conserva la acción, la reintenta con la misma `idempotencyKey`, completa un solo turno y vacía la cola. Otra prueba recupera y cierra un turno abierto de la fecha anterior.
+- **Seguridad:** los errores HTTP/CSRF no se encolan como fallos de red, el GPS pendiente ya no se escribe en consola y la consulta de turno continúa aislada por organización/usuario. `npm audit` devolvió 0 vulnerabilidades.
+- **Carga:** no aplica; el cambio añade como máximo un reintento inmediato y uno cada 15 segundos únicamente mientras exista una cola pendiente. No se ejecutó carga contra producción.
+- **Bundle Worker:** `npx.cmd wrangler deploy --dry-run --config cloudflare/wrangler.jsonc` correcto (151,22 KiB / 29,33 KiB gzip), sin despliegue.
 
 ## Gate y smoke de producción
 

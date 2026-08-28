@@ -79,6 +79,49 @@ test("client fails closed when the CSRF cookie is missing", async ({ context, pa
   expectNoExternalRequests(api);
 });
 
+test("worker can finish an open shift recovered from the previous work date", async ({ context, page }) => {
+  const api = await installWorkerApi(context, { overnightOpenShift: true });
+
+  await page.goto("/");
+  await expect(page.getByText("Working", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Finish shift" }).click();
+  await page.getByRole("button", { name: "Confirm finish" }).click();
+
+  await expect(page.getByRole("button", { name: "Clock in" })).toBeVisible();
+  const shiftCalls = api.calls.filter((call) => call.path === "/api/shift/action");
+  expect(shiftCalls.map((call) => (call.body as { action: string }).action)).toEqual(["clock_out"]);
+  expect(api.completedShiftCount()).toBe(1);
+  expectCsrfOnWrites(api.calls);
+  expectNoExternalRequests(api);
+});
+
+test("lost clock-out response is queued and retried with the same action", async ({ context, page }) => {
+  const api = await installWorkerApi(context, { failFirstClockOutNetwork: true });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Clock in" }).click();
+  await expect(page.getByText("Working", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Finish shift" }).click();
+  await page.getByRole("button", { name: "Confirm finish" }).click();
+
+  await expect(page.getByText(/Synced 1 offline action/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Clock in" })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fh_offline_action_queue"))).toBeNull();
+
+  const clockOutCalls = api.calls.filter((call) => (
+    call.path === "/api/shift/action"
+    && (call.body as { action?: string }).action === "clock_out"
+  ));
+  expect(clockOutCalls).toHaveLength(2);
+  expect((clockOutCalls[0].body as { idempotencyKey: string }).idempotencyKey)
+    .toBe((clockOutCalls[1].body as { idempotencyKey: string }).idempotencyKey);
+  expect(api.completedShiftCount()).toBe(1);
+  expectCsrfOnWrites(api.calls);
+  expectNoExternalRequests(api);
+});
+
 test("worker sees an administrator adjustment notice and the updated payroll labels", async ({ context, page }) => {
   const api = await installWorkerApi(context, { adjustedHistory: true });
 
