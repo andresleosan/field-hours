@@ -55,4 +55,20 @@ que mostraba “acción encolada” tras un error de `fetch` sin llamar a `queue
 
 ## Resultado de producción
 
-Pendiente de completar con IDs, URLs y smokes posteriores al despliegue.
+- Código funcional: commit `1da59bd` (`fix: preserve clock-out across network failures`).
+- Ajuste de infraestructura CI: commit `476e34e` (`ci: align Playwright browser cache`).
+- Worker desplegado: `a65b0a37-6f03-4658-9b89-7f83ea769861` en
+  `https://field-hours-api.andres-san1404.workers.dev`.
+- Frontend funcional desplegado: `dpl_Fe5dUBNdn17sZ6PAxvKKDBXqeZTr`. El commit posterior de CI
+  generó el deployment sin build `dpl_EnLDeCBJWDqC5XGKgGCsmgMR8dA3`, actualmente `Ready` y
+  asociado a `https://field-hours.vercel.app`, sin cambiar el bundle funcional.
+- Frontend y asset `index-279sHNDI.js`: HTTP 200; el bundle publicado contiene el estado de
+  confirmación pendiente del servidor.
+- Health directo del Worker y por proxy Vercel: HTTP 200 con `ok=true`.
+- `/api/worker/today` sin sesión: HTTP 401 tanto por proxy como directamente; la mutación directa
+  sin token CSRF falla cerrada con HTTP 403.
+- Cabeceras CSP, HSTS y `X-Content-Type-Options: nosniff`: presentes.
+- GitHub Actions `Verify #15`, run `33150543683`: aprobado. El run inicial `#14` no pudo abrir
+  Chromium porque instalación y ejecución usaban caches distintas; se alineó
+  `PLAYWRIGHT_BROWSERS_PATH` sin modificar lógica de producto.
+- No se aplicaron migraciones ni correcciones automáticas de horas.
