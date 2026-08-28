@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Camera, X, RefreshCw, Check, SkipForward, AlertCircle } from "lucide-react";
-import { useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/useI18n";
 
 interface SelfieModalProps {
   onCapture: (photoBase64: string | null) => void;

@@ -30,11 +30,11 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] **Tarea O.4 (Gate CI y datos de navegadores)**: Comando único `npm run verify` y workflow `.github/workflows/ci.yml` ejecutan typechecks, lint, build, smoke SheetJS, E2E y audit sin secretos ni producción. `caniuse-lite@1.0.30001810` queda fijado como dependencia de desarrollo y elimina la advertencia de Browserslist. Evidencia: gate local completo en verde y política de actualización controlada documentada en `docs/CI.md`.
 - [x] **Tarea O.5 (Higiene del build y paquete Vercel)**: `.vercelignore` limita el upload seco de Vercel a 129 archivos/1,25 MB (antes 199/3,50 MB), excluyendo documentación, QA, tests, configuración Cronos, backend/migraciones, `dist`, `.env.example` y locks alternativos. `sucrase@3.35.1` elimina la advertencia transitive de `glob@10.5.0`; `allowScripts` aprueba únicamente `@swc/core@1.16.1` y `esbuild@0.25.0`. Instalación limpia `npm ci` sin warnings deprecatorios, `npm approve-scripts --allow-scripts-pending` vacío, `npm audit` 0 y gate `npm run verify` completo (typechecks, lint, build, SheetJS y E2E 6/6) en verde.
 - [x] **Tarea O.6 (Defensa contra abuso de operaciones sensibles)**: Implementado límite por organización/administrador para revelado de perfiles (10/15 min) y preparación de Salary Advice (30/15 min), con `Retry-After`, claves SHA-256 namespaced y variables diferenciadas por entorno; política en `docs/RATE_LIMITING.md`. Prueba HTTP local: intentos 1–10 `404`, intento 11 `429` con `Retry-After: 900`, y recuperación fuera de ventana `404`, sin referencias ni importes en la respuesta. Typechecks, build, E2E 6/6 y audit 0 en verde; pendiente únicamente desplegar estas variables con autorización.
-- [ ] **Tarea O.7 (Higiene de lint/frontend)**: Separar las constantes/funciones compartidas de `src/lib/i18n.tsx` en un módulo estable para eliminar las dos advertencias `react-refresh/only-export-components`, manteniendo el contrato de traducciones y verificando `npm run verify`.
+- [x] **Tarea O.7 (Higiene de lint/frontend)**: Separar las constantes/funciones compartidas de `src/lib/i18n.tsx` en `i18n.constants.ts`, `i18nContext.ts` y `useI18n.ts`, manteniendo el contrato de traducciones y eliminando las dos advertencias `react-refresh/only-export-components`. Verificado con `npm.cmd run verify`: typechecks, lint sin advertencias, build, smoke SheetJS, E2E 6/6 y `npm audit` con 0 vulnerabilidades.
 
 ## 📊 Estado General del Proyecto
 - **Fase Actual**: Fase 7 — Payroll y aprobación administrativa (EN CURSO)
-- **Última Actualización**: 26 de Agosto de 2026
+- **Última Actualización**: 27 de Agosto de 2026
 
 ---
 

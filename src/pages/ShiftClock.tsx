@@ -42,7 +42,7 @@ import {
   X,
 } from "lucide-react";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
-import { useI18n } from "@/lib/i18n";
+import { useI18n } from "@/lib/useI18n";
 import {
   actionLabel,
   adjustShift,
