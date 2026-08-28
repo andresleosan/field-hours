@@ -8,7 +8,7 @@ Estado: desplegado y verificado
 - El administrador abre el roster de un payroll run aprobado y bloqueado.
 - `GET /api/admin/payroll-runs/:runId` entrega el snapshot y sus líneas sin referencias descifradas.
 - `POST /api/admin/payroll-runs/:runId/payslips/:userId` prepara un documento individual, exige admin + origen permitido + CSRF y registra `payroll.payslip.generated`.
-- El documento imprimible incluye Allowances, Deductions, Net Pay, Gross Taxable Pay, Tax Paid, Tax Ref y Social Ref.
+- El documento imprimible incluye Allowances, Deductions, Net Pay, Gross Taxable Pay, Tax Paid, Tax Reference (ITIS) y Social Security Number.
 - Los importes salen de peniques almacenados en `workforce_payroll_run_lines`; no se recalculan en el navegador.
 - La respuesta y el documento no contienen Social Security Number completo ni datos bancarios, no afirman que se haya pagado y no inician transferencias.
 

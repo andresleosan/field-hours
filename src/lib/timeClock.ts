@@ -288,6 +288,12 @@ export interface ShiftHistoryRecord {
   break_minutes: number;
   net_minutes: number;
   events: ShiftEvent[];
+  admin_adjustment: ShiftAdjustmentNotice | null;
+}
+
+export interface ShiftAdjustmentNotice {
+  reason: string;
+  adjusted_at: string;
 }
 
 const transition: Record<ShiftState, Partial<Record<ShiftAction, ShiftState>>> = {

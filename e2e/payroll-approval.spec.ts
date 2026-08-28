@@ -36,11 +36,13 @@ test("admin submits, approves and locks a payroll snapshot without sending payme
   await expect(payslip.getByText("Net Pay", { exact: true })).toBeVisible();
   await expect(payslip.getByText("Gross Taxable Pay", { exact: true })).toBeVisible();
   await expect(payslip.getByText("Tax Paid", { exact: true })).toBeVisible();
+  await expect(payslip.getByText("Tax Reference (ITIS)", { exact: true })).toBeVisible();
+  await expect(payslip.getByText("Social Security Number", { exact: true })).toBeVisible();
   await expect(payslip.getByText("£2400.00", { exact: true }).first()).toBeVisible();
   await expect(payslip.getByText("£384.00", { exact: true })).toBeVisible();
   await expect(payslip.getByText("£2016.00", { exact: true })).toBeVisible();
   await expect(payslip.locator("body")).not.toContainText(/draft|manual payroll/i);
-  await expect(payslip.locator("body")).not.toContainText(/BACS|account number|sort code|social security number/i);
+  await expect(payslip.locator("body")).not.toContainText(/BACS|account number|sort code/i);
   await expect(payslip.locator("img")).toHaveCount(0);
   await expect(payslip.locator("script")).toHaveCount(0);
 

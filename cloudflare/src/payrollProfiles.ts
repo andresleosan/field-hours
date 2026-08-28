@@ -181,14 +181,14 @@ export async function saveWorkerPayrollProfile(
 
   const existingComplete = existing && profileExists(existing);
   const socialSecurityNumber = optionalString(body.socialSecurityNumber, "Social security number", 3, 80);
-  const taxReference = optionalString(body.taxReference, "Tax Reference", 1, 80);
-  const socialReference = optionalString(body.socialReference, "Social Reference", 1, 80);
+  const taxReference = optionalString(body.taxReference, "Tax Reference (ITIS)", 1, 80);
+  const socialReference = optionalString(body.socialReference, "Social Security Number", 1, 80);
   const bankAccountName = optionalString(body.bankAccountName, "Bank account name", 1, 160);
   const bankSortCode = optionalString(body.bankSortCode, "Bank sort code", 1, 40);
   const bankAccountNumber = optionalString(body.bankAccountNumber, "Bank account number", 1, 80);
 
   if (!existingComplete && (!socialSecurityNumber || !taxReference || !socialReference)) {
-    throw new ApiError(400, "PROFILE_INCOMPLETE", "Social security number, Tax Reference and Social Reference are required.");
+    throw new ApiError(400, "PROFILE_INCOMPLETE", "Social security number, Tax Reference (ITIS) and Social Security Number are required.");
   }
 
   const [socialSecurityCiphertext, taxReferenceCiphertext, socialReferenceCiphertext, bankAccountNameCiphertext, bankSortCodeCiphertext, bankAccountNumberCiphertext] = await Promise.all([

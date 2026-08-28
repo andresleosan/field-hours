@@ -56,8 +56,8 @@ Objetivo: Resolver situaciones reales en obra (olvidos de fichar salida, baterí
 
 - [x] **Tarea 2.1 (Backend)**: Crear endpoint `POST /api/admin/shifts/adjust` en Cloudflare Workers para modificar o cerrar un turno pendiente, registrando el cambio en `workforce_audit_events`.
 - [x] **Tarea 2.2 (Frontend)**: Botón de "Adjust" en la tabla de historial y en el modal de trabajador con formulario para fechas de entrada/salida y motivo obligatorio de ajuste.
-- [x] **Tarea 2.3 (Auditoría)**: Registro inmutable con usuario auditor, motivo del cambio, horas previas y horas corregidas.
-- [x] **Tarea 2.4 (QA & Verificación)**: Verificación de compilación (0 errores de tipos) y despliegue.
+- [x] **Tarea 2.3 (Auditoría)**: Registro inmutable con usuario auditor, motivo del cambio, horas previas y horas corregidas; el historial del trabajador muestra que las horas fueron modificadas por un administrador, con motivo y fecha del último ajuste.
+- [x] **Tarea 2.4 (QA & Verificación)**: Verificación de typecheck frontend/Worker, lint, build, SheetJS, E2E 7/7 y `npm audit` con 0 vulnerabilidades. Los timestamps de ajuste validan formato y orden entrada/salida; no requiere migración.
 
 ---
 

@@ -77,6 +77,12 @@ export interface ShiftHistoryRecord {
   break_minutes: number;
   net_minutes: number;
   events: ShiftEvent[];
+  admin_adjustment: ShiftAdjustmentNotice | null;
+}
+
+export interface ShiftAdjustmentNotice {
+  reason: string;
+  adjusted_at: string;
 }
 
 interface HistoryRow {
@@ -91,6 +97,12 @@ interface HistoryRow {
   clockOutAt: string | null;
   projectId: string | null;
   projectName: string | null;
+}
+
+interface AdjustmentAuditRow {
+  shiftId: string;
+  metadataJson: string;
+  adjustedAt: string;
 }
 
 function workDate(timezone: string, now = new Date()): string {
@@ -122,6 +134,84 @@ function toEvent(row: EventRow): ShiftEvent {
       accuracy: row.accuracy,
     },
   };
+}
+
+async function adjustmentsForShifts(
+  env: Env,
+  organizationId: string,
+  shiftIds: string[],
+): Promise<Map<string, ShiftAdjustmentNotice>> {
+  if (shiftIds.length === 0) return new Map();
+
+  const placeholders = shiftIds.map((_, index) => `?${index + 2}`).join(",");
+  const result = await env.DB.prepare(
+    `SELECT
+       subject_id AS shiftId,
+       metadata_json AS metadataJson,
+       created_at AS adjustedAt
+     FROM workforce_audit_events
+     WHERE organization_id = ?1
+       AND action = 'shift.admin_adjusted'
+       AND subject_id IN (${placeholders})
+     ORDER BY created_at DESC, id DESC`,
+  ).bind(organizationId, ...shiftIds).all<AdjustmentAuditRow>();
+
+  const adjustments = new Map<string, ShiftAdjustmentNotice>();
+  for (const row of result.results) {
+    if (adjustments.has(row.shiftId)) continue;
+    try {
+      const metadata = JSON.parse(row.metadataJson) as { reason?: unknown };
+      if (typeof metadata.reason === "string" && metadata.reason.trim()) {
+        adjustments.set(row.shiftId, {
+          reason: metadata.reason,
+          adjusted_at: row.adjustedAt,
+        });
+      }
+    } catch {
+      // Ignore malformed legacy audit metadata without breaking shift history.
+    }
+  }
+  return adjustments;
+}
+
+function toHistoryRecord(
+  row: HistoryRow,
+  events: ShiftEvent[],
+  adminAdjustment: ShiftAdjustmentNotice | null,
+): ShiftHistoryRecord {
+  const clockIn = new Date(row.clockInAt).getTime();
+  const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
+  const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
+  const breakMinutes = breakMinutesFromEvents(events);
+
+  return {
+    id: row.id,
+    user_id: row.userId,
+    display_name: row.displayName,
+    work_date: row.workDate,
+    state: row.state,
+    clock_in_at: row.clockInAt,
+    break_started_at: row.breakStartedAt,
+    break_ended_at: row.breakEndedAt,
+    clock_out_at: row.clockOutAt,
+    project_id: row.projectId ?? null,
+    project_name: row.projectName ?? null,
+    duration_minutes: durationMinutes,
+    break_minutes: breakMinutes,
+    net_minutes: Math.max(0, durationMinutes - breakMinutes),
+    events,
+    admin_adjustment: adminAdjustment,
+  };
+}
+
+function optionalTimestamp(value: unknown, field: string): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  const normalized = requireString(value, field, 1, 80);
+  const timestamp = Date.parse(normalized);
+  if (!Number.isFinite(timestamp)) {
+    throw new ApiError(400, "INVALID_INPUT", `${field} must be a valid date and time.`);
+  }
+  return new Date(timestamp).toISOString();
 }
 
 async function eventsForShift(env: Env, shiftId: string): Promise<ShiftEvent[]> {
@@ -633,33 +723,17 @@ export async function adminShiftHistory(
     }
   }
 
-  return shiftsResult.results.map((row) => {
-    const clockIn = new Date(row.clockInAt).getTime();
-    const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
-    const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
-    
-    const events = eventsByShift.get(row.id) ?? [];
-    const breakMinutes = breakMinutesFromEvents(events);
-    const netMinutes = Math.max(0, durationMinutes - breakMinutes);
+  const adjustmentsByShift = await adjustmentsForShifts(
+    env,
+    auth.user.organizationId,
+    shiftIds,
+  );
 
-    return {
-      id: row.id,
-      user_id: row.userId,
-      display_name: row.displayName,
-      work_date: row.workDate,
-      state: row.state,
-      clock_in_at: row.clockInAt,
-      break_started_at: row.breakStartedAt,
-      break_ended_at: row.breakEndedAt,
-      clock_out_at: row.clockOutAt,
-      project_id: row.projectId ?? null,
-      project_name: row.projectName ?? null,
-      duration_minutes: durationMinutes,
-      break_minutes: breakMinutes,
-      net_minutes: netMinutes,
-      events,
-    };
-  });
+  return shiftsResult.results.map((row) => toHistoryRecord(
+    row,
+    eventsByShift.get(row.id) ?? [],
+    adjustmentsByShift.get(row.id) ?? null,
+  ));
 }
 
 export async function workerShiftHistory(
@@ -732,33 +806,17 @@ export async function workerShiftHistory(
     }
   }
 
-  return shiftsResult.results.map((row) => {
-    const clockIn = new Date(row.clockInAt).getTime();
-    const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
-    const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
-    
-    const events = eventsByShift.get(row.id) ?? [];
-    const breakMinutes = breakMinutesFromEvents(events);
-    const netMinutes = Math.max(0, durationMinutes - breakMinutes);
+  const adjustmentsByShift = await adjustmentsForShifts(
+    env,
+    auth.user.organizationId,
+    shiftIds,
+  );
 
-    return {
-      id: row.id,
-      user_id: row.userId,
-      display_name: row.displayName,
-      work_date: row.workDate,
-      state: row.state,
-      clock_in_at: row.clockInAt,
-      break_started_at: row.breakStartedAt,
-      break_ended_at: row.breakEndedAt,
-      clock_out_at: row.clockOutAt,
-      project_id: row.projectId ?? null,
-      project_name: row.projectName ?? null,
-      duration_minutes: durationMinutes,
-      break_minutes: breakMinutes,
-      net_minutes: netMinutes,
-      events,
-    };
-  });
+  return shiftsResult.results.map((row) => toHistoryRecord(
+    row,
+    eventsByShift.get(row.id) ?? [],
+    adjustmentsByShift.get(row.id) ?? null,
+  ));
 }
 
 export async function adminAdjustShift(
@@ -774,8 +832,8 @@ export async function adminAdjustShift(
   requireRole(auth, "admin");
   const shiftId = requireString(body.shiftId, "Shift ID", 5, 80);
   const reason = requireString(body.reason, "Adjustment reason", 3, 300);
-  const clockInAt = typeof body.clockInAt === "string" && body.clockInAt ? body.clockInAt : null;
-  const clockOutAt = typeof body.clockOutAt === "string" && body.clockOutAt ? body.clockOutAt : null;
+  const clockInAt = optionalTimestamp(body.clockInAt, "Clock-in time");
+  const clockOutAt = optionalTimestamp(body.clockOutAt, "Clock-out time");
 
   const currentShift = await env.DB.prepare(
     `SELECT id, user_id, clock_in_at, clock_out_at, state
@@ -795,6 +853,9 @@ export async function adminAdjustShift(
 
   const finalClockIn = clockInAt || currentShift.clock_in_at;
   const finalClockOut = clockOutAt || currentShift.clock_out_at;
+  if (finalClockOut && Date.parse(finalClockOut) < Date.parse(finalClockIn)) {
+    throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
+  }
   const finalState = finalClockOut ? "complete" : currentShift.state;
 
   const metadata = JSON.stringify({

@@ -1089,6 +1089,13 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     {record.clock_out_at ? ` · ${t("colClockOut")}: ${formatRecordedTime(record.clock_out_at, user.timezone)}` : ` · ${t("inProgress")}`}
                     {record.break_minutes > 0 && ` · ${t("colBreak")}: ${formatMinutes(record.break_minutes)}`}
                   </p>
+                  {record.admin_adjustment && (
+                    <div className="mt-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+                      <p className="font-semibold">{t("adminAdjustedNotice")}</p>
+                      <p className="mt-0.5"><span className="font-semibold">{t("adminAdjustedReason")}:</span> {record.admin_adjustment.reason}</p>
+                      <p className="mt-0.5 text-[11px] opacity-80">{t("adminAdjustedAt")} {formatRecordedDateTime(record.admin_adjustment.adjusted_at, user.timezone)}</p>
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-mono text-sm font-bold text-foreground">{formatMinutes(record.net_minutes)}</p>
@@ -1258,8 +1265,8 @@ function WorkerPayrollProfileForm({
         <PayrollInput label="Home address" value={form.address} onChange={(value) => setForm({ ...form, address: value })} required autoComplete="street-address" />
         <div className="grid gap-4 sm:grid-cols-2">
           <PayrollInput label="Social security number" type="password" value={form.socialSecurityNumber} onChange={(value) => setForm({ ...form, socialSecurityNumber: value })} required={!profile?.hasSocialSecurityNumber} autoComplete="off" placeholder={profile?.hasSocialSecurityNumber ? "Already stored · leave blank to keep" : "Required"} />
-          <PayrollInput label="Tax Reference" type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? "Already stored · leave blank to keep" : "Required"} />
-          <PayrollInput label="Social Reference" type="password" value={form.socialReference} onChange={(value) => setForm({ ...form, socialReference: value })} required={!profile?.hasSocialReference} autoComplete="off" placeholder={profile?.hasSocialReference ? "Already stored · leave blank to keep" : "Required"} />
+          <PayrollInput label="Tax Reference (ITIS)" type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? "Already stored · leave blank to keep" : "Required"} />
+          <PayrollInput label="Social Security Number" type="password" value={form.socialReference} onChange={(value) => setForm({ ...form, socialReference: value })} required={!profile?.hasSocialReference} autoComplete="off" placeholder={profile?.hasSocialReference ? "Already stored · leave blank to keep" : "Required"} />
           <PayrollInput label="ITIS percentage" type="number" min="0" max="100" step="0.01" value={form.itisRate} onChange={(value) => setForm({ ...form, itisRate: value })} required placeholder="Example: 15" suffix="%" />
         </div>
         <div>
@@ -3133,8 +3140,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                 <PayrollDetail label="Address" value={revealedPayrollProfile.address} />
                 <PayrollDetail label="ITIS" value={revealedPayrollProfile.itisRate === null ? null : `${revealedPayrollProfile.itisRate.toFixed(2)}%`} />
                 <PayrollDetail label="Social security number" value={revealedPayrollProfile.socialSecurityNumber} />
-                <PayrollDetail label="Tax Reference" value={revealedPayrollProfile.taxReference} />
-                <PayrollDetail label="Social Reference" value={revealedPayrollProfile.socialReference} />
+                <PayrollDetail label="Tax Reference (ITIS)" value={revealedPayrollProfile.taxReference} />
+                <PayrollDetail label="Social Security Number" value={revealedPayrollProfile.socialReference} />
                 <PayrollDetail label="Bank account name" value={revealedPayrollProfile.bankAccountName} />
                 <PayrollDetail label="Sort code" value={revealedPayrollProfile.bankSortCode} />
                 <PayrollDetail label="Account number" value={revealedPayrollProfile.bankAccountNumber} />
@@ -3522,7 +3529,7 @@ function SalaryAdviceModal({
               <SalaryMetric label="Workers" value={String(details.workerCount)} />
               <SalaryMetric label="Run net pay" value={formatPounds(details.totals.netPay)} />
             </div>
-            <p className="text-xs text-muted-foreground">Preparing a document decrypts only the current Tax Ref and Social Ref for that worker and records the action in the audit log. It does not reveal bank details or send payment.</p>
+            <p className="text-xs text-muted-foreground">Preparing a document decrypts only the current Tax Reference (ITIS) and Social Security Number for that worker and records the action in the audit log. It does not reveal bank details or send payment.</p>
             <p className="mb-2 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para revisar todos los importes.</p>
             <div className="overflow-x-auto rounded-2xl border border-border">
               <table className="w-full min-w-[720px] text-left text-xs">
@@ -3595,8 +3602,11 @@ function printSalaryAdvice(input: PayrollPayslip): boolean {
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(input.worker.legalName)}</title><style>
     @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Archivo,Arial,sans-serif;color:#1d1d1b;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.approved{border:2px solid #9a5b13;background:#fff8e8;color:#6f3f0b;padding:8px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta>div{display:grid;gap:3px}.meta strong{display:block}.mono{font-family:"JetBrains Mono",Consolas,monospace}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f0e6;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:155px}.lower>div+div{border-left:1px solid #222}.line{display:grid;grid-template-columns:130px 1fr;gap:10px;margin:0 0 10px}.address{white-space:pre-line}.notice{margin-top:16px;border-left:3px solid #9a5b13;padding-left:10px;font-size:10px;line-height:1.45;color:#555}@media print{.approved,.tables th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
   </style></head><body><main class="sheet"><div class="approved">Approved · locked snapshot</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.employer.name)}</strong><span class="address">${escapeHtml(input.employer.address)}</span><span>Pay date: <span class="mono">${escapeHtml(input.run.payDate)}</span></span></div><div><strong>${escapeHtml(input.run.periodStart)} to ${escapeHtml(input.run.periodEnd)}</strong><span>Payment period</span><span class="mono">Run ${escapeHtml(input.run.id)}</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody>${allowanceRows}</tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.grossTaxablePay)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS<br><small>${input.itisRate.toFixed(2)}%</small></td><td>${formatPounds(input.deductions.incomeTax)}</td></tr><tr><td>Worker Social Security</td><td>${formatPounds(input.deductions.workerSocialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.deductions.total)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong><span>${escapeHtml(input.worker.legalName)}</span></p><p class="line"><strong>Employee No.</strong><span class="mono">${escapeHtml(input.worker.employeeNumber)}</span></p><p class="line"><strong>Address</strong><span class="address">${escapeHtml(input.worker.address)}</span></p><p class="line"><strong>Tax Ref</strong><span class="mono">${escapeHtml(input.worker.taxReference)}</span></p><p class="line"><strong>Social Ref</strong><span class="mono">${escapeHtml(input.worker.socialReference)}</span></p></div><div><p class="line"><strong>Net Pay</strong><span class="mono">${formatPounds(input.netPay)}</span></p><p class="line"><strong>Gross Taxable Pay</strong><span class="mono">${formatPounds(input.grossTaxablePay)}</span></p><p class="line"><strong>Tax Paid</strong><span class="mono">${formatPounds(input.deductions.incomeTax)}</span></p><p class="line"><strong>Approved at</strong><span class="mono">${escapeHtml(input.run.approvedAt)}</span></p></div></div><p class="notice">Generated from an approved, locked payroll snapshot. Payroll approval confirms the calculation; this document does not confirm that funds were transferred.</p></main></body></html>`;
+  const labeledHtml = html
+    .replace("<strong>Tax Ref</strong>", "<strong>Tax Reference (ITIS)</strong>")
+    .replace("<strong>Social Ref</strong>", "<strong>Social Security Number</strong>");
   printWindow.document.open();
-  printWindow.document.write(html);
+  printWindow.document.write(labeledHtml);
   printWindow.document.close();
   window.setTimeout(() => {
     printWindow.focus();

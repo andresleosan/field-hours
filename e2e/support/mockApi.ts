@@ -326,7 +326,10 @@ export async function installAdminApi(context: BrowserContext): Promise<MockApiC
   });
 }
 
-export async function installWorkerApi(context: BrowserContext): Promise<WorkerMockControl> {
+export async function installWorkerApi(
+  context: BrowserContext,
+  options: { adjustedHistory?: boolean } = {},
+): Promise<WorkerMockControl> {
   let projects: Project[] = [{
     id: "project-1",
     name: "Existing Site",
@@ -340,7 +343,29 @@ export async function installWorkerApi(context: BrowserContext): Promise<WorkerM
     created_at: NOW,
   }];
   let currentShift: ShiftSnapshot | null = null;
-  const completed: Array<Record<string, unknown>> = [];
+  const completed: Array<Record<string, unknown>> = options.adjustedHistory
+    ? [{
+      id: "adjusted-shift-1",
+      user_id: "worker-1",
+      display_name: "Worker Test",
+      work_date: "2026-08-24",
+      state: "complete",
+      clock_in_at: "2026-08-24T08:00:00.000Z",
+      break_started_at: null,
+      break_ended_at: null,
+      clock_out_at: "2026-08-24T16:00:00.000Z",
+      project_id: "project-1",
+      project_name: "Existing Site",
+      duration_minutes: 480,
+      break_minutes: 0,
+      net_minutes: 480,
+      events: [],
+      admin_adjustment: {
+        reason: "Worker forgot to clock out at the end of the shift.",
+        adjusted_at: "2026-08-25T09:00:00.000Z",
+      },
+    }]
+    : [];
   let shiftSequence = 0;
   let eventSequence = 0;
   const eventOffsetsInMinutes = [0, 15, 25, 40, 65, 90, 120, 150];

@@ -146,6 +146,9 @@ export interface Translations {
   adjustReason: string;
   adjustReasonPlaceholder: string;
   saveAdjustment: string;
+  adminAdjustedNotice: string;
+  adminAdjustedReason: string;
+  adminAdjustedAt: string;
   mapWithCount: string;
 
   // Projects View
@@ -318,6 +321,9 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo del Ajuste *",
     adjustReasonPlaceholder: "Ej. El trabajador olvidó fichar su salida al finalizar el turno",
     saveAdjustment: "Guardar Ajuste",
+    adminAdjustedNotice: "Horas modificadas por un administrador",
+    adminAdjustedReason: "Motivo",
+    adminAdjustedAt: "Modificado el",
     mapWithCount: "Mapa",
 
     projectsTitle: "Gestión de Proyectos y Obras",
@@ -487,6 +493,9 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Reason for Adjustment *",
     adjustReasonPlaceholder: "e.g. Worker forgot to clock out at the end of the shift",
     saveAdjustment: "Save Adjustment",
+    adminAdjustedNotice: "Hours modified by an administrator",
+    adminAdjustedReason: "Reason",
+    adminAdjustedAt: "Modified on",
     mapWithCount: "Map",
 
     projectsTitle: "Manage Construction Projects",
@@ -656,6 +665,9 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo do Ajuste *",
     adjustReasonPlaceholder: "Ex. O funcionário esqueceu de registrar a saída ao fim do expediente",
     saveAdjustment: "Salvar Ajuste",
+    adminAdjustedNotice: "Horas modificadas por um administrador",
+    adminAdjustedReason: "Motivo",
+    adminAdjustedAt: "Modificado em",
     mapWithCount: "Mapa",
 
     projectsTitle: "Gestão de Obras e Projetos",

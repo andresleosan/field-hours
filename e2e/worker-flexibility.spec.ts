@@ -78,3 +78,15 @@ test("client fails closed when the CSRF cookie is missing", async ({ context, pa
   expect(api.calls.filter((call) => call.method === "POST")).toEqual([]);
   expectNoExternalRequests(api);
 });
+
+test("worker sees an administrator adjustment notice and the updated payroll labels", async ({ context, page }) => {
+  const api = await installWorkerApi(context, { adjustedHistory: true });
+
+  await page.goto("/");
+  await expect(page.getByText("Hours modified by an administrator", { exact: true })).toBeVisible();
+  await expect(page.getByText(/Worker forgot to clock out at the end of the shift\./)).toBeVisible();
+  await expect(page.getByLabel(/Tax Reference \(ITIS\)/)).toBeVisible();
+  await expect(page.getByLabel(/Social Security Number/)).toHaveCount(1);
+  await expect(page.getByLabel("Social Reference", { exact: true })).toHaveCount(0);
+  expectNoExternalRequests(api);
+});

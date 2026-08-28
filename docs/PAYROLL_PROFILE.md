@@ -5,7 +5,7 @@ The payroll profile is a one-time worker-submitted record for the business owner
 ## Data collected
 
 - Legal name, home address and employee number.
-- Social security number, Tax Reference and Social Reference.
+- Social security number, Tax Reference (ITIS) and Social Security Number.
 - ITIS percentage, stored as basis points so values such as `15.25%` are exact.
 - Optional bank account name, sort code and account number.
 

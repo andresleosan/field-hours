@@ -5,7 +5,7 @@
 El documento final se genera únicamente desde un `workforce_payroll_run` con estado `approved` y su línea inmutable en `workforce_payroll_run_lines`. El navegador no recalcula bruto, ITIS, Social Security ni neto, y no permite editar esos importes.
 
 - Snapshot aprobado: periodo, fecha de pago, turnos, minutos netos, tasa ITIS e importes en peniques.
-- Perfil cifrado vigente: nombre legal, dirección, Tax Ref y Social Ref.
+- Perfil cifrado vigente: nombre legal, dirección, Tax Reference (ITIS) y Social Security Number.
 - Configuración vigente: nombre y dirección del negocio.
 
 Las referencias y la identidad no se duplican en el snapshot para evitar otra copia de datos sensibles. Si cambian después de la aprobación, el documento usa el perfil vigente; los importes financieros permanecen bloqueados en el snapshot.
@@ -21,7 +21,7 @@ Errores esperados:
 
 - `404 NOT_FOUND`: run, línea o perfil inexistente.
 - `409 PAYROLL_RUN_NOT_APPROVED`: el snapshot todavía no está aprobado.
-- `409 PAYROLL_PROFILE_INCOMPLETE`: faltan Tax Ref, Social Ref o identidad necesaria.
+- `409 PAYROLL_PROFILE_INCOMPLETE`: faltan Tax Reference (ITIS), Social Security Number o identidad necesaria.
 
 ## Interfaz y documento
 
@@ -32,7 +32,7 @@ Se conserva el sistema visual “site office” definido en `STACK.md`:
 - Layout: el historial de runs funciona como un archivador; cada run aprobado abre su roster bloqueado y desde ahí se prepara un documento por trabajador.
 - Elemento firma: banda `Approved · locked snapshot` con ID de run y cifras monoespaciadas.
 
-El Salary Advice muestra Allowances, horas, deducciones, Net Pay, Gross Taxable Pay, Tax Paid, Tax Ref y Social Ref. No afirma que la nómina o la transferencia esté `Paid`, no inicia transferencias y aclara que la aprobación confirma el cálculo, no el movimiento bancario.
+El Salary Advice muestra Allowances, horas, deducciones, Net Pay, Gross Taxable Pay, Tax Paid, Tax Reference (ITIS) y Social Security Number. No afirma que la nómina o la transferencia esté `Paid`, no inicia transferencias y aclara que la aprobación confirma el cálculo, no el movimiento bancario.
 
 ## Estrategia de pruebas
 
