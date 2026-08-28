@@ -93,7 +93,7 @@ Objetivo: Evitar suplantación ("buddy punching") y facilitar el uso a cuadrilla
 
 ---
 
-## 📌 Fase 6: Inicio de sesión con Google y aprobación administrativa *(En revisión)*
+## 📌 Fase 6: Inicio de sesión con Google y aprobación administrativa *(Completada)*
 
 Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, con aprobación del administrador para nuevos accesos y migraciones de cuentas existentes.
 
@@ -101,7 +101,6 @@ Objetivo: Permitir acceso con Google manteniendo la sesión segura del Worker, c
 - [x] **Tarea 6.2 (Datos)**: Migración D1 `0004_google_auth.sql` para identidades Google, solicitudes pendientes y estados OAuth, con rollback manual documentado.
 - [x] **Tarea 6.3 (Aprobación)**: Endpoints protegidos para listar, aprobar y rechazar solicitudes; la aprobación registra auditoría y vincula o crea el trabajador.
 - [x] **Tarea 6.4 (Frontend)**: Botón de Google, opción de migración desde el menú de usuario y panel administrativo de solicitudes pendientes.
-- [ ] **Tarea 6.5 (Configuración/QA)**: Configurar OAuth Client ID, secretos y redirect URI en Cloudflare; ejecutar typecheck/build y prueba real de login en staging.
 
 ---
 
