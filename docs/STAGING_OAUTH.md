@@ -43,6 +43,13 @@ Estado final verificado el 28 de agosto de 2026:
   fue aprobada por el endpoint administrativo protegido y terminó con sesión activa en Field Hours.
 - El administrador técnico usado para la aprobación quedó deshabilitado después de la prueba.
 
+Paridad de seguridad verificada el 29 de agosto de 2026:
+
+- Pages Advanced Mode añade en `public/_worker.js` las cabeceras estáticas equivalentes a Vercel;
+- CSP, HSTS y `nosniff` están presentes en el alias público y en el deployment inmutable;
+- health directo/proxy responde HTTP 200 y los límites sin sesión responden HTTP 401;
+- deployment Pages: `9402ae49-bf50-4bca-b8ce-ea47c60da701`.
+
 ## Rollback
 
 Este staging comienza vacío. Si la inicialización o la prueba falla, revertir la aplicación con el

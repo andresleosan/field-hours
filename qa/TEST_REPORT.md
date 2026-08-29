@@ -142,3 +142,21 @@ La autorización explícita se recibió y el gate se completó el 25 de agosto d
 - Frontend HTTP 200, cabeceras CSP/HSTS/`nosniff`/`frame-ancestors` presentes y contratos de nómina/proyectos/Salary Advice incluidos en el bundle.
 
 No se crearon datos sintéticos ni se ejecutaron pagos en producción. Los recorridos autenticados y las mutaciones permanecen validados por la suite Playwright aislada 6/6; el detalle de esta publicación está en `docs/RELEASE-2026-08-25-final-salary-advice.md`.
+
+## 2026-08-29 — O.15 Paridad de cabeceras Pages staging
+
+- **Implementación:** Pages Advanced Mode aplica CSP, HSTS y las demás cabeceras estáticas desde `public/_worker.js`; `/api/*` conserva la respuesta del Worker backend.
+- **Contrato local:** 2/2 pruebas nuevas verifican paridad con `vercel.json`, HSTS idéntico a producción, preservación de metadatos del asset y ausencia de sobrescritura sobre el proxy API.
+- **Gate:** typechecks, lint, build, SheetJS, Worker 14/14, operaciones/Pages 4/4, recuperación D1 y Playwright 16/16 aprobados; `npm audit --audit-level=high` devolvió 0 vulnerabilidades al repetirse con red autorizada.
+- **Primera vuelta:** deployment `8021b026-350a-48b4-8ce8-05e8b1a2c264`; CSP aprobó, pero el monitor detectó HSTS ausente. Se corrigió antes del cierre.
+- **Segunda vuelta:** deployment `9402ae49-bf50-4bca-b8ce-ea47c60da701`; alias y URL inmutable aprobaron 5/5 cada uno con frontend/health HTTP 200, límites HTTP 401 y CSP/HSTS/`nosniff` presentes.
+- **Pruebas avanzadas:** contratos navegador→Pages y Pages→Worker cubiertos; carga no aplica porque solo se copian ocho cabeceras en respuestas estáticas. No hubo cambios ni escrituras en producción, Worker backend, D1 o secretos.
+
+## 2026-08-29 — O.14 Retiro del pepper legado
+
+- **Precondición:** D1 agregado confirmó `legacy_admins = 0` y `legacy_without_google = 0`; los dos hashes legados activos pertenecen a identidades Google. Consulta sin escrituras.
+- **Cambio autorizado:** eliminado únicamente `PASSWORD_PEPPER_LEGACY` del Worker productivo; `PASSWORD_PEPPER_CURRENT`, D1 y los demás bindings permanecen intactos.
+- **Versión:** Secret Change `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6`.
+- **Smoke:** monitor productivo 5/5; login sintético inexistente directo/proxy HTTP 401 `INVALID_CREDENTIALS`, confirmando que la configuración actual no cae en `AUTH_NOT_CONFIGURED`.
+- **Datos:** los intentos sintéticos registraron solo contadores normales de rate-limiting; no crearon usuarios ni sesiones. La consulta final mantuvo los conteos de usuarios/hashes y reportó `rows_written = 0`, `changed_db = false`.
+- **Rollback:** versión compatible `e4fb038c-ca09-409b-8158-d3b1a569f2e4`; acceso Google y restablecimiento producen hashes `v2$` para las cuentas legadas restantes.
