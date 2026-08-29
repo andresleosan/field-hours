@@ -79,7 +79,7 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Seguridad y pruebas avanzadas:** no cambian endpoints, autorización, persistencia ni tratamiento de datos; el mock sigue bloqueando tráfico externo. Contratos y roles permanecen cubiertos por la suite existente. Carga no aplica a este cambio puramente visual. `npm.cmd audit --audit-level=high` reportó 0 vulnerabilidades.
 - **Despliegue observado:** commit `7334a64`, GitHub Actions `Verify #17` (`33220506253`) y checks Vercel aprobados. El alias productivo sirve `index-By-75Z5C.js`; frontend y health directo/proxy responden 200, las rutas protegidas 401 sin sesión y CSP/HSTS/`nosniff` están presentes. No hubo cambios de Worker, migraciones ni escrituras productivas.
 
-## Verificación adicional — O.11 (28 de agosto de 2026, pendiente de CI remoto)
+## Verificación adicional — O.11 (28 de agosto de 2026, activa en CI)
 
 - **Matriz crítica:** `npm.cmd run test:e2e:cross-browser -- --retries=0` ejecutó únicamente `legibility-audit.spec.ts` y aprobó 15/15 casos: 5 Chromium, 5 Firefox y 5 WebKit.
 - **Cobertura:** administrador y trabajador en 1440x900 y 390x844, más el estado de error de configuración de nómina; se validan contraste WCAG AA, placeholders, foco visible, nombres accesibles y ausencia de overflow horizontal.
@@ -87,6 +87,8 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Incidente de entorno:** Firefox quedó bloqueado al inicializar su compositor SWGL dentro del sandbox de Windows, antes de iniciar una prueba. El caso aislado y la matriz completa pasaron fuera de ese sandbox, siempre en headless, con Vite local, datos simulados y tráfico externo bloqueado. El workflow remoto usará Ubuntu y será la evidencia independiente del entorno Windows.
 - **Pruebas avanzadas:** no cambian contratos entre UI y API, endpoints, autenticación, autorización ni persistencia. La suite funcional existente mantiene las pruebas de contrato y seguridad; carga no aplica a un cambio exclusivo del gate de QA.
 - **Seguridad:** el workflow mantiene permisos mínimos `contents: read`; los scripts no conocen credenciales ni endpoints productivos y no hacen despliegues, migraciones ni escrituras remotas.
+- **CI remoto:** commit `dc7575a`, GitHub Actions `Verify #18` (run `33222205776`, job `99018444851`) aprobado en Ubuntu. La instalación de Chromium/Firefox/WebKit, el gate funcional y `Run critical cross-browser matrix` terminaron en `success`.
+- **Producción revalidada:** checks `Vercel – fieldhours` y `Vercel – field-hours` exitosos. Frontend y `index-By-75Z5C.js` HTTP 200; health directo/proxy HTTP 200 con `ok=true`; rutas worker/admin sin sesión HTTP 401; CSP, HSTS y `nosniff` presentes. El bundle conserva `account menu` y `admin-project-title`. No hubo cambios de aplicación, Worker, D1 ni escrituras productivas.
 
 ## Gate y smoke de producción
 

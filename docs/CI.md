@@ -14,7 +14,7 @@
 
 ## Estado
 
-Validado localmente el 28 de agosto de 2026: `npm run verify` completó typechecks, lint sin advertencias, build, SheetJS, Worker 6/6 y Playwright 16/16 en Chromium; la consulta de `npm audit --audit-level=high` se repitió fuera del sandbox y devolvió 0 vulnerabilidades. `npm run test:e2e:cross-browser -- --retries=0` aprobó 15/15 escenarios críticos: cinco en Chromium, cinco en Firefox y cinco en WebKit. La confirmación del workflow remoto queda pendiente del próximo push autorizado a `main`.
+Validado el 28 de agosto de 2026: `npm run verify` completó typechecks, lint sin advertencias, build, SheetJS, Worker 6/6 y Playwright 16/16 en Chromium; la consulta local de `npm audit --audit-level=high` se repitió fuera del sandbox y devolvió 0 vulnerabilidades. `npm run test:e2e:cross-browser -- --retries=0` aprobó 15/15 escenarios críticos: cinco en Chromium, cinco en Firefox y cinco en WebKit. GitHub Actions `Verify #18`, run `33222205776`, confirmó en Ubuntu que tanto el gate funcional como el paso independiente `Run critical cross-browser matrix` finalizaron en `success`.
 
 La política de scripts de npm también está fijada en `package.json`: solo `@swc/core@1.16.1` y `esbuild@0.25.0` están permitidos, porque sus binarios son necesarios para compilar; cualquier script nuevo queda pendiente de revisión explícita.
 

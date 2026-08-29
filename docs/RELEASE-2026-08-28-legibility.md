@@ -39,3 +39,14 @@ La navegación autenticada de admin/trabajador permanece validada con datos sint
 2. No modificar el Worker ni D1: esta release no cambió ninguno de los dos.
 3. Repetir frontend/health HTTP 200, rutas protegidas HTTP 401 y verificación de cabeceras.
 4. Registrar el motivo y la evidencia del rollback en este documento y en `tasks.md`.
+
+## Refuerzo posterior — matriz multinavegador
+
+El commit `dc7575a8d6345adf9245bc51241edde240670c2d` no modificó la aplicación, el Worker ni D1. Añadió el gate crítico de legibilidad en Chromium, Firefox y WebKit.
+
+- GitHub Actions `Verify #18`, run `33222205776`, job `99018444851`: `success` para el gate funcional y la matriz multinavegador.
+- Checks `Vercel – fieldhours` y `Vercel – field-hours`: `success`.
+- Smoke de solo lectura: frontend, bundle y health directo/proxy HTTP 200; rutas protegidas HTTP 401; CSP, HSTS y `nosniff` presentes.
+- Bundle: `assets/index-By-75Z5C.js`, 323854 bytes, con las firmas `account menu` y `admin-project-title`.
+
+Si fuera necesario revertir únicamente esta publicación de QA, reasignar el alias al despliegue O.10 inmediatamente anterior (`field-hours/4JpAXvGAd8vyLuNbA1dugneTMxcf`); el bundle de aplicación es idéntico y no hay rollback de Worker o datos.
