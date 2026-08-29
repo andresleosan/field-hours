@@ -1,6 +1,10 @@
 import { requireRole } from "./auth";
 import { ApiError, requireString } from "./http";
-import { getAdminPayrollPreview, type PayrollPreview } from "./payrollCalculation";
+import {
+  getAdminCustomPayrollPreview,
+  getAdminPayrollPreview,
+  type PayrollPreview,
+} from "./payrollCalculation";
 import { getAdminPayrollPayslipIdentity } from "./payrollProfiles";
 import { getAdminPayrollSettings } from "./payrollSettings";
 import type { AuthContext } from "./types";
@@ -135,6 +139,24 @@ function validDate(value: unknown, field: string): string {
 
 function optionalDate(value: unknown, field: string): string | null {
   return value === undefined || value === null || value === "" ? null : validDate(value, field);
+}
+
+function customPayrollInput(value: unknown): { userId: string; netMinutes: number; hours: number } | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "object") {
+    throw new ApiError(400, "INVALID_INPUT", "Custom payroll details are invalid.");
+  }
+  const candidate = value as Record<string, unknown>;
+  const userId = requireString(candidate.userId, "Worker", 1, 100);
+  const hours = candidate.hours;
+  if (typeof hours !== "number" || !Number.isFinite(hours) || hours < 0.01 || hours > 744) {
+    throw new ApiError(400, "INVALID_INPUT", "Custom payroll hours must be between 0.01 and 744.");
+  }
+  const hundredths = Math.round(hours * 100);
+  if (Math.abs(hours - hundredths / 100) > 1e-9) {
+    throw new ApiError(400, "INVALID_INPUT", "Custom payroll hours can have at most two decimal places.");
+  }
+  return { userId, hours: hundredths / 100, netMinutes: Math.round(hours * 60) };
 }
 
 function pounds(pence: number): number {
@@ -351,7 +373,9 @@ export async function generateAdminPayrollPayslip(
     },
     allowances: [{
       code: "basic_pay",
-      description: "Basic pay",
+      description: line.warnings.includes("Hours entered manually by an administrator.")
+        ? "Basic pay · custom hours"
+        : "Basic pay",
       shiftCount: line.shiftCount,
       netMinutes: line.netMinutes,
       hours: Number((line.netMinutes / 60).toFixed(2)),
@@ -371,16 +395,22 @@ export async function generateAdminPayrollPayslip(
 export async function submitAdminPayrollRun(
   env: Env,
   auth: AuthContext,
-  body: { startDate?: unknown; endDate?: unknown },
+  body: { startDate?: unknown; endDate?: unknown; custom?: unknown },
 ): Promise<PayrollRun> {
   requireRole(auth, "admin");
   const startDate = optionalDate(body.startDate, "Start date");
   const endDate = optionalDate(body.endDate, "End date");
+  const custom = customPayrollInput(body.custom);
   if ((startDate && !endDate) || (!startDate && endDate)) {
     throw new ApiError(400, "INVALID_INPUT", "Start date and end date must be provided together.");
   }
+  if (custom && (startDate || endDate)) {
+    throw new ApiError(400, "INVALID_INPUT", "A custom payroll cannot also specify a date range.");
+  }
 
-  const preview = await getAdminPayrollPreview(env, auth, previewParams(startDate, endDate));
+  const preview = custom
+    ? await getAdminCustomPayrollPreview(env, auth, custom.userId, custom.netMinutes)
+    : await getAdminPayrollPreview(env, auth, previewParams(startDate, endDate));
   assertPreviewReady(preview);
   const existing = await env.DB.prepare(
     `SELECT id, status FROM workforce_payroll_runs
@@ -467,7 +497,14 @@ export async function submitAdminPayrollRun(
       auth.user.organizationId,
       auth.user.id,
       runId,
-      JSON.stringify({ periodStart: preview.periodStart, periodEnd: preview.periodEnd, status: "pending_review" }),
+      JSON.stringify({
+        periodStart: preview.periodStart,
+        periodEnd: preview.periodEnd,
+        status: "pending_review",
+        mode: custom ? "custom" : "automatic",
+        customWorkerId: custom?.userId ?? null,
+        customHours: custom?.hours ?? null,
+      }),
     ),
   ];
   await env.DB.batch(statements);

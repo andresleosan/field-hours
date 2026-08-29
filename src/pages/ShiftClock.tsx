@@ -873,12 +873,13 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       }
 
       const updated = await runShiftAction(nextAction, location, idempotencyKey, projectToSubmit);
-      setShift(updated);
+      const confirmed = await loadWorkerShift().catch(() => updated);
+      setShift(confirmed);
       if (nextAction === "clock_out") {
         setFinishRequested(false);
         void loadData();
       }
-      setMessage("Saved with a fresh location check.");
+      setMessage("Saved with a fresh GPS check and confirmed by the server.");
     } catch (caught) {
       if (fallback && (!online || caught instanceof TypeError)) {
         queueForServerConfirmation(fallback);
@@ -2377,13 +2378,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }
 
-  async function submitPayrollRun() {
+  async function submitPayrollRun(input?: { custom?: { userId: string; hours: number } }) {
     setPayrollRunBusy(true);
     setMessage("");
     try {
-      await submitAdminPayrollRun();
+      await submitAdminPayrollRun(input);
       await refreshPayrollRuns();
-      setMessage("Payroll submitted for administrator approval.");
+      setMessage(input?.custom
+        ? "Custom payroll created from the saved worker and business details. Review it before approval."
+        : "Payroll submitted for administrator approval.");
     } catch (caught) {
       setMessage(messageFrom(caught, "The payroll could not be submitted for approval."));
     } finally {
@@ -2732,6 +2735,13 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             void refreshPayrollPreview();
           }}
           onMessage={setMessage}
+        />
+
+        <CustomPayrollCard
+          profiles={payrollProfiles}
+          settings={payrollSettings}
+          busy={payrollRunBusy}
+          onSubmit={(input) => submitPayrollRun({ custom: input })}
         />
 
         <PayrollPreviewCard
@@ -3532,6 +3542,87 @@ function PayrollPreviewCard({
   );
 }
 
+function CustomPayrollCard({
+  profiles,
+  settings,
+  busy,
+  onSubmit,
+}: {
+  profiles: PayrollProfile[];
+  settings: PayrollSettings | null;
+  busy: boolean;
+  onSubmit: (input: { userId: string; hours: number }) => Promise<void>;
+}) {
+  const approvedProfiles = useMemo(
+    () => profiles.filter((profile) => profile.status === "approved"),
+    [profiles],
+  );
+  const [userId, setUserId] = useState("");
+  const [hours, setHours] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (approvedProfiles.length === 0) {
+      setUserId("");
+      return;
+    }
+    setUserId((current) => approvedProfiles.some((profile) => profile.userId === current)
+      ? current
+      : approvedProfiles[0].userId);
+  }, [approvedProfiles]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    const numericHours = Number(hours);
+    if (!userId) {
+      setError("Select an approved worker.");
+      return;
+    }
+    if (!Number.isFinite(numericHours) || numericHours < 0.01 || numericHours > 744 || Math.abs(numericHours * 100 - Math.round(numericHours * 100)) > 1e-9) {
+      setError("Enter hours between 0.01 and 744, with no more than two decimal places.");
+      return;
+    }
+    await onSubmit({ userId, hours: numericHours });
+  }
+
+  const disabledReason = !settings
+    ? "Save the payroll configuration first."
+    : approvedProfiles.length === 0
+      ? "Approve at least one worker payroll profile first."
+      : "";
+
+  return (
+    <section className="rounded-3xl border border-brand/25 bg-card p-5 shadow-sm sm:p-7" aria-labelledby="custom-payroll-title">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="label-eyebrow">Payroll · manual hours</p>
+          <h2 id="custom-payroll-title" className="mt-1 text-lg font-semibold">Create a custom payroll</h2>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Choose an employee and enter the hours. Field Hours fills the Salary Advice from the approved worker profile, business details, standard hourly rate, ITIS and Social Security already saved.</p>
+        </div>
+        <span className="shrink-0 rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-foreground">Admin only</span>
+      </div>
+      <form className="mt-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_180px_auto] sm:items-end" onSubmit={submit}>
+        <label className="text-sm font-medium">
+          Employee
+          <select value={userId} onChange={(event) => setUserId(event.target.value)} disabled={approvedProfiles.length === 0} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" required>
+            {approvedProfiles.length === 0 && <option value="">No approved workers</option>}
+            {approvedProfiles.map((profile) => <option key={profile.userId} value={profile.userId}>{profile.displayName}{profile.employeeNumber ? ` · ${profile.employeeNumber}` : ""}</option>)}
+          </select>
+        </label>
+        <label className="text-sm font-medium">
+          Hours to pay
+          <input type="number" min="0.01" max="744" step="0.01" inputMode="decimal" value={hours} onChange={(event) => setHours(event.target.value)} placeholder="Example: 40" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required />
+        </label>
+        <button type="submit" disabled={busy || Boolean(disabledReason)} className="min-h-11 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-60">{busy ? "Creating…" : "Create for review"}</button>
+      </form>
+      {disabledReason && <p className="mt-3 rounded-xl border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-foreground">{disabledReason}</p>}
+      {error && <p role="alert" className="mt-3 rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+      <p className="mt-3 text-xs text-muted-foreground">One snapshot is kept per pay period. A custom submission can replace an unapproved snapshot; an approved period stays locked. No bank payment is sent.</p>
+    </section>
+  );
+}
+
 function PayrollSettingsCard({
   settings,
   loading,
@@ -3611,7 +3702,7 @@ function PayrollSettingsCard({
         <div>
           <p className="label-eyebrow">Payroll · Jersey</p>
           <h2 id="payroll-settings-title" className="mt-1 text-lg font-semibold">Payroll configuration</h2>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Set the business details and schedule that will feed future Salary Advice calculations. Jersey tax rules are not inferred from these fields.</p>
+          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">Save the business details, standard hourly rate and payroll schedule once. Automatic and custom Salary Advice calculations reuse this configuration.</p>
         </div>
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${settings ? "bg-success/15 text-success" : "bg-warning/15 text-foreground"}`}>
           {loading ? "Loading" : settings ? "Configured" : "Not configured"}
@@ -3624,7 +3715,7 @@ function PayrollSettingsCard({
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium">Business name<input value={businessName} onChange={(event) => setBusinessName(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={2} maxLength={160} /></label>
             <label className="text-sm font-medium">Business address<input value={businessAddress} onChange={(event) => setBusinessAddress(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required minLength={2} maxLength={250} /></label>
-            <label className="text-sm font-medium">Hourly rate (£)<input type="number" min="0.01" step="0.01" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
+            <label className="text-sm font-medium">Standard hourly rate (£)<input type="number" min="0.01" step="0.01" value={hourlyRate} onChange={(event) => setHourlyRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
             <label className="text-sm font-medium">Pay frequency<select value="monthly" disabled className="mt-1.5 h-11 w-full rounded-xl border border-input bg-muted px-3 text-sm outline-none"><option value="monthly">Monthly</option></select></label>
             <label className="text-sm font-medium">Pay day<input type="number" min="1" max="28" step="1" value={payDay} onChange={(event) => setPayDay(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
             <label className="text-sm font-medium">Worker Social Security (%)<input type="number" min="0" max="100" step="0.01" value={workerSocialSecurityRate} onChange={(event) => setWorkerSocialSecurityRate(event.target.value)} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" required /></label>
@@ -3632,7 +3723,7 @@ function PayrollSettingsCard({
             <label className="text-sm font-medium">Business Tax Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessTaxReference} onChange={(event) => setBusinessTaxReference(event.target.value)} placeholder={settings?.hasBusinessTaxReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
             <label className="text-sm font-medium">Business Social Reference <span className="font-normal text-muted-foreground">(optional)</span><input value={businessSocialReference} onChange={(event) => setBusinessSocialReference(event.target.value)} placeholder={settings?.hasBusinessSocialReference ? "Leave blank to keep saved value" : "Enter reference"} maxLength={80} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" /></label>
           </div>
-          <p className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">These rates are stored as configuration only. The system will not mark a payroll as ready or submit a payment until the statutory calculation and review steps are implemented.</p>
+          <p className="rounded-2xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-foreground">These values feed the estimate and custom payroll tools. Every payroll still requires administrator review and approval; approval does not send money.</p>
           {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
           <div className="flex justify-end">
             <button type="submit" disabled={saving} className="min-h-11 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">{saving ? "Saving…" : "Save configuration"}</button>
@@ -3795,7 +3886,7 @@ function printSalaryAdvice(input: PayrollPayslip): boolean {
   // escaped below, and the action is only available to an authenticated admin.
   const printWindow = window.open("", "_blank");
   if (!printWindow) return false;
-  const allowanceRows = input.allowances.map((allowance) => `<tr><td>${escapeHtml(allowance.description)}<br><small>${allowance.shiftCount} completed shift${allowance.shiftCount === 1 ? "" : "s"}</small></td><td>${allowance.hours.toFixed(2)}</td><td>${formatPounds(allowance.amount)}</td></tr>`).join("");
+  const allowanceRows = input.allowances.map((allowance) => `<tr><td>${escapeHtml(allowance.description)}<br><small>${allowance.shiftCount > 0 ? `${allowance.shiftCount} completed shift${allowance.shiftCount === 1 ? "" : "s"}` : "Administrator-entered hours"}</small></td><td>${allowance.hours.toFixed(2)}</td><td>${formatPounds(allowance.amount)}</td></tr>`).join("");
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Salary Advice - ${escapeHtml(input.worker.legalName)}</title><style>
     @page{size:A4;margin:14mm}*{box-sizing:border-box}body{font-family:Archivo,Arial,sans-serif;color:#1d1d1b;margin:0;font-size:12px}.sheet{max-width:780px;margin:0 auto}.approved{border:2px solid #9a5b13;background:#fff8e8;color:#6f3f0b;padding:8px 10px;text-align:center;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}.title{border:2px solid #222;text-align:center;font-size:23px;font-weight:700;padding:10px;margin-bottom:18px}.meta{display:flex;justify-content:space-between;gap:18px;margin-bottom:10px}.meta>div{display:grid;gap:3px}.meta strong{display:block}.mono{font-family:"JetBrains Mono",Consolas,monospace}.tables{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222}.tables table{width:100%;border-collapse:collapse;min-height:290px}.tables table+table{border-left:1px solid #222}.tables th{text-align:left;background:#f4f0e6;border-bottom:1px solid #222;padding:8px}.tables th:last-child,.tables td:last-child{text-align:right}.tables td{padding:8px;vertical-align:top}.tables tfoot td{border-top:1px solid #222;font-weight:700;vertical-align:bottom}.lower{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;border-top:0}.lower>div{padding:12px;min-height:155px}.lower>div+div{border-left:1px solid #222}.line{display:grid;grid-template-columns:130px 1fr;gap:10px;margin:0 0 10px}.address{white-space:pre-line}.notice{margin-top:16px;border-left:3px solid #9a5b13;padding-left:10px;font-size:10px;line-height:1.45;color:#555}@media print{.approved,.tables th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}
   </style></head><body><main class="sheet"><div class="approved">Approved · locked snapshot</div><div class="title">Salary Advice</div><div class="meta"><div><strong>${escapeHtml(input.employer.name)}</strong><span class="address">${escapeHtml(input.employer.address)}</span><span>Pay date: <span class="mono">${escapeHtml(input.run.payDate)}</span></span></div><div><strong>${escapeHtml(input.run.periodStart)} to ${escapeHtml(input.run.periodEnd)}</strong><span>Payment period</span><span class="mono">Run ${escapeHtml(input.run.id)}</span></div></div><div class="tables"><table><thead><tr><th>Allowances</th><th>Hours</th><th>Amount</th></tr></thead><tbody>${allowanceRows}</tbody><tfoot><tr><td colspan="2">Gross total</td><td>${formatPounds(input.grossTaxablePay)}</td></tr></tfoot></table><table><thead><tr><th>Deductions</th><th>Amount</th></tr></thead><tbody><tr><td>Income Tax / ITIS<br><small>${input.itisRate.toFixed(2)}%</small></td><td>${formatPounds(input.deductions.incomeTax)}</td></tr><tr><td>Worker Social Security</td><td>${formatPounds(input.deductions.workerSocialSecurity)}</td></tr></tbody><tfoot><tr><td>Total deductions</td><td>${formatPounds(input.deductions.total)}</td></tr></tfoot></table></div><div class="lower"><div><p class="line"><strong>Employee</strong><span>${escapeHtml(input.worker.legalName)}</span></p><p class="line"><strong>Employee No.</strong><span class="mono">${escapeHtml(input.worker.employeeNumber)}</span></p><p class="line"><strong>Address</strong><span class="address">${escapeHtml(input.worker.address)}</span></p><p class="line"><strong>Tax Ref</strong><span class="mono">${escapeHtml(input.worker.taxReference)}</span></p><p class="line"><strong>Social Ref</strong><span class="mono">${escapeHtml(input.worker.socialReference)}</span></p></div><div><p class="line"><strong>Net Pay</strong><span class="mono">${formatPounds(input.netPay)}</span></p><p class="line"><strong>Gross Taxable Pay</strong><span class="mono">${formatPounds(input.grossTaxablePay)}</span></p><p class="line"><strong>Tax Paid</strong><span class="mono">${formatPounds(input.deductions.incomeTax)}</span></p><p class="line"><strong>Approved at</strong><span class="mono">${escapeHtml(input.run.approvedAt)}</span></p></div></div><p class="notice">Generated from an approved, locked payroll snapshot. Payroll approval confirms the calculation; this document does not confirm that funds were transferred.</p></main></body></html>`;

@@ -60,6 +60,40 @@ test("admin submits, approves and locks a payroll snapshot without sending payme
   expectNoExternalRequests(api);
 });
 
+test("admin creates a complete custom payroll from employee and hours on mobile", async ({ context, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const api = await installAdminApi(context);
+
+  await page.goto("/clock");
+  await expect(page.getByRole("heading", { name: "Create a custom payroll" })).toBeVisible();
+  await page.getByRole("combobox", { name: "Employee" }).selectOption("worker-1");
+  await page.getByRole("spinbutton", { name: "Hours to pay" }).fill("40");
+  await page.getByRole("button", { name: "Create for review" }).click();
+
+  await expect(page.getByRole("status")).toContainText("Custom payroll created from the saved worker and business details.");
+  await expect(page.getByText("Awaiting review", { exact: true })).toBeVisible();
+  const submitCall = api.calls.find((call) => call.method === "POST" && call.path === "/api/admin/payroll-runs");
+  expect(submitCall?.body).toEqual({ custom: { userId: "worker-1", hours: 40 } });
+
+  await page.getByRole("button", { name: "Approve and mark ready" }).click();
+  await page.getByRole("button", { name: "Open Salary Advice" }).click();
+  await page.getByRole("button", { name: "Prepare Salary Advice" }).click();
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("button", { name: "Print / save final Salary Advice" }).click();
+  const payslip = await popupPromise;
+  await expect(payslip.locator("td").filter({ hasText: "Basic pay · custom hours" }).first()).toContainText("Basic pay · custom hours");
+  await expect(payslip.getByText("Administrator-entered hours", { exact: true })).toBeVisible();
+  await expect(payslip.getByText("40.00", { exact: true })).toBeVisible();
+  await expect(payslip.getByText("£800.00", { exact: true }).first()).toBeVisible();
+  await expect(payslip.getByText("£128.00", { exact: true })).toBeVisible();
+  await expect(payslip.getByText("£672.00", { exact: true })).toBeVisible();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  expectCsrfOnWrites(api.calls);
+  expectNoExternalRequests(api);
+});
+
 test("approved Salary Advice roster stays contained on a mobile viewport", async ({ context, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const api = await installAdminApi(context);

@@ -221,8 +221,10 @@ export async function installAdminApi(
     netPay: 2016,
     employerSocialSecurity: 156,
     employerTotalCost: 2556,
-    warnings: [],
+    warnings: [] as string[],
   };
+  let submittedTotals = totals;
+  let submittedLine = snapshotLine;
   const profile = {
     userId: "worker-1",
     displayName: "Worker Test",
@@ -272,12 +274,42 @@ export async function installAdminApi(
     if (method === "GET" && path === "/api/admin/payroll-runs") return json(route, runs);
     if (method === "GET" && path === "/api/admin/payroll-runs/payroll-run-1") {
       if (!runs[0]) return json(route, { error: "Payroll run not found", code: "NOT_FOUND" }, 404);
-      return json(route, { ...runs[0], lines: [snapshotLine] });
+      return json(route, { ...runs[0], lines: [submittedLine] });
     }
 
     if (method === "POST" && path === "/api/admin/payroll-runs") {
       if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
-      if (JSON.stringify(body) !== "{}") return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
+      const custom = (body as { custom?: { userId?: unknown; hours?: unknown } } | undefined)?.custom;
+      if (custom) {
+        if (custom.userId !== "worker-1" || custom.hours !== 40) {
+          return json(route, { error: "Unexpected custom payroll contract", code: "INVALID_INPUT" }, 400);
+        }
+        submittedTotals = {
+          grossPay: 800,
+          workerSocialSecurity: 48,
+          incomeTax: 80,
+          netPay: 672,
+          employerSocialSecurity: 52,
+          employerTotalCost: 852,
+        };
+        submittedLine = {
+          ...snapshotLine,
+          shiftCount: 0,
+          netMinutes: 2400,
+          grossPay: 800,
+          workerSocialSecurity: 48,
+          incomeTax: 80,
+          netPay: 672,
+          employerSocialSecurity: 52,
+          employerTotalCost: 852,
+          warnings: ["Hours entered manually by an administrator."],
+        };
+      } else if (JSON.stringify(body) !== "{}") {
+        return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
+      } else {
+        submittedTotals = totals;
+        submittedLine = snapshotLine;
+      }
       const run = {
         id: "payroll-run-1",
         periodStart: preview.periodStart,
@@ -289,7 +321,7 @@ export async function installAdminApi(
         reviewedAt: null,
         reviewedBy: null,
         reviewNote: null,
-        totals,
+        totals: submittedTotals,
         workerCount: 1,
       };
       runs = [run];
@@ -389,15 +421,19 @@ export async function installAdminApi(
         },
         allowances: [{
           code: "basic_pay",
-          description: "Basic pay <approved>",
-          shiftCount: 12,
-          netMinutes: 7200,
-          hours: 120,
-          amount: 2400,
+          description: submittedLine.shiftCount === 0 ? "Basic pay · custom hours" : "Basic pay <approved>",
+          shiftCount: submittedLine.shiftCount,
+          netMinutes: submittedLine.netMinutes,
+          hours: submittedLine.netMinutes / 60,
+          amount: submittedLine.grossPay,
         }],
-        deductions: { workerSocialSecurity: 144, incomeTax: 240, total: 384 },
-        grossTaxablePay: 2400,
-        netPay: 2016,
+        deductions: {
+          workerSocialSecurity: submittedLine.workerSocialSecurity,
+          incomeTax: submittedLine.incomeTax,
+          total: submittedLine.workerSocialSecurity + submittedLine.incomeTax,
+        },
+        grossTaxablePay: submittedLine.grossPay,
+        netPay: submittedLine.netPay,
         itisRate: 10,
       });
     }

@@ -160,3 +160,29 @@ No se crearon datos sintéticos ni se ejecutaron pagos en producción. Los recor
 - **Smoke:** monitor productivo 5/5; login sintético inexistente directo/proxy HTTP 401 `INVALID_CREDENTIALS`, confirmando que la configuración actual no cae en `AUTH_NOT_CONFIGURED`.
 - **Datos:** los intentos sintéticos registraron solo contadores normales de rate-limiting; no crearon usuarios ni sesiones. La consulta final mantuvo los conteos de usuarios/hashes y reportó `rows_written = 0`, `changed_db = false`.
 - **Rollback:** versión compatible `e4fb038c-ca09-409b-8158-d3b1a569f2e4`; acceso Google y restablecimiento producen hashes `v2$` para las cuentas legadas restantes.
+
+## 2026-08-29 — O.17 Confirmación fiable de fichaje y nómina personalizada
+
+- **Evidencia productiva de solo lectura:** Luis Manuel está activo y su clock-in del 29 de agosto
+  existe como turno abierto `working`, con proyecto y evento `clock_in` concordantes. No se
+  modificó la jornada ni se insertaron datos de prueba.
+- **Corrección de fichaje:** tras una mutación exitosa la UI recarga `/api/worker/today` y muestra
+  únicamente el estado confirmado por el servidor. El service worker usa navegación network-first
+  y excluye todas las rutas API y escrituras del cache.
+- **Contrato financiero:** el POST administrativo acepta trabajador y horas; valida rol, rango,
+  precisión, pertenencia activa y perfil aprobado. El cálculo reutiliza tarifa, ITIS y Social
+  Security del servidor y persiste el snapshot mediante el batch transaccional existente.
+- **Cifras exactas:** 40 horas a £20 producen bruto £800, Social Security del trabajador £48,
+  ITIS £80, neto £672, Social Security del empleador £52 y coste total £852.
+- **Gate local:** typechecks, lint, build, SheetJS, Worker 20/20, operaciones 4/4 más recuperación
+  D1 y E2E funcional aprobaron dentro de `npm run verify`. La consulta de audit del mismo comando
+  quedó bloqueada por red del sandbox; repetida con red autorizada devolvió 0 vulnerabilidades.
+- **Navegadores:** 15/15 en Chromium, Firefox y WebKit, escritorio y móvil. La primera corrida de
+  Firefox no pudo crear páginas dentro del sandbox; la matriz completa aprobó fuera de él.
+- **Empaquetado:** Wrangler 4.127.1, dry-run explícito sobre producción correcto: 162.37 KiB /
+  31.26 KiB gzip, bindings esperados y ninguna migración.
+- **Seguridad:** no hay endpoints de pago, el POST conserva sesión admin, origen y CSRF, y la
+  auditoría excluye importes y referencias fiscales. No se detectaron hallazgos críticos; carga no
+  aplica a estas mutaciones puntuales.
+- **Rollback previo al deploy:** versión Worker `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6` y reversión
+  del commit/frontend. Los snapshots aprobados y turnos existentes permanecen intactos.

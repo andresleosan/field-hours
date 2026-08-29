@@ -297,3 +297,53 @@ export async function getAdminPayrollPreview(
     totals: Object.fromEntries(Object.entries(totals).map(([key, value]) => [key, Number(value.toFixed(2))])) as typeof totals,
   };
 }
+
+export async function getAdminCustomPayrollPreview(
+  env: Env,
+  auth: AuthContext,
+  userId: string,
+  netMinutes: number,
+): Promise<PayrollPreview> {
+  requireRole(auth, "admin");
+  const preview = await getAdminPayrollPreview(env, auth, new URLSearchParams());
+  const existingLine = preview.lines.find((line) => line.userId === userId);
+  if (!existingLine) {
+    throw new ApiError(404, "WORKER_NOT_FOUND", "The selected active worker is not available for payroll.");
+  }
+  if (existingLine.profileStatus !== "approved" || existingLine.itisRate === null) {
+    throw new ApiError(409, "PAYROLL_NOT_READY", "Approve the selected worker's payroll profile before creating a custom payroll.");
+  }
+
+  const settings = await getPayrollCalculationSettings(env, auth.user.organizationId);
+  const grossPence = roundPence(netMinutes * settings.hourlyRatePence / 60);
+  const itisRateBps = Math.round(existingLine.itisRate * 100);
+  const social = socialSecurity(grossPence, settings.workerSocialSecurityRateBps, settings.employerSocialSecurityRateBps);
+  const incomeTaxPence = roundPence(grossPence * itisRateBps / 10_000);
+  const netPence = Math.max(0, grossPence - social.worker - incomeTaxPence);
+  const employerTotalPence = grossPence + social.employer;
+  const line: PayrollPreviewLine = {
+    ...existingLine,
+    shiftCount: 0,
+    hours: Number((netMinutes / 60).toFixed(2)),
+    grossPay: money(grossPence),
+    workerSocialSecurity: money(social.worker),
+    incomeTax: money(incomeTaxPence),
+    netPay: money(netPence),
+    employerSocialSecurity: money(social.employer),
+    employerTotalCost: money(employerTotalPence),
+    warnings: [...existingLine.warnings, "Hours entered manually by an administrator."],
+  };
+
+  return {
+    ...preview,
+    lines: [line],
+    totals: {
+      grossPay: line.grossPay ?? 0,
+      workerSocialSecurity: line.workerSocialSecurity ?? 0,
+      incomeTax: line.incomeTax ?? 0,
+      netPay: line.netPay ?? 0,
+      employerSocialSecurity: line.employerSocialSecurity ?? 0,
+      employerTotalCost: line.employerTotalCost ?? 0,
+    },
+  };
+}

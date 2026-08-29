@@ -14,7 +14,7 @@
     "test:e2e:install": "node scripts/run-playwright.mjs --install",
     "test:e2e:install:cross-browser": "node scripts/run-playwright.mjs --install --cross-browser",
     "test:e2e:cross-browser": "node scripts/run-playwright.mjs --cross-browser",
-    "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs cloudflare/test/passwordPepper.test.mjs cloudflare/test/disabledWorkers.test.mjs",
+    "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs cloudflare/test/passwordPepper.test.mjs cloudflare/test/disabledWorkers.test.mjs cloudflare/test/customPayroll.test.mjs cloudflare/test/serviceWorker.test.mjs",
     "test:ops": "node --test scripts/production-health.test.mjs scripts/pages-security-headers.test.mjs && node scripts/rehearse-d1-recovery.mjs",
     "test:xlsx": "node scripts/check-xlsx.mjs",
     "verify": "node scripts/verify.mjs",

@@ -29,6 +29,32 @@ Migración: `cloudflare/migrations/0008_payroll_runs.sql`.
 
 Las rutas de escritura requieren sesión administrativa, origen permitido y CSRF válido. Una nómina aprobada no puede sobrescribirse ni volver a revisarse.
 
+### Nómina personalizada por horas
+
+El administrador puede preparar el mismo snapshot para un único trabajador indicando las horas,
+sin volver a introducir datos ya guardados:
+
+```json
+{
+  "custom": {
+    "userId": "worker-user-id",
+    "hours": 40
+  }
+}
+```
+
+- `hours` admite de `0.01` a `744`, con un máximo de dos decimales.
+- El servidor exige que el trabajador esté activo en la organización y tenga su perfil salarial
+  aprobado.
+- La tarifa, ITIS, Social Security, fecha de pago y datos del negocio se toman de la configuración
+  y del perfil guardados; el navegador no suministra ni recalcula esos valores.
+- El run conserva el límite de un snapshot por periodo. Un snapshot aprobado sigue bloqueado; uno
+  pendiente puede reemplazarse intencionalmente con el nuevo cálculo.
+- La auditoría registra modo, trabajador y horas, sin importes ni referencias fiscales.
+
+El cuerpo vacío conserva el cálculo automático desde las jornadas registradas. No se añadió una
+ruta de pago ni una transferencia bancaria.
+
 ## Rollback
 
 No aplicar la migración en producción sin backup verificado y confirmación explícita del operador. El rollback manual, después del backup, es:

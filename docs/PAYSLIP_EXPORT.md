@@ -34,6 +34,11 @@ Se conserva el sistema visual “site office” definido en `STACK.md`:
 
 El Salary Advice muestra Allowances, horas, deducciones, Net Pay, Gross Taxable Pay, Tax Paid, Tax Reference (ITIS) y Social Security Number. No afirma que la nómina o la transferencia esté `Paid`, no inicia transferencias y aclara que la aprobación confirma el cálculo, no el movimiento bancario.
 
+Cuando el snapshot se creó con horas introducidas por el administrador, Allowances muestra
+`Basic pay · custom hours` y la cantidad de horas guardada. El resto del documento mantiene el
+mismo contrato: importes tomados del snapshot aprobado y datos vigentes del trabajador y del
+empleador, sin recalcular en el navegador.
+
 ## Estrategia de pruebas
 
 - Contrato: run pendiente rechazado; run aprobado devuelve exactamente su línea; usuario ajeno al run devuelve 404; POST exige CSRF.

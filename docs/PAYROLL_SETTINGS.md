@@ -27,6 +27,14 @@ La tarifa se persiste en peniques y los porcentajes en puntos básicos. El día 
 
 Cada actualización registra `payroll.settings.updated` en la auditoría sin incluir referencias fiscales ni otros secretos. El resumen del trabajador utiliza el día configurado para calcular el inicio del periodo y la próxima fecha de pago; si no existe configuración, mantiene el valor seguro por defecto del día 1.
 
+## Reutilización en nómina
+
+La interfaz denomina `Standard hourly rate (£)` al campo `hourlyRate`. Es obligatorio porque es la
+fuente de verdad tanto para la nómina automática basada en jornadas como para una nómina
+personalizada en la que el administrador solo selecciona trabajador e introduce horas. Nombre y
+dirección del negocio, frecuencia, día de pago y porcentajes de Social Security se reutilizan de
+la misma configuración; no deben volver a escribirse al preparar cada Salary Advice.
+
 ## Migración y rollback
 
 - Migración: `cloudflare/migrations/0007_payroll_settings.sql`.

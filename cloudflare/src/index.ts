@@ -224,7 +224,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await submitAdminPayrollRun(
       env,
       auth,
-      await readJson<{ startDate?: unknown; endDate?: unknown }>(request),
+      await readJson<{ startDate?: unknown; endDate?: unknown; custom?: unknown }>(request),
     ), 201);
   }
 

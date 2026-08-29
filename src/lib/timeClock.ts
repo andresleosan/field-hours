@@ -438,6 +438,10 @@ export async function prepareAdminPayrollPayslip(runId: string, userId: string):
 export async function submitAdminPayrollRun(input?: {
   startDate?: string;
   endDate?: string;
+  custom?: {
+    userId: string;
+    hours: number;
+  };
 }): Promise<PayrollRun> {
   return backend.post<PayrollRun>("/api/admin/payroll-runs", input ?? {}, true);
 }

@@ -1,4 +1,4 @@
-const CACHE_NAME = "field-hours-v1";
+const CACHE_NAME = "field-hours-v2";
 const PRECACHE_URLS = [
   "/",
   "/index.html",
@@ -26,22 +26,40 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Never cache API requests
-  if (event.request.url.includes("/api/")) {
+  if (event.request.method !== "GET" || event.request.url.includes("/api/")) return;
+
+  // Navigation must prefer the network so an installed PWA cannot keep serving
+  // an old application shell after a release. The cache remains an offline-only
+  // fallback for field use.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse.status === 200) {
+            event.waitUntil(
+              caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", networkResponse.clone())),
+            );
+          }
+          return networkResponse;
+        })
+        .catch(async () => (await caches.match("/index.html")) ?? Response.error()),
+    );
     return;
   }
 
-  // Stale-while-revalidate for static assets
+  // Hashed static assets can use stale-while-revalidate. Keep the refresh tied
+  // to the fetch event so the runtime does not discard a floating promise.
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        fetch(event.request)
+        const refresh = fetch(event.request)
           .then((networkResponse) => {
             if (networkResponse && networkResponse.status === 200) {
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
+              return caches.open(CACHE_NAME).then((cache) => cache.put(event.request, networkResponse));
             }
           })
           .catch(() => {});
+        event.waitUntil(refresh);
         return cachedResponse;
       }
       return fetch(event.request).catch(() => caches.match("/"));
