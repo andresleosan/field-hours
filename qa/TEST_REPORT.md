@@ -186,3 +186,10 @@ No se crearon datos sintéticos ni se ejecutaron pagos en producción. Los recor
   aplica a estas mutaciones puntuales.
 - **Rollback previo al deploy:** versión Worker `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6` y reversión
   del commit/frontend. Los snapshots aprobados y turnos existentes permanecen intactos.
+- **Producción:** commit `d490710`; Verify `33264186422` y monitor `33264327193` aprobados;
+  checks `Vercel – field-hours` y `Vercel – fieldhours` en `success`; Worker
+  `900f64d6-9c0b-4814-be29-03661fe94ad9`. El bundle `index-DLfr3KtO.js` y `sw.js` v2 responden
+  200, contienen ambos cambios y el smoke quedó 5/5. La ruta de nómina sin sesión/CSRF devuelve
+  403 directa y por proxy.
+- **Estado D1 posterior:** consulta agregada con `rows_written: 0`; Luis continúa `working`, con
+  clock-in `2026-08-29T13:17:20.864Z`, un evento y sin clock-out. `payroll_runs = 0`.

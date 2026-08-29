@@ -33,3 +33,16 @@ cache de la PWA: una shell antigua podía mantenerse mientras la API ya tenía e
 No existe rollback de datos porque no hay migración. Para revertir, se restaura la versión anterior
 del Worker y el despliegue frontend anterior, o se revierte el commit de esta release. Los runs ya
 aprobados permanecen inmutables; una reversión del código no borra turnos, perfiles ni snapshots.
+
+## Despliegue productivo
+
+- Código: `d490710` en `origin/main`.
+- GitHub Actions: Verify `33264186422` y monitor `33264327193`, ambos aprobados.
+- Frontend: ambos checks Vercel aprobados; bundle `index-DLfr3KtO.js` y cache PWA v2 activos.
+- Worker: `900f64d6-9c0b-4814-be29-03661fe94ad9`.
+- Smoke: frontend, health directo/proxy y límites de autenticación 5/5; POST de nómina sin
+  sesión/CSRF rechazado con 403 directa y por proxy.
+- D1 posterior: cero filas escritas por la verificación, Luis conserva su turno abierto y no se
+  creó ningún run de nómina.
+
+Rollback Worker: `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6`.
