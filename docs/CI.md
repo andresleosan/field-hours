@@ -2,7 +2,7 @@
 
 ## Comando único
 
-`npm run verify` ejecuta, en orden, los typechecks de frontend y Worker, ESLint, build de Vite, smoke de SheetJS, Playwright E2E y `npm audit --audit-level=high`. El script usa únicamente comandos locales del repositorio, detecta Windows/Linux y no conoce credenciales ni endpoints de producción.
+`npm run verify` ejecuta, en orden, los typechecks de frontend y Worker, ESLint, build de Vite, smoke de SheetJS, pruebas del Worker, `test:ops`, Playwright E2E y `npm audit --audit-level=high`. `test:ops` usa un servidor HTTP simulado y dos D1 locales con datos sintéticos; el gate no conoce credenciales ni consulta endpoints de producción.
 
 ## Pipeline
 
@@ -16,7 +16,11 @@
 
 Validado el 28 de agosto de 2026: `npm run verify` completó typechecks, lint sin advertencias, build, SheetJS, Worker 6/6 y Playwright 16/16 en Chromium; la consulta local de `npm audit --audit-level=high` se repitió fuera del sandbox y devolvió 0 vulnerabilidades. `npm run test:e2e:cross-browser -- --retries=0` aprobó 15/15 escenarios críticos: cinco en Chromium, cinco en Firefox y cinco en WebKit. GitHub Actions `Verify #18`, run `33222205776`, confirmó en Ubuntu que tanto el gate funcional como el paso independiente `Run critical cross-browser matrix` finalizaron en `success`.
 
-La política de scripts de npm también está fijada en `package.json`: solo `@swc/core@1.16.1` y `esbuild@0.25.0` están permitidos, porque sus binarios son necesarios para compilar; cualquier script nuevo queda pendiente de revisión explícita.
+La política de scripts de npm también está fijada en `package.json`: `@swc/core@1.16.1`, `esbuild@0.25.0`, `esbuild@0.28.1` y `workerd@1.20260828.1` están permitidos porque sus binarios son necesarios para compilar o ejecutar Wrangler/D1 local; cualquier script nuevo queda pendiente de revisión explícita. Wrangler queda fijado exactamente en `4.127.1`.
+
+## Monitor operativo
+
+`.github/workflows/production-health.yml` es independiente del gate de código: corre cada 30 minutos y manualmente, usa permisos `contents: read` e `issues: write`, y solo hace comprobaciones HTTP de lectura. Deduplica una incidencia `production-alert` y la cierra al recuperarse. El runbook completo está en `docs/OPERATIONS.md`.
 
 ## Higiene del paquete Vercel
 

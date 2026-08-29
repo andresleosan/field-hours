@@ -1,0 +1,66 @@
+name: Production health
+
+on:
+  schedule:
+    - cron: "17,47 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: production-health
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Probe production contracts
+        id: probe
+        continue-on-error: true
+        run: node scripts/production-health.mjs
+
+      - name: Ensure alert label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh label create production-alert --color B42318 --description "Automated production monitor" --force
+
+      - name: Open or refresh outage issue
+        if: steps.probe.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          issue_number="$(gh issue list --state open --label production-alert --limit 1 --json number --jq '.[0].number')"
+          body="The read-only production monitor failed after retries. Latest evidence: ${RUN_URL}. No production data was modified."
+          if [ -z "$issue_number" ]; then
+            issue_url="$(gh issue create --title '[Production] Field Hours health check failed' --label production-alert --body "$body")"
+            gh issue edit "$issue_url" --add-assignee "$GITHUB_REPOSITORY_OWNER" || true
+          else
+            gh issue edit "$issue_number" --body "$body"
+          fi
+
+      - name: Close recovered outage issue
+        if: steps.probe.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue list --state open --label production-alert --limit 20 --json number --jq '.[].number' | while read -r issue_number; do
+            [ -z "$issue_number" ] || gh issue close "$issue_number" --comment "Production recovered and all monitored contracts passed: ${RUN_URL}"
+          done
+
+      - name: Fail workflow when production is unhealthy
+        if: steps.probe.outcome == 'failure'
+        run: exit 1

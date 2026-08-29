@@ -31,7 +31,7 @@ Estabilizar la operación ya desplegada antes de abrir otra función grande:
 
 1. Mantener un gate reproducible para administrador y trabajador en Chromium, Firefox y WebKit.
 2. Cerrar cada release con evidencia de CI, alias productivo, smoke HTTP y rollback documentado.
-3. Añadir alertas operativas y practicar la recuperación de D1 sin usar datos reales en pruebas.
+3. Activar alertas operativas reproducibles y practicar la recuperación de D1 usando exclusivamente datos sintéticos en entornos locales aislados.
 4. Mantener Google OAuth con comprobaciones no mutantes y revalidación manual controlada cuando cambie el cliente o el Worker.
 5. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
 
@@ -43,6 +43,7 @@ Estabilizar la operación ya desplegada antes de abrir otra función grande:
 - Solo puede existir un turno abierto por trabajador, aunque pueda haber varios turnos y descansos por día.
 - Las migraciones de producción requieren rollback documentado, backup verificado y confirmación explícita.
 - No se usan cuentas, datos reales ni escrituras de producción para pruebas automatizadas.
+- Las comprobaciones operativas de producción deben ser de solo lectura; cualquier alerta debe deduplicarse y dejar evidencia accionable sin incluir datos personales.
 - Las reglas de nómina actuales corresponden a Jersey 2026 y deben presentarse como estimación cuando corresponda.
 
 ## Fuera de alcance inmediato

@@ -100,6 +100,18 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Pruebas avanzadas:** quedó validado el contrato Google → Worker → D1 → UI y los límites de seguridad de cuenta no vinculada, aprobación administrativa, auditoría y separación worker/admin. Carga no aplica y no debe ejecutarse contra OAuth productivo.
 - **Gate de código:** no hubo cambios de aplicación. El mismo código estaba aprobado por GitHub Actions `Verify #19` (`33222532358`), incluido el gate funcional y la matriz Chromium/Firefox/WebKit.
 
+## Verificación adicional — O.13 (28 de agosto de 2026, aprobada localmente)
+
+- **Monitor unitario:** 2/2 pruebas con servidor HTTP local validan el camino saludable y un contrato roto sin lanzar excepciones ni hacer tráfico externo.
+- **Recuperación D1:** las migraciones `0001` a `0009` y un fixture exclusivamente sintético se cargaron en una D1 local, se exportaron y restauraron en una segunda D1 local aislada. Coincidieron 50 objetos de esquema y 13 contadores; `PRAGMA foreign_key_check` devolvió cero filas en origen y destino.
+- **Defensa contra error operativo:** el script exige `--local`, rechaza `--remote`, usa nombre/UUID ficticios y elimina estados, dump y log temporales en `finally`. No conoce credenciales ni exporta datos reales.
+- **Contrato productivo no mutante:** frontend, health proxy, health Worker y dos límites sin sesión pasaron 5/5; respuestas HTTP 200/401, payload `field-hours-api`, CSP, HSTS y `nosniff` fueron correctos.
+- **Time Travel:** `d1 info` confirmó la D1 productiva y `d1 time-travel info --json` devolvió un bookmark vigente. No se llamó `restore`, no se exportó producción y no hubo escrituras.
+- **Workflow:** YAML parseado correctamente; permisos limitados a `contents: read` e `issues: write`, reintentos, incidencia deduplicada y autocierre. Su ejecución remota queda pendiente del push autorizado.
+- **Seguridad:** los logs y la incidencia no contienen cuerpos, cookies, identidad ni datos financieros; `npm audit --audit-level=high` devolvió 0 vulnerabilidades. Se registró aparte O.14, hallazgo alto preexistente: `PASSWORD_PEPPER` ausente en secretos y fallback fijo en autenticación.
+- **Pruebas avanzadas:** se probaron contratos Vercel→Worker, frontend/cabeceras y export→import D1, además de los casos límite unhealthy, ausencia de sesión y prohibición remota. Carga no aplica: el monitor hace cinco GET cada 30 minutos y no se ejecutará carga contra producción.
+- **Gate limpio:** después de `npm ci`, `npm run verify` aprobó dentro del mismo comando typechecks, lint, build, SheetJS, Worker 6/6, operaciones 2/2 + ensayo D1, Playwright 16/16 y `npm audit` con 0 vulnerabilidades. Wrangler `4.127.1` empaquetó 155.53 KiB / 29.94 KiB gzip en dry-run sin desplegar.
+
 ## Gate y smoke de producción
 
 La autorización explícita se recibió y el gate se completó el 25 de agosto de 2026:

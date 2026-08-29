@@ -54,6 +54,8 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - API: Cloudflare Workers.
 - Datos: Cloudflare D1 y Supabase.
 - CI/CD: `.github/workflows/ci.yml` ejecuta `npm run verify` en push/PR; Vercel se despliega asociado al repositorio y el Worker se opera con Wrangler.
+- Monitoreo operativo: GitHub Actions ejecutará comprobaciones HTTP de solo lectura sobre frontend, health directo/proxy, rutas protegidas y cabeceras de seguridad; una única incidencia deduplicada se abrirá durante una falla y se cerrará al recuperarse.
+- Recuperación D1: un ensayo automatizado aplicará migraciones y datos sintéticos a una D1 local, exportará el SQL, lo importará en otra D1 local aislada y comparará esquema, conteos e integridad referencial. Producción no es destino de la prueba; Time Travel solo se consulta para confirmar un bookmark vigente.
 - Gate: no desplegar ni migrar para “probar”; primero seguridad, E2E limpio, backup/rollback y confirmación del operador.
 
 ## Testing
@@ -86,6 +88,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - `.gitignore`: sí; excluye `.env*`, credenciales, claves, backups y estado local de Wrangler, conservando ejemplos.
 - `.env.example`: existe y documenta la conexión pública de Supabase; no debe contener secretos privilegiados.
 - Producción: variables de entorno de Vercel, secretos de Cloudflare Worker y configuración segura de Supabase.
+- Hallazgo activo: `PASSWORD_PEPPER` no está configurado como secreto y el Worker conserva un fallback fijo. Debe migrarse a un secreto obligatorio mediante un procedimiento que no bloquee la cuenta administrativa local.
 - Datos sensibles de nómina: AES-256-GCM con clave del Worker; revelado administrativo protegido y auditado.
 
 ## Dependencias y seguridad
