@@ -131,7 +131,7 @@ async function loadProfile(env: Env, organizationId: string, userId: string): Pr
        p.itis_rate_bps AS itisRateBps, p.status AS status, p.submitted_at AS submittedAt,
        p.reviewed_at AS reviewedAt, p.review_note AS reviewNote
      FROM workforce_memberships m
-     JOIN workforce_users u ON u.id = m.user_id
+     JOIN workforce_users u ON u.id = m.user_id AND u.disabled_at IS NULL
      LEFT JOIN workforce_payroll_profiles p
        ON p.organization_id = m.organization_id AND p.user_id = m.user_id
      WHERE m.organization_id = ?1 AND m.user_id = ?2 AND m.role = 'worker'
@@ -260,7 +260,7 @@ export async function listAdminPayrollProfiles(env: Env, auth: AuthContext): Pro
        p.itis_rate_bps AS itisRateBps, p.status AS status, p.submitted_at AS submittedAt,
        p.reviewed_at AS reviewedAt, p.review_note AS reviewNote
      FROM workforce_memberships m
-     JOIN workforce_users u ON u.id = m.user_id
+     JOIN workforce_users u ON u.id = m.user_id AND u.disabled_at IS NULL
      LEFT JOIN workforce_payroll_profiles p
        ON p.organization_id = m.organization_id AND p.user_id = m.user_id
      WHERE m.organization_id = ?1 AND m.role = 'worker'

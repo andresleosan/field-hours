@@ -163,7 +163,7 @@ async function loadPayrollRows(
        COUNT(s.id) AS shiftCount,
        0 AS netMinutes
      FROM workforce_memberships m
-     JOIN workforce_users u ON u.id = m.user_id
+     JOIN workforce_users u ON u.id = m.user_id AND u.disabled_at IS NULL
      LEFT JOIN workforce_payroll_profiles p
        ON p.organization_id = m.organization_id AND p.user_id = m.user_id
      LEFT JOIN workforce_shifts s
