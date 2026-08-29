@@ -129,6 +129,7 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Datos staging:** 1 cuenta activa, 1 hash legado, 0 administradores legados y 0 cuentas legadas sin Google; consulta agregada con cero escrituras. No se creó una cuenta artificial solo para probar el rehash remoto; el contrato administrador legado → `v2$` permanece cubierto por la prueba integrada.
 - **Hallazgo no bloqueante de staging:** el HTML de Pages no tiene la CSP productiva esperada; Worker/proxy 4/4 sí pasaron y producción se revalidó 5/5. O.14 no modifica el frontend.
 - **Aislamiento productivo:** producción continúa sin los nombres de pepper, monitor 5/5, hashes sin cambios y cero escrituras.
+- **CI remoto:** commit `f187344`; `Verify` run `33230532161` aprobó el gate y la matriz multinavegador, `Production health` run `33230686861` terminó en `success` y ambos checks Vercel quedaron verdes. El Worker productivo no fue desplegado.
 
 ## Gate y smoke de producción
 

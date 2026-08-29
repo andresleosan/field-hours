@@ -1,6 +1,6 @@
 # Release 2026-08-28 — transición segura del pepper de contraseñas
 
-Estado: desplegada y validada en staging; producción pendiente de commit/CI y autorización explícita.
+Estado: desplegada y validada en staging; commit/CI aprobados; Worker de producción pendiente de autorización explícita.
 
 ## Alcance
 
@@ -60,3 +60,4 @@ La consulta reportó `rows_written: 0` y `changed_db: false`. Por tanto, despué
 - Contratos staging: health directo/proxy HTTP 200 y límites Worker/proxy HTTP 401. Un login sintético inexistente devolvió `401 INVALID_CREDENTIALS`, demostrando que la configuración de peppers es válida sin usar credenciales reales.
 - D1 staging de solo lectura: 1 cuenta activa, 1 hash legado, 0 administradores legados y 0 cuentas legadas sin Google; cero escrituras de la consulta. No existe una cuenta administrativa local controlada para probar el rehash remoto sin crear datos artificiales. La transición administrador legado → `v2$` se mantiene cubierta por la prueba integrada.
 - El HTML de Pages staging no cumple la CSP que exige el monitor productivo; los otros cuatro contratos pasan. Es una diferencia preexistente del frontend staging, no causada por el Worker ni bloqueante para el contrato de O.14.
+- Publicación de código: commit `f187344`; GitHub `Verify` run `33230532161` y `Production health` run `33230686861` terminaron en `success`. Los dos checks Vercel también finalizaron en `success`. Este push no desplegó el Worker productivo.
