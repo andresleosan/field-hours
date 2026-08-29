@@ -1,0 +1,5 @@
+# Generate a unique 64-256 character value. Never commit the populated .dev.vars file.
+PASSWORD_PEPPER_CURRENT=
+
+# Temporary only while testing legacy hash upgrades. Remove after legacy count reaches zero.
+PASSWORD_PEPPER_LEGACY=

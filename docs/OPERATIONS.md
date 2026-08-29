@@ -62,3 +62,18 @@ Nunca se ejecuta `time-travel restore` como prueba. Cloudflare documenta el comp
 El 28 de agosto de 2026 el ensayo sintético restauró 50 objetos de esquema y comparó 13 contadores sin diferencias ni violaciones de claves foráneas. El monitor de solo lectura pasó los cinco contratos productivos y D1 devolvió un bookmark Time Travel vigente. No se ejecutaron escrituras, exportaciones ni restauraciones sobre producción.
 
 La primera ejecución remota comprobada fue `Production health` run `33229189380` (job `99038776374`), disparada por `workflow_run` después de `Verify` exitoso. Terminó en `success` y no dejó incidencias `production-alert` abiertas.
+
+## Rotación del pepper de contraseñas
+
+Los hashes actuales usan el prefijo `v2$` y el secreto `PASSWORD_PEPPER_CURRENT`. Durante una transición desde hashes históricos sin prefijo, el Worker puede usar `PASSWORD_PEPPER_LEGACY` únicamente para verificar un login válido y rehashearlo inmediatamente. No existe fallback en código.
+
+Controles operativos:
+
+1. provisionar ambos secretos antes de desplegar el Worker compatible;
+2. no imprimir, consultar ni guardar peppers en el repositorio o logs;
+3. comprobar por conteos agregados que el administrador local pasó a `v2$`;
+4. mantener el secreto legado mientras exista alguna cuenta local activa con hash sin prefijo;
+5. retirar el legado solo con `legacy_admins = 0` y `legacy_without_google = 0`;
+6. después del primer rehash, no volver a una versión del Worker que desconozca `v2$`.
+
+El procedimiento completo, evidencia y rollback están en `docs/RELEASE-2026-08-28-password-pepper.md` y la decisión en `docs/adr/ADR-001-password-pepper-versioning.md`.

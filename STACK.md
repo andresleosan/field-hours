@@ -88,7 +88,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - `.gitignore`: sí; excluye `.env*`, credenciales, claves, backups y estado local de Wrangler, conservando ejemplos.
 - `.env.example`: existe y documenta la conexión pública de Supabase; no debe contener secretos privilegiados.
 - Producción: variables de entorno de Vercel, secretos de Cloudflare Worker y configuración segura de Supabase.
-- Hallazgo activo: `PASSWORD_PEPPER` no está configurado como secreto y el Worker conserva un fallback fijo. Debe migrarse a un secreto obligatorio mediante un procedimiento que no bloquee la cuenta administrativa local.
+- O.14 validada en staging: `PASSWORD_PEPPER_CURRENT` es obligatorio para hashes `v2$`; `PASSWORD_PEPPER_LEGACY` existe solo durante la transición y nunca tiene fallback en código. Worker staging `1981cf0f-965a-4942-ab3d-fc1ec0c691ae`, configuración de login y límites aprobados. El protocolo, gate y rollback están en `docs/adr/ADR-001-password-pepper-versioning.md` y `docs/RELEASE-2026-08-28-password-pepper.md`; producción sigue pendiente.
 - Datos sensibles de nómina: AES-256-GCM con clave del Worker; revelado administrativo protegido y auditado.
 
 ## Dependencias y seguridad

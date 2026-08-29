@@ -1,4 +1,4 @@
-import { createPasswordRecord, randomToken, sha256Hex, timingSafeHexEqual } from "./crypto";
+import { randomToken, sha256Hex, timingSafeHexEqual } from "./crypto";
 import {
   ApiError,
   cookiesFrom,
@@ -10,9 +10,9 @@ import {
 import {
   createSession,
   getAuth,
-  passwordPepper,
   requireRole,
 } from "./auth";
+import { createCurrentPasswordRecord } from "./passwords";
 import type { AuthContext, SessionUser } from "./types";
 
 type GoogleMode = "signin" | "link";
@@ -425,7 +425,7 @@ export async function reviewGoogleAuthRequest(
   }
 
   const userId = crypto.randomUUID();
-  const passwordRecord = await createPasswordRecord(randomToken(32), passwordPepper(env));
+  const passwordRecord = await createCurrentPasswordRecord(env, randomToken(32));
   await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations, must_change_password) VALUES (?1, ?2, ?3, ?4, ?5, 0)`,

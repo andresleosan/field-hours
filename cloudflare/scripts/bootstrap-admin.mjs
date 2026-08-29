@@ -19,9 +19,9 @@ const displayName = "Site Administrator";
 const organizationName = "Field Hours";
 const timezone = "Europe/Jersey";
 const password = randomBytes(24).toString("base64url");
-const pepper = process.env.FIELD_HOURS_PASSWORD_PEPPER;
+const pepper = process.env.FIELD_HOURS_PASSWORD_PEPPER_CURRENT;
 if (!pepper || pepper.length < 64 || pepper.length > 256) {
-  throw new Error("FIELD_HOURS_PASSWORD_PEPPER must contain the Worker pepper.");
+  throw new Error("FIELD_HOURS_PASSWORD_PEPPER_CURRENT must contain the current Worker pepper.");
 }
 const salt = randomBytes(16);
 const iterations = 100_000;
@@ -36,7 +36,7 @@ VALUES ('${organizationId}', '${organizationName}', '${timezone}');
 INSERT INTO workforce_users
   (id, email, password_salt, password_hash, password_iterations, must_change_password)
 VALUES
-  ('${userId}', '${email}', '${salt.toString("hex")}', '${passwordHash.toString("hex")}', ${iterations}, 1);
+  ('${userId}', '${email}', '${salt.toString("hex")}', 'v2$${passwordHash.toString("hex")}', ${iterations}, 1);
 INSERT INTO workforce_memberships
   (organization_id, user_id, role, display_name)
 VALUES

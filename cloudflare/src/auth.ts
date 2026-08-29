@@ -1,8 +1,6 @@
 import {
-  createPasswordRecord,
   randomToken,
   sha256Hex,
-  verifyPassword,
 } from "./crypto";
 import {
   ApiError,
@@ -15,11 +13,15 @@ import {
   SESSION_COOKIE,
 } from "./http";
 import type { AuthContext, Role, SessionUser } from "./types";
+import {
+  createCurrentPasswordRecord,
+  passwordPepperConfig,
+  verifyMissingUserPassword,
+  verifyStoredPassword,
+} from "./passwords";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
-const DUMMY_SALT = "00000000000000000000000000000000";
-const DUMMY_HASH = "0000000000000000000000000000000000000000000000000000000000000000";
 
 interface AuthRow {
   sessionHash: string;
@@ -66,14 +68,6 @@ function sessionTtl(env: Env): number {
 function invitationTtl(env: Env): number {
   const parsed = Number(env.INVITE_TTL_SECONDS);
   return Number.isInteger(parsed) && parsed >= 300 && parsed <= 86_400 ? parsed : 1_800;
-}
-
-export function passwordPepper(env: Env): string {
-  const pepper = (env as Env & { PASSWORD_PEPPER?: unknown }).PASSWORD_PEPPER;
-  if (typeof pepper === "string" && pepper.length >= 64 && pepper.length <= 256) {
-    return pepper;
-  }
-  return "f4d8a1c9e3b750162a8c9e4b7d10f35a62e8b9c0d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef";
 }
 
 function toSessionUser(row: LoginRow | AuthRow): SessionUser {
@@ -184,6 +178,7 @@ export async function login(
   const password = requirePassword(body.password);
   const keyHash = await sha256Hex(`login:${email}`);
   const now = new Date();
+  const peppers = passwordPepperConfig(env);
   await assertNotRateLimited(env, keyHash, now);
 
   const row = await env.DB.prepare(
@@ -206,13 +201,47 @@ export async function login(
      LIMIT 1`,
   ).bind(email).first<LoginRow>();
 
-  const pepper = passwordPepper(env);
-  const passwordMatches = row
-    ? await verifyPassword(password, row.passwordSalt, row.passwordHash, row.passwordIterations, pepper)
-    : await verifyPassword(password, DUMMY_SALT, DUMMY_HASH, 100_000, pepper);
-  if (!row || !passwordMatches) {
+  let verification: { matches: boolean; needsUpgrade: boolean };
+  if (row) {
+    verification = await verifyStoredPassword(
+      password,
+      row.passwordSalt,
+      row.passwordHash,
+      row.passwordIterations,
+      peppers,
+    );
+  } else {
+    await verifyMissingUserPassword(password, peppers);
+    verification = { matches: false, needsUpgrade: false };
+  }
+  if (!row || !verification.matches) {
     await recordFailedAttempt(env, keyHash, now);
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
+  }
+
+  if (verification.needsUpgrade) {
+    const upgraded = await createCurrentPasswordRecord(env, password);
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO workforce_audit_events
+         (organization_id, actor_user_id, action, subject_id, metadata_json)
+         SELECT ?1, ?2, 'account.password.pepper_upgraded', ?2, '{"from":"legacy","to":"v2"}'
+         WHERE EXISTS (
+           SELECT 1 FROM workforce_users WHERE id = ?2 AND password_hash = ?3
+         )`,
+      ).bind(row.organizationId, row.userId, row.passwordHash),
+      env.DB.prepare(
+        `UPDATE workforce_users
+         SET password_salt = ?1, password_hash = ?2, password_iterations = ?3
+         WHERE id = ?4 AND password_hash = ?5`,
+      ).bind(
+        upgraded.salt,
+        upgraded.hash,
+        upgraded.iterations,
+        row.userId,
+        row.passwordHash,
+      ),
+    ]);
   }
 
   await env.DB.prepare("DELETE FROM workforce_auth_attempts WHERE key_hash = ?1").bind(keyHash).run();
@@ -264,7 +293,7 @@ export async function registerWorker(
   }
 
   try {
-    const passwordRecord = await createPasswordRecord(password, passwordPepper(env));
+    const passwordRecord = await createCurrentPasswordRecord(env, password);
     await env.DB.batch([
       env.DB.prepare(
         `INSERT INTO workforce_users
@@ -358,7 +387,7 @@ export async function changePassword(
   body: { password?: unknown },
 ): Promise<SessionUser> {
   const password = requirePassword(body.password);
-  const record = await createPasswordRecord(password, passwordPepper(env));
+  const record = await createCurrentPasswordRecord(env, password);
   await env.DB.batch([
     env.DB.prepare(
       `UPDATE workforce_users

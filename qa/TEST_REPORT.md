@@ -115,6 +115,21 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Monitor remoto:** `Production health` run `33229189380`, job `99038776374`, terminó en `success`. El probe, la creación de etiqueta y el camino de recuperación pasaron; apertura de incidencia y fallo final quedaron omitidos. Incidencias `production-alert` abiertas = 0.
 - **Smoke posterior:** frontend, health proxy, health Worker y límites worker/admin aprobaron 5/5 con HTTP 200/401 y cabeceras CSP/HSTS/`nosniff`. No hubo escrituras, exportaciones o restauraciones productivas.
 
+## 2026-08-28 — O.14 Pepper de contraseñas (aprobada localmente)
+
+- **Contrato de migración:** los hashes nuevos llevan `v2$` y usan `PASSWORD_PEPPER_CURRENT`; un hash sin prefijo solo se acepta con el secreto temporal `PASSWORD_PEPPER_LEGACY` y se actualiza antes de crear la sesión.
+- **Casos límite de seguridad:** falta o longitud inválida del secreto actual → `503 AUTH_NOT_CONFIGURED`; peppers iguales → `503`; versión desconocida o legado sin secreto → credenciales inválidas mediante derivación dummy; contraseña legado incorrecta no ejecuta rehash ni crea sesión.
+- **Acceso administrativo:** la prueba de login legado conserva rol `admin`, escribe un hash `v2$`, registra `account.password.pepper_upgraded` y después crea la sesión. Un login ya actual no ejecuta el batch de transición.
+- **Todos los escritores:** registro por invitación, cambio de contraseña, restablecimiento, creación mediante Google, bootstrap y seed escriben `v2$` con el pepper actual.
+- **Higiene de secretos:** eliminado el fallback fijo del árbol de trabajo; `.dev.vars`/variantes quedaron ignorados y existe solo un ejemplo vacío. El pepper histórico permanece comprometido en el historial, por lo que solo se admite como puente temporal hasta conteo local pendiente cero.
+- **Pruebas avanzadas:** Worker 13/13, contrato de rehash previo a sesión, no escritura ante contraseña inválida y compatibilidad después de retirar el legado. Prueba de carga no aplica: el doble PBKDF2 ocurre una sola vez por cuenta legado migrada y los intentos de login conservan el límite 5/15 min.
+- **Gate:** typechecks, lint, build, SheetJS, operaciones/recuperación D1, Playwright 16/16 y dry-run Wrangler aprobados. `npm audit --audit-level=high` devolvió 0 vulnerabilidades al repetirse con red autorizada.
+- **Producción de solo lectura:** 4 cuentas activas, 4 hashes legados, 1 administrador legado y 2 cuentas legadas sin Google; cero filas escritas. Producción no recibió secretos ni código.
+- **Staging:** ambos peppers quedaron cargados por nombre y el Worker `1981cf0f-965a-4942-ab3d-fc1ec0c691ae` fue desplegado. Un primer binding actual vacío causado por incompatibilidad de PowerShell fue sobrescrito con 64 bytes aleatorios antes del deploy. Health directo/proxy 200, límites sin sesión 401 y login sintético inexistente `401 INVALID_CREDENTIALS` pasaron.
+- **Datos staging:** 1 cuenta activa, 1 hash legado, 0 administradores legados y 0 cuentas legadas sin Google; consulta agregada con cero escrituras. No se creó una cuenta artificial solo para probar el rehash remoto; el contrato administrador legado → `v2$` permanece cubierto por la prueba integrada.
+- **Hallazgo no bloqueante de staging:** el HTML de Pages no tiene la CSP productiva esperada; Worker/proxy 4/4 sí pasaron y producción se revalidó 5/5. O.14 no modifica el frontend.
+- **Aislamiento productivo:** producción continúa sin los nombres de pepper, monitor 5/5, hashes sin cambios y cero escrituras.
+
 ## Gate y smoke de producción
 
 La autorización explícita se recibió y el gate se completó el 25 de agosto de 2026:

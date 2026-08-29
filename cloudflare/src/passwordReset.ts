@@ -1,11 +1,12 @@
-import { createPasswordRecord, randomToken, sha256Hex } from "./crypto";
+import { randomToken, sha256Hex } from "./crypto";
 import {
   ApiError,
   normalizeEmail,
   requirePassword,
   requireString,
 } from "./http";
-import { passwordPepper, requireRole } from "./auth";
+import { requireRole } from "./auth";
+import { createCurrentPasswordRecord } from "./passwords";
 import type { AuthContext } from "./types";
 
 interface PasswordResetRequestRow {
@@ -190,7 +191,7 @@ export async function completePasswordReset(
   ).bind(tokenHash, now).first<{ id: string; userId: string; organizationId: string }>();
   if (!reset) throw new ApiError(400, "INVALID_RESET_TOKEN", "The password reset link is invalid or expired.");
 
-  const record = await createPasswordRecord(password, passwordPepper(env));
+  const record = await createCurrentPasswordRecord(env, password);
 
   const claimed = await env.DB.prepare(
     `UPDATE workforce_password_reset_requests

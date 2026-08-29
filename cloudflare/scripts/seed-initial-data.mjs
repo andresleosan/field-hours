@@ -9,7 +9,10 @@ const scriptDirectory = fileURLToPath(new URL(".", import.meta.url));
 const configPath = join(scriptDirectory, "..", "wrangler.jsonc");
 const sqlPath = join(tmpdir(), `seed-${randomUUID()}.sql`);
 
-const pepper = "f4d8a1c9e3b750162a8c9e4b7d10f35a62e8b9c0d1e2f3a4b5c6d7e8f90123456789abcdef0123456789abcdef";
+const pepper = process.env.FIELD_HOURS_PASSWORD_PEPPER_CURRENT;
+if (!pepper || pepper.length < 64 || pepper.length > 256) {
+  throw new Error("FIELD_HOURS_PASSWORD_PEPPER_CURRENT must contain the current Worker pepper.");
+}
 const iterations = 100_000;
 
 function hashPassword(password) {
@@ -18,7 +21,7 @@ function hashPassword(password) {
   const passwordHash = pbkdf2Sync(passwordMaterial, salt, iterations, 32, "sha256");
   return {
     salt: salt.toString("hex"),
-    hash: passwordHash.toString("hex"),
+    hash: `v2$${passwordHash.toString("hex")}`,
   };
 }
 
