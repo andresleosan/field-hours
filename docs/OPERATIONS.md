@@ -77,3 +77,5 @@ Controles operativos:
 6. después del primer rehash, no volver a una versión del Worker que desconozca `v2$`.
 
 El procedimiento completo, evidencia y rollback están en `docs/RELEASE-2026-08-28-password-pepper.md` y la decisión en `docs/adr/ADR-001-password-pepper-versioning.md`.
+
+Estado productivo del 28 de agosto de 2026: Worker `14f4748b-88a4-48db-aefe-174d6fe77dca` desplegado y monitor 5/5. El administrador local migró a `v2$` y dejó un evento de auditoría; los conteos agregados quedaron en 0 administradores legados y 1 cuenta local sin Google todavía en legado. Se mantiene `PASSWORD_PEPPER_LEGACY` hasta que esa última cuenta inicie sesión o restablezca su contraseña.
