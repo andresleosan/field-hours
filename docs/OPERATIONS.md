@@ -60,3 +60,5 @@ Nunca se ejecuta `time-travel restore` como prueba. Cloudflare documenta el comp
 ## Estado verificado
 
 El 28 de agosto de 2026 el ensayo sintético restauró 50 objetos de esquema y comparó 13 contadores sin diferencias ni violaciones de claves foráneas. El monitor de solo lectura pasó los cinco contratos productivos y D1 devolvió un bookmark Time Travel vigente. No se ejecutaron escrituras, exportaciones ni restauraciones sobre producción.
+
+La primera ejecución remota comprobada fue `Production health` run `33229189380` (job `99038776374`), disparada por `workflow_run` después de `Verify` exitoso. Terminó en `success` y no dejó incidencias `production-alert` abiertas.

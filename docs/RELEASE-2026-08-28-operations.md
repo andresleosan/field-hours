@@ -19,7 +19,7 @@ No cambia el frontend, el Worker, el esquema D1, los secretos ni la configuraci�
 - Wrangler dry-run: 155.53 KiB / 29.94 KiB gzip, sin despliegue.
 - Producción de solo lectura: 5/5 contratos; bookmark Time Travel vigente.
 
-## Publicación y validación pendiente
+## Procedimiento de publicación y validación
 
 1. Obtener autorización explícita.
 2. Crear commit y enviar a `main`.
@@ -27,6 +27,17 @@ No cambia el frontend, el Worker, el esquema D1, los secretos ni la configuraci�
 4. Ejecutar manualmente `Production health` y confirmar sus cinco checks.
 5. Confirmar que no se abrió una incidencia `production-alert` y que Vercel terminó correctamente.
 6. Repetir smoke HTTP de solo lectura.
+
+## Resultado de publicación
+
+- Implementación: `83177aa`; refuerzo `workflow_run`: `5a469b3`.
+- GitHub Actions Verify: `33228132974` y `33229050228`, ambos `success`.
+- Production health: run `33229189380`, job `99038776374`, `success`.
+- Vercel: contextos `field-hours` y `fieldhours` en `success` para `5a469b3`.
+- Incidencias `production-alert` abiertas: 0.
+- Smoke independiente posterior: cinco contratos aprobados.
+
+El release quedó desplegado sin modificar Worker, D1, secretos ni datos productivos.
 
 ## Rollback
 

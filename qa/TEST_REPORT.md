@@ -111,6 +111,9 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **Seguridad:** los logs y la incidencia no contienen cuerpos, cookies, identidad ni datos financieros; `npm audit --audit-level=high` devolvió 0 vulnerabilidades. Se registró aparte O.14, hallazgo alto preexistente: `PASSWORD_PEPPER` ausente en secretos y fallback fijo en autenticación.
 - **Pruebas avanzadas:** se probaron contratos Vercel→Worker, frontend/cabeceras y export→import D1, además de los casos límite unhealthy, ausencia de sesión y prohibición remota. Carga no aplica: el monitor hace cinco GET cada 30 minutos y no se ejecutará carga contra producción.
 - **Gate limpio:** después de `npm ci`, `npm run verify` aprobó dentro del mismo comando typechecks, lint, build, SheetJS, Worker 6/6, operaciones 2/2 + ensayo D1, Playwright 16/16 y `npm audit` con 0 vulnerabilidades. Wrangler `4.127.1` empaquetó 155.53 KiB / 29.94 KiB gzip en dry-run sin desplegar.
+- **CI y despliegue:** `83177aa` publicó O.13 y `5a469b3` añadió el disparo posterior a `Verify`. Runs `33228132974` y `33229050228` aprobaron el gate funcional y la matriz multinavegador; ambos contextos Vercel terminaron en `success`.
+- **Monitor remoto:** `Production health` run `33229189380`, job `99038776374`, terminó en `success`. El probe, la creación de etiqueta y el camino de recuperación pasaron; apertura de incidencia y fallo final quedaron omitidos. Incidencias `production-alert` abiertas = 0.
+- **Smoke posterior:** frontend, health proxy, health Worker y límites worker/admin aprobaron 5/5 con HTTP 200/401 y cabeceras CSP/HSTS/`nosniff`. No hubo escrituras, exportaciones o restauraciones productivas.
 
 ## Gate y smoke de producción
 
