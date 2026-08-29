@@ -68,7 +68,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 ## Integraciones externas
 
-- Google OAuth.
+- Google OAuth: identidad externa con sesión propia HttpOnly del Worker, aprobación administrativa para accesos/migraciones, secretos en Cloudflare y fallback local por correo/contraseña. Staging y producción verificadas; no se persisten tokens Google.
 - Cloudflare Workers y D1.
 - Vercel.
 - Supabase Auth/Database/Storage/Realtime.

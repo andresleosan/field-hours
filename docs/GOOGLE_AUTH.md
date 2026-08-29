@@ -37,3 +37,15 @@ wrangler secret put GOOGLE_CLIENT_SECRET
 La migración `0004_google_auth.sql` es aditiva y no elimina ni modifica datos existentes. Antes de aplicarla en producción debe existir un backup verificado. Para revertirla, detener el uso de la función Google, conservar el backup y ejecutar manualmente los tres `DROP TABLE` comentados al final de la migración, en orden inverso de dependencias. Esto elimina solicitudes e identidades Google, por lo que exige confirmación explícita del operador.
 
 Si Google está caído o mal configurado, el login con correo y contraseña sigue disponible; el callback informa un error controlado y no crea una sesión.
+
+## Validación productiva
+
+Verificada manualmente el 28 de agosto de 2026, sin leer valores de secretos ni almacenar tokens:
+
+- Cloudflare reportó `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` como secretos configurados; D1 contiene las tres tablas de `0004_google_auth.sql`.
+- `GET /api/auth/google/start?mode=invalid` respondió `400 INVALID_INPUT` tanto por el proxy Vercel como directo al Worker. Esta ruta termina antes de crear un estado y distingue una configuración activa del `503 GOOGLE_AUTH_NOT_CONFIGURED`.
+- Una cuenta no vinculada completó el proveedor/callback y generó una solicitud `access`. El administrador entró con sus credenciales locales, la rechazó desde el panel y la auditoría quedó registrada.
+- Una identidad ya vinculada completó el login con mensaje de éxito, interfaz de trabajador y ausencia de controles administrativos. La sesión de prueba se cerró al terminar.
+- Resultado final: 2 identidades existentes, 0 solicitudes pendientes y 0 estados OAuth activos; no se creó ningún trabajador.
+
+Esta validación fue interactiva y controlada porque Google requiere una identidad real. No debe automatizarse contra producción ni guardar cookies, contraseñas, códigos OAuth o datos personales en fixtures o reportes.

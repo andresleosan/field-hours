@@ -31,8 +31,8 @@ Estabilizar la operación ya desplegada antes de abrir otra función grande:
 
 1. Mantener un gate reproducible para administrador y trabajador en Chromium, Firefox y WebKit.
 2. Cerrar cada release con evidencia de CI, alias productivo, smoke HTTP y rollback documentado.
-3. Completar la validación productiva de Google OAuth para cerrar la Fase 6.
-4. Añadir alertas operativas y practicar la recuperación de D1 sin usar datos reales en pruebas.
+3. Añadir alertas operativas y practicar la recuperación de D1 sin usar datos reales en pruebas.
+4. Mantener Google OAuth con comprobaciones no mutantes y revalidación manual controlada cuando cambie el cliente o el Worker.
 5. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
 
 ## Reglas de negocio y restricciones

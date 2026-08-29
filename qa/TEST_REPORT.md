@@ -90,6 +90,16 @@ El reporte HTML reproducible queda en `qa/reports/playwright/index.html`; sus tr
 - **CI remoto:** commit `dc7575a`, GitHub Actions `Verify #18` (run `33222205776`, job `99018444851`) aprobado en Ubuntu. La instalación de Chromium/Firefox/WebKit, el gate funcional y `Run critical cross-browser matrix` terminaron en `success`.
 - **Producción revalidada:** checks `Vercel – fieldhours` y `Vercel – field-hours` exitosos. Frontend y `index-By-75Z5C.js` HTTP 200; health directo/proxy HTTP 200 con `ok=true`; rutas worker/admin sin sesión HTTP 401; CSP, HSTS y `nosniff` presentes. El bundle conserva `account menu` y `admin-project-title`. No hubo cambios de aplicación, Worker, D1 ni escrituras productivas.
 
+## Verificación adicional — O.12 (28 de agosto de 2026, Google OAuth productivo)
+
+- **Configuración sin secretos:** `wrangler secret list` confirmó los nombres `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` sin devolver valores. Una consulta D1 de metadatos confirmó las tres tablas de OAuth con `rows_written: 0`.
+- **Contrato no mutante:** `GET /api/auth/google/start?mode=invalid` devolvió `400 INVALID_INPUT` directo y por Vercel; por implementación, esta validación ocurre después de cargar configuración y antes de limpiar o insertar estados.
+- **Camino no vinculado:** Google redirigió al callback productivo y la UI mostró solicitud pendiente. D1 la clasificó como `access` que habría creado un trabajador; se rechazó con autorización explícita desde el panel administrativo local. La UI confirmó el rechazo y D1 registró pendientes 0 y un evento `account.google_request.rejected` con la misma marca temporal.
+- **Camino vinculado:** una identidad existente volvió del callback con `Google sign-in is ready for this account.`, interfaz de trabajador, un encabezado de trabajador, cero regiones de solicitudes Google y cero botones `Approve`. La sesión se cerró al terminar.
+- **Estado final:** identidades Google = 2, solicitudes pendientes = 0, estados activos = 0 y último estado consumido registrado; no se creó ningún usuario ni se modificó una identidad.
+- **Pruebas avanzadas:** quedó validado el contrato Google → Worker → D1 → UI y los límites de seguridad de cuenta no vinculada, aprobación administrativa, auditoría y separación worker/admin. Carga no aplica y no debe ejecutarse contra OAuth productivo.
+- **Gate de código:** no hubo cambios de aplicación. El mismo código estaba aprobado por GitHub Actions `Verify #19` (`33222532358`), incluido el gate funcional y la matriz Chromium/Firefox/WebKit.
+
 ## Gate y smoke de producción
 
 La autorización explícita se recibió y el gate se completó el 25 de agosto de 2026:
