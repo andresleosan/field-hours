@@ -20,7 +20,7 @@ La política de scripts de npm también está fijada en `package.json`: `@swc/co
 
 ## Monitor operativo
 
-`.github/workflows/production-health.yml` es independiente del gate de código: corre cada 30 minutos y manualmente, usa permisos `contents: read` e `issues: write`, y solo hace comprobaciones HTTP de lectura. Deduplica una incidencia `production-alert` y la cierra al recuperarse. El runbook completo está en `docs/OPERATIONS.md`.
+`.github/workflows/production-health.yml` es independiente del gate de código: corre después de cada `Verify` exitoso en `main`, cada 30 minutos y manualmente. Usa permisos `contents: read` e `issues: write` y solo hace comprobaciones HTTP de lectura. Deduplica una incidencia `production-alert` y la cierra al recuperarse. El runbook completo está en `docs/OPERATIONS.md`.
 
 ## Higiene del paquete Vercel
 

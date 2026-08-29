@@ -2,7 +2,7 @@
 
 ## Monitor de producción
 
-`.github/workflows/production-health.yml` se ejecuta a los minutos 17 y 47 de cada hora y también admite ejecución manual. Solo hace solicitudes `GET` y valida:
+`.github/workflows/production-health.yml` se ejecuta después de cada `Verify` exitoso en `main`, a los minutos 17 y 47 de cada hora y mediante ejecución manual. Solo hace solicitudes `GET` y valida:
 
 - frontend Vercel HTTP 200 con CSP, HSTS y `nosniff`;
 - `/api/health` por Vercel y directamente en el Worker, con el contrato JSON esperado;

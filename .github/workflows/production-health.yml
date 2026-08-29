@@ -1,6 +1,10 @@
 name: Production health
 
 on:
+  workflow_run:
+    workflows: [Verify]
+    types: [completed]
+    branches: [main]
   schedule:
     - cron: "17,47 * * * *"
   workflow_dispatch:
@@ -15,6 +19,7 @@ concurrency:
 
 jobs:
   monitor:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

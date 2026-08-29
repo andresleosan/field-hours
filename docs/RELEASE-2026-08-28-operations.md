@@ -2,7 +2,7 @@
 
 ## Alcance
 
-- Monitor GitHub Actions cada 30 minutos y manual.
+- Monitor GitHub Actions después de cada `Verify` exitoso, cada 30 minutos y manual.
 - Cinco contratos HTTP productivos de solo lectura.
 - Incidencia `production-alert` deduplicada y autocierre al recuperarse.
 - Ensayo export/import entre dos D1 locales con datos sintéticos.
