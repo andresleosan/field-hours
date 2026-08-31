@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 const checks = [
+  ["run", "test:skills"],
   ["run", "typecheck"],
   ["run", "typecheck:worker"],
   ["run", "lint"],
@@ -30,4 +31,4 @@ for (const args of checks) {
   }
 }
 
-console.log("\nVerification gate passed: typechecks, lint, build, SheetJS, Worker/PDF/operations regression tests, E2E and audit.");
+console.log("\nVerification gate passed: agent skills, typechecks, lint, build, SheetJS, Worker/PDF/operations regression tests, E2E and audit.");

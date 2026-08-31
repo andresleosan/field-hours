@@ -18,6 +18,7 @@
     "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs cloudflare/test/passwordPepper.test.mjs cloudflare/test/disabledWorkers.test.mjs cloudflare/test/payrollProfiles.test.mjs cloudflare/test/salaryAdvice.test.mjs cloudflare/test/serviceWorker.test.mjs",
     "test:pdf": "node --test scripts/salary-advice-pdf.test.mjs",
     "test:ops": "node --test scripts/production-health.test.mjs scripts/pages-security-headers.test.mjs && node scripts/rehearse-d1-recovery.mjs",
+    "test:skills": "node --test scripts/verify-agent-skills.test.mjs && node scripts/verify-agent-skills.mjs",
     "test:xlsx": "node scripts/check-xlsx.mjs",
     "verify": "node scripts/verify.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",

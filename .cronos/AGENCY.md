@@ -40,7 +40,7 @@ VS Code no tiene mecanismo global, ver Principio 6 y `adapters/vscode/README.md`
 | Componente | Qué es | Plataforma(s) | Dónde vive |
 |---|---|---|---|
 | **AutoSkill** | `npx autoskills` detecta el stack de CADA proyecto e instala skills técnicas específicas; el mecanismo de skills nativo de cada plataforma las descubre y carga cuando hacen falta. | Las 3 — `npx autoskills` es agnóstico; el formato `SKILL.md` resultante es el estándar abierto "Agent Skills", leído por las 3 (ver `SKILLS.md`). | El comando es global; su salida es específica de cada proyecto. |
-| **Superpowers** | Framework real de Jesse Vincent / Prime Radiant: metodología completa de desarrollo (brainstorming → plan → git worktrees → TDD → ejecución con subagentes → code review). | **Solo OpenCode** — instalador propio compatible con OpenCode; no hay evidencia de que funcione igual en Codex CLI o VS Code, no lo asumas. | `~/.config/opencode/skills/` |
+| **Superpowers** | Framework real de Jesse Vincent / Prime Radiant: metodología completa de desarrollo (brainstorming → plan → git worktrees → TDD → ejecución con subagentes → code review). | OpenCode y Codex App/CLI tienen instalación oficial propia. No asumas paridad en VS Code/Copilot ni que compatibilidad técnica implica compatibilidad con los guardrails de cada proyecto. | OpenCode: instalación propia. Codex: marketplace oficial de plugins. |
 | **Skills de la agencia** | Ver `SKILLS.md` para el catálogo completo y el criterio de cuándo usar cada una. | Las 3 (formato `SKILL.md` portable) | `~/.config/opencode/skills/`, `~/.codex/skills/`, y `.cronos/skills/` por proyecto (VS Code) |
 | **Núcleo** (`AGENCY.md` + `MASTER_PROMPT.md` + `AGENTS.md`) | El "ADN" de Cronos. | Las 3, mecánica de carga distinta por adaptador (ver `adr/ADR-011`) | OpenCode: `~/.config/opencode/cronos/` vía `instructions`. Codex CLI: `~/.codex/` vía `AGENTS.md` nativo. VS Code: `.cronos/` + `AGENTS.md` por proyecto (sin global). |
 | **Formatos de referencia** (`STACK.example.md`, `AUDITORIA.example.md`, `MEJORAS.example.md`, `gitignore.template`) | Plantillas que Cronos sigue para documentar cada proyecto de forma consistente. | Las 3 | Junto al núcleo, misma ruta por plataforma |
@@ -52,7 +52,7 @@ VS Code no tiene mecanismo global, ver Principio 6 y `adapters/vscode/README.md`
 | **`RIESGOS.md`, `ROADMAP.md`, `GOBERNANZA.md`, `adr/`** | Gobierno del kit mismo: riesgos, dirección futura, gobernanza por sombreros, decisiones arquitectónicas. Deliberadamente **no se cargan en sesión**. | N/A (documentos para quien mantiene el kit) | Solo en la raíz del kit fuente |
 | **`GUIA-PARA-PRINCIPIANTES.md`** | Guía de instalación y primer uso para alguien sin experiencia de programación, con rutas para las 3 plataformas. | Las 3 | Raíz del kit fuente, no se copia |
 
-Importante: Superpowers no reemplaza a Cronos ni es un agente aparte — es una capa de disciplina que Cronos usa de forma automática (`test-driven-development` al programar, `using-git-worktrees` al montar la estructura, `verification-before-completion` al cerrar una tarea). Se activa sola cuando OpenCode detecta que aplica; Cronos decide cuánto peso darle según el nivel del proyecto.
+Importante: Superpowers no reemplaza a Cronos ni es un agente aparte — es una capa de disciplina externa. Solo se activa cuando está instalada en un harness compatible y después de comprobar que no contradice `AGENTS.md`, los checkpoints humanos, los límites de subagentes ni las reglas de Git del proyecto. Las instrucciones del proyecto prevalecen; Cronos decide si usa el paquete completo, skills puntuales o ninguna.
 
 **Postura ante mantenedor único:** tanto Superpowers como `ui-ux-pro-max` son proyectos de una sola persona. La postura elegida es aceptar quedar en la última versión fijada indefinidamente si el mantenedor original deja de actualizar el proyecto — es una decisión explícita, no un vacío: no hay plan de fork propio salvo que un hallazgo de seguridad concreto lo justifique. Revisar en cada convocatoria del Consejo Estratégico (`RIESGOS.md` R-007).
 
@@ -119,7 +119,7 @@ Cronos clasifica el proyecto en la fase de arquitectura, y esto decide cuánto p
 |---|---|---|
 | **1 — Simple** | Landing pages, portafolios, scripts, automatizaciones sencillas | AutoSkill + skills baseline. Sin Superpowers ni ciclo de autocrítica completo — sería fricción innecesaria; alcanza con la revisión de seguridad mínima. |
 | **2 — Medio** | CRUDs completos, dashboards, sistemas administrativos, inventarios | AutoSkill + ciclo de autocrítica completo. Cronos activa skills puntuales de Superpowers solo donde aporten valor. |
-| **3 — Empresarial** | ERP, CRM, SaaS, marketplace, sistemas financieros/hospitalarios, ecosistemas multi-módulo | AutoSkill + Superpowers completo + skills avanzadas de la agencia (`advanced-architecture`, `advanced-qa-strategy`, `scalability-patterns`, `technical-governance`) + ciclo de autocrítica completo, con recomendación explícita de usar un modelo fuerte específicamente en la fase de seguridad. |
+| **3 — Empresarial** | ERP, CRM, SaaS, marketplace, sistemas financieros/hospitalarios, ecosistemas multi-módulo | AutoSkill + evaluación explícita de compatibilidad de Superpowers + skills avanzadas de la agencia (`advanced-architecture`, `advanced-qa-strategy`, `scalability-patterns`, `technical-governance`) + ciclo de autocrítica completo. El paquete completo solo se activa si no compite con los guardrails del proyecto; se recomienda un modelo fuerte específicamente en la fase de seguridad. |
 
 ## Responsabilidades de Cronos
 1. Analizar el contexto del proyecto (nuevo, existente, o en producción) y detectar si ya existe como proyecto de esta agencia.
@@ -193,5 +193,4 @@ Por defecto, `scripts/nuevo-proyecto.sh`/`adoptar-proyecto.sh` configuran las 3 
 - Superpowers y el ciclo de autocrítica completo se activan según el nivel del proyecto, nunca por inercia — en un Nivel 1 sería puro overhead.
 
 Este archivo es la fuente completa de las reglas de oro; `MASTER_PROMPT.md` las referencia sin repetirlas para que las dos versiones no terminen diciendo cosas distintas.
-
 

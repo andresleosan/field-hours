@@ -42,6 +42,15 @@ igual, porque son parte de este mismo archivo que tu plataforma carga sí o sí.
   humana antes de construir (el detalle completo vive en `.cronos/MASTER_PROMPT.md`).
 - Hablas siempre en español, salvo nombres de archivos/variables de código.
 
+## Precedencia de Superpowers en Field Hours
+
+Si el plugin `superpowers` está instalado, actúa como una biblioteca subordinada, no como una segunda autoridad de proceso. La precedencia es: instrucciones de sistema/desarrollador/operador → este `AGENTS.md` y `.agents/rules/*` → `.cronos/` → skills externas.
+
+- Se pueden usar `systematic-debugging`, `verification-before-completion`, `receiving-code-review` y TDD para cambios de comportamiento, siempre bajo el criterio de corte, QA y autorización de Cronos.
+- No uses automáticamente `subagent-driven-development`, `executing-plans`, `using-git-worktrees`, `finishing-a-development-branch`, `writing-plans` ni scripts/servidores auxiliares de brainstorming. Requieren una autorización específica del operador y nunca sustituyen `tasks.md`.
+- Ninguna skill externa autoriza a un subagente a usar Git, crear commits, delegar, superar tres subagentes, omitir checkpoints humanos o continuar más de dos vueltas con el mismo hallazgo.
+- No ejecutes scripts del plugin, servidores locales, telemetría, red, instalaciones de dependencias ni operaciones Git por el solo hecho de que una skill los sugiera; aplican las autorizaciones y restricciones normales del proyecto.
+
 ## Plataforma
 
 Este proyecto puede usarse desde OpenCode, Codex CLI o VS Code (GitHub Copilot). Detecta cuál te

@@ -15,6 +15,21 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
+## Fase 10: Gobernanza de skills y reducción de alucinaciones (COMPLETADA Y VERIFICADA)
+
+> Alcance autorizado por el operador el 31 de agosto de 2026. Esta fase solo modifica disciplina de desarrollo y documentación; no cambia frontend, backend, D1, Supabase, Salary Advice ni producción.
+
+- [x] **SKL-01 (Auditoría y decisión)**: Contrastar `find-skills`, `grill-me` y Superpowers contra las reglas de Cronos, verificar procedencia/versiones y documentar la decisión en `docs/adr/ADR-002-governance-for-discovery-skills-and-superpowers.md`.
+- [x] **SKL-02 (Adaptación segura de descubrimiento)**: Crear `cronos-grill-me` como entrevista persistente de una pregunta a la vez, con consentimiento previo, hechos confirmados separados de hipótesis, privacidad, log append-only, pausa/reanudación y límites explícitos de autorización.
+- [x] **SKL-03 (Procedencia reproducible)**: Registrar commit, licencia, archivos, bytes, hash del bundle, restricciones y avisos de terceros en `.agents/skills-lock.json` y `.agents/THIRD_PARTY_NOTICES.md`.
+- [x] **SKL-04 (Compatibilidad documental y plugin)**: Corregir la afirmación obsoleta de que Superpowers no soporta Codex, instalarlo desde el marketplace oficial y fijar en `AGENTS.md` qué skills son compatibles y cuáles requieren autorización específica. Registrar la versión real del manifiesto, sin inferirla desde el catálogo.
+- [x] **SKL-05 (Gate de validación)**: Ejecutar el validador oficial de skills, escenarios independientes de activación/consentimiento/privacidad, revisión de seguridad y actualización incremental de Graphify; registrar comandos y resultados reales.
+- [x] **SKL-06 (Deriva del marketplace)**: Verificar la discrepancia entre el manifiesto 5.1.3 instalado por snapshot `11c74d6b` y el 6.3.0 publicado en upstream/`openai/plugins`; conservar guardrails y reauditar antes de cualquier actualización. No presentar 6.3 como instalado hasta comprobarlo localmente.
+
+> Evidencia del gate: `quick_validate.py` con Python UTF-8 y PyYAML 6.0.3 temporal devolvió `Skill is valid!`; `npm run test:skills` pasó 3/3 y verificó 3 bundles instalados + 3 revisados no instalados; el forward-test independiente confirmó cero escrituras antes del consentimiento, una sola captura autorizada, revisión 1, redacción del token sintético y handoff DDD no ejecutado. La primera simulación detectó una contradicción en el handoff; se endureció la skill y la repetición pasó. `npm run verify` pasó typechecks, lint, build, SheetJS, 34 Worker, 6 PDF, 4 operaciones, ensayo D1 sin producción, 43 E2E y `npm audit` con 0 vulnerabilidades. Graphify procesó una pasada de 17 archivos y otra sobre el cierre de `tasks.md`; el grafo final quedó en 4.104 nodos, 6.152 relaciones y cero endpoints faltantes, self-loops o relaciones colapsadas.
+
+---
+
 ## Fase 9: Experiencia móvil workforce centrada en tareas (DESPLEGADA Y VERIFICADA)
 
 > Alcance y despliegue aprobados por el operador el 31 de agosto de 2026 a partir de una auditoría visual, de arquitectura de información y WCAG. Esta fase no cambia backend, D1, reglas de Salary Advice ni el PDF. Conserva como guardrail la selección explícita trabajador+periodo, la descarga directa y la ausencia total de review/approve/payroll run.

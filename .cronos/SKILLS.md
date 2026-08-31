@@ -50,12 +50,11 @@ curada a una, muévela a la tabla que corresponda arriba y borra la fila de acá
 <!-- scripts/promover-skill.sh agrega filas nuevas debajo de esta línea, no la borres -->
 
 ## Componentes externos que complementan a estas skills
-- **Superpowers** (`obra/superpowers`): metodología completa de desarrollo — TDD, git worktrees, subagentes de ejecución (usados como *herramienta* dentro del propio turno de Cronos, no como agentes de la agencia), code review. Se activa sola según el nivel.
+- **Superpowers** (`obra/superpowers`): metodología completa de desarrollo — TDD, git worktrees, subagentes de ejecución y code review. Tiene soporte oficial para OpenCode y Codex App/CLI, pero no se activa solo por el nivel: antes exige instalación deliberada y una revisión de compatibilidad con `AGENTS.md`, checkpoints, Git y límites de delegación. Las reglas de Cronos prevalecen ante cualquier conflicto.
 - **`ui-ux-pro-max`** (opcional, de terceros): generador cuantitativo de sistemas de diseño, consultado por `frontend-craft` como punto de partida.
 
 ## Qué NO hacer con las skills
 - No las cites de memoria ni improvises su contenido — si el `skill` tool las cargó, usa lo que dicen; si no se cargaron y la tarea las necesita, dilo explícitamente en vez de seguir sin ellas.
 - No saltees `security-baseline` "porque es Nivel 1 y parece simple" — el checklist mínimo de seguridad aplica en cualquier nivel; lo que cambia con el nivel es cuánto más allá de ese mínimo se hace (`advanced-qa-strategy`, `scalability-patterns`).
 - No uses una skill avanzada de Nivel 3 en un proyecto Nivel 1 solo porque está disponible — es fricción innecesaria, mismo criterio que ya aplica a Superpowers completo.
-
 

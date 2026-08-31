@@ -22,6 +22,26 @@
       ]
     },
     {
+      "name": "cronos-grill-me",
+      "source": {
+        "repository": "gusinov/grill-me",
+        "path": "grill-me",
+        "ref": "600ffe979f14d59492fbce6f6b25248ef8cb9849"
+      },
+      "file_count": 3,
+      "byte_count": 10922,
+      "bundle_sha256": "828af7cd86861971da12100adf48fd03dbb9c1056d4a79b4f450e003842196e5",
+      "license": "MIT",
+      "review": "approved_with_conditions",
+      "constraints": [
+        "Local Field Hours adaptation; it is not byte-identical to upstream, and bundle_sha256 identifies the adapted bundle.",
+        "The skill may create or update only the capture path confirmed for the session; it never authorizes edits to DDD documents, code, migrations, Git, deployments, external systems, or paid services.",
+        "Never capture secrets, credentials, personal payroll data, or other sensitive production data.",
+        "No automatic indexing, ingestion, Graphify operation, or network call.",
+        "Captured decisions do not replace operator checkpoints, ADR criteria, security and QA gates, migration safeguards, or production approval."
+      ]
+    },
+    {
       "name": "supabase-postgres-best-practices",
       "source": {
         "repository": "supabase/agent-skills",
@@ -42,6 +62,16 @@
     }
   ],
   "reviewed_not_installed": [
+    {
+      "name": "find-skills",
+      "source": {
+        "repository": "vercel-labs/skills",
+        "path": "skills/find-skills",
+        "ref": "435076e78988e1e6ec40d00b0b1d76bdbbc5419a"
+      },
+      "review": "not_installed",
+      "reason": "Duplicates the existing skill-installer, AutoSkills and plugin discovery paths; every third-party result would still require an independent provenance and security review."
+    },
     {
       "name": "composition-patterns",
       "source": {
