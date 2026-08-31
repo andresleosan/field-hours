@@ -2,11 +2,13 @@
 
 ## Monitor de producción
 
-`.github/workflows/production-health.yml` se ejecuta después de cada `Verify` exitoso en `main`, a los minutos 17 y 47 de cada hora y mediante ejecución manual. Solo hace solicitudes `GET` y valida:
+`.github/workflows/production-health.yml` se ejecuta después de cada `Verify` exitoso en `main`, a los minutos 17 y 47 de cada hora y mediante ejecución manual. No usa una sesión ni ejecuta escrituras autenticadas; valida:
 
 - frontend Vercel HTTP 200 con CSP, HSTS y `nosniff`;
+- manifiesto, service worker e iconos Android de la PWA;
 - `/api/health` por Vercel y directamente en el Worker, con el contrato JSON esperado;
-- ruta de trabajador directa y ruta administrativa por proxy sin sesión, ambas HTTP 401.
+- ruta de trabajador directa y `POST /api/admin/salary-advice` por proxy sin sesión, ambas HTTP 401;
+- la ruta retirada `/api/admin/payroll-runs` por proxy, que debe permanecer en HTTP 404.
 
 Cada comprobación reintenta hasta tres veces. Si alguna falla, el workflow queda rojo y crea una sola incidencia abierta con la etiqueta `production-alert`; fallos posteriores actualizan esa misma incidencia. Cuando todos los contratos se recuperan, el workflow cierra la incidencia. La asignación al propietario del repositorio es de mejor esfuerzo y el log de Actions conserva la evidencia detallada.
 
@@ -23,7 +25,7 @@ Los workflows programados pueden retrasarse cuando GitHub Actions tiene alta car
 `npm run test:ops` prueba el monitor con un servidor HTTP local y ejecuta `scripts/rehearse-d1-recovery.mjs`. El ensayo:
 
 1. crea dos directorios temporales aislados;
-2. aplica las migraciones `0001` a `0009` a una D1 local con identificador ficticio;
+2. aplica las migraciones `0001` a `0010` a una D1 local con identificador ficticio;
 3. carga exclusivamente `cloudflare/test/fixtures/recovery-seed.sql`, cuyos dominios `.invalid` y valores son sintéticos;
 4. exporta la primera D1 a SQL e importa el archivo en la segunda;
 5. compara objetos de esquema y conteos de tablas, y exige cero violaciones de claves foráneas;
@@ -58,6 +60,19 @@ Una restauración de Time Travel sobrescribe la base en el mismo lugar, cancela 
 Nunca se ejecuta `time-travel restore` como prueba. Cloudflare documenta el comportamiento y la reversión en [Time Travel y backups de D1](https://developers.cloudflare.com/d1/reference/time-travel/).
 
 ## Estado verificado
+
+El 30 de agosto de 2026 el ensayo sintético restauró 54 objetos y comparó 15 contadores. Para el
+corte Salary Advice, D1 aprobó `quick_check`, cero FK rotas y ambos preflight en cero; `0010` copió
+1 perfil y 1 configuración sin alterar conteos históricos. El bookmark previo fue
+`000000a4-00000000-000050d8-13e624b6916c0d631bcf5975797edda2`; el posterior fue
+`000000a8-00000000-000050d8-11ce9361a6afc61a299021333ff1cbe7`. No se exportó la base sensible a
+un archivo local sin cifrar; la recuperación quedó en Time Travel y el backup automático de D1.
+
+El Worker `6c551bca-3a7c-4a98-a019-23538c9e379f` y Vercel
+`dpl_CfgtC97pgeFRD2EkJtVuk46F1FDf` están activos. El monitor público aprobó 10/10: frontend,
+PWA, health directo/proxy, límites de autenticación y 404 de la ruta de review retirada. Rollback
+conocido-bueno: Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` y Vercel
+`dpl_9w53QSuwsVAiTm5mzgw9UBFfzhcp`. No se ejecutaron cálculos autenticados con datos reales.
 
 El 28 de agosto de 2026 el ensayo sintético restauró 50 objetos de esquema y comparó 13 contadores sin diferencias ni violaciones de claves foráneas. El monitor de solo lectura pasó los cinco contratos productivos y D1 devolvió un bookmark Time Travel vigente. No se ejecutaron escrituras, exportaciones ni restauraciones sobre producción.
 

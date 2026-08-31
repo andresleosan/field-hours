@@ -45,6 +45,8 @@ const countsQuery = `SELECT
   (SELECT COUNT(*) FROM workforce_google_identities) AS google_identities,
   (SELECT COUNT(*) FROM workforce_payroll_profiles) AS payroll_profiles,
   (SELECT COUNT(*) FROM workforce_payroll_settings) AS payroll_settings,
+  (SELECT COUNT(*) FROM workforce_salary_advice_profiles) AS salary_advice_profiles,
+  (SELECT COUNT(*) FROM workforce_salary_advice_settings) AS salary_advice_settings,
   (SELECT COUNT(*) FROM workforce_payroll_runs) AS payroll_runs,
   (SELECT COUNT(*) FROM workforce_payroll_run_lines) AS payroll_run_lines,
   (SELECT COUNT(*) FROM workforce_audit_events) AS audit_events`;

@@ -89,11 +89,16 @@ export async function readJson<T>(request: Request): Promise<T> {
     body.set(chunk, offset);
     offset += chunk.byteLength;
   }
+  let parsed: unknown;
   try {
-    return JSON.parse(new TextDecoder().decode(body)) as T;
+    parsed = JSON.parse(new TextDecoder().decode(body));
   } catch {
     throw new ApiError(400, "INVALID_JSON", "The request body is not valid JSON.");
   }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ApiError(400, "INVALID_JSON", "The JSON body must be an object.");
+  }
+  return parsed as T;
 }
 
 export function cookiesFrom(request: Request): Map<string, string> {
@@ -163,6 +168,12 @@ export function requireString(
   const normalized = value.trim();
   if (normalized.length < minimum || normalized.length > maximum) {
     throw new ApiError(400, "INVALID_INPUT", `${field} has an invalid length.`);
+  }
+  if (Array.from(normalized).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint < 32 || codePoint === 127;
+  })) {
+    throw new ApiError(400, "INVALID_INPUT", `${field} contains unsupported control characters.`);
   }
   return normalized;
 }

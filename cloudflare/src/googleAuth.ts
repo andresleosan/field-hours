@@ -217,7 +217,9 @@ async function loadSessionUser(env: Env, userId: string): Promise<SessionUser | 
      FROM workforce_users u
      JOIN workforce_memberships m ON m.user_id = u.id
      JOIN workforce_organizations o ON o.id = m.organization_id
-     WHERE u.id = ?1 AND u.disabled_at IS NULL LIMIT 1`,
+     WHERE u.id = ?1 AND u.disabled_at IS NULL
+       AND (SELECT COUNT(*) FROM workforce_memberships membership_guard WHERE membership_guard.user_id = u.id) = 1
+     LIMIT 1`,
   ).bind(userId).first<SessionRow>();
   if (!row) return null;
   return {
@@ -325,7 +327,9 @@ export async function googleCallback(env: Env, request: Request): Promise<{ loca
       const current = await env.DB.prepare(
         `SELECT u.email, m.organization_id AS organizationId
          FROM workforce_users u JOIN workforce_memberships m ON m.user_id = u.id
-         WHERE u.id = ?1 AND u.disabled_at IS NULL LIMIT 1`,
+         WHERE u.id = ?1 AND u.disabled_at IS NULL
+           AND (SELECT COUNT(*) FROM workforce_memberships membership_guard WHERE membership_guard.user_id = u.id) = 1
+         LIMIT 1`,
       ).bind(row.userId).first<{ email: string; organizationId: string }>();
       if (!current || current.email !== email) throw new ApiError(409, "GOOGLE_EMAIL_MISMATCH", "Use the same email as your Field Hours account.");
       existingUserId = row.userId;
@@ -334,7 +338,9 @@ export async function googleCallback(env: Env, request: Request): Promise<{ loca
       const current = await env.DB.prepare(
         `SELECT u.id AS userId, m.organization_id AS organizationId
          FROM workforce_users u JOIN workforce_memberships m ON m.user_id = u.id
-         WHERE u.email = ?1 AND u.disabled_at IS NULL LIMIT 1`,
+         WHERE u.email = ?1 AND u.disabled_at IS NULL
+           AND (SELECT COUNT(*) FROM workforce_memberships membership_guard WHERE membership_guard.user_id = u.id) = 1
+         LIMIT 1`,
       ).bind(email).first<{ userId: string; organizationId: string }>();
       if (current) {
         existingUserId = current.userId;

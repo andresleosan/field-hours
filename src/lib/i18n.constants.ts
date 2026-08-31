@@ -7,6 +7,16 @@ export interface Translations {
   historyTab: string;
   projectsTab: string;
   signOut: string;
+  home: string;
+  sections: string;
+  overview: string;
+  statements: string;
+  storage: string;
+  invite: string;
+  loading: string;
+  managerRole: string;
+  builderRole: string;
+  onTheClock: string;
   liveStatus: string;
   online: string;
   offline: string;
@@ -14,6 +24,106 @@ export interface Translations {
   syncedSuccess: string;
   locationFooterNotice: string;
   close: string;
+  installApp: string;
+  installAppAndroidHelp: string;
+  installAppDismissed: string;
+  installAppError: string;
+  salaryAdviceTab: string;
+  address: string;
+  salaryAdviceLoading: string;
+  salaryAdviceLoadError: string;
+  employeeDetailsOpenError: string;
+  businessDetailsSaveError: string;
+  hourlyRateValidation: string;
+  salaryAdviceDownloadError: string;
+  salaryAdviceUnsupportedCharacters: string;
+  salaryAdviceFontLoadError: string;
+  salaryDocumentIdentityLabel: string;
+  salaryEmployeesLabel: string;
+  salaryEstimateLabel: string;
+  salaryIdentityLabel: string;
+  payrollSummaryUnavailable: string;
+  payrollProfileLoading: string;
+  payrollProfileSaveError: string;
+  statusLabel: string;
+  legalName: string;
+  homeAddress: string;
+  socialSecurityNumber: string;
+  storedKeepPlaceholder: string;
+  requiredLabel: string;
+  employeeNumberHelp: string;
+  weeklyCoverageHelp: string;
+  adjacentRulesUnavailable: string;
+  accountMenu: string;
+  setupGoogleSignIn: string;
+  googleRequestSent: string;
+  googleSignInReady: string;
+  googleSignInError: string;
+  loadingSecureSession: string;
+  salaryAdviceTitle: string;
+  salaryAdviceSubtitle: string;
+  businessDetails: string;
+  businessDetailsHelp: string;
+  businessName: string;
+  businessAddress: string;
+  saveBusinessDetails: string;
+  businessDetailsSaved: string;
+  profilesTitle: string;
+  profilesHelp: string;
+  profileReady: string;
+  profileMissing: string;
+  viewDetails: string;
+  employee: string;
+  periodType: string;
+  weekly: string;
+  monthly: string;
+  selectedWeek: string;
+  selectedMonth: string;
+  payDate: string;
+  hourlyRateAdvice: string;
+  hourlyRateHelp: string;
+  itisRateAdvice: string;
+  itisRateHelp: string;
+  monthlySocialSecurityStatus: string;
+  monthlySocialSecurityHelp: string;
+  socialSecurityStandard: string;
+  socialSecurityExempt: string;
+  weeklySocialSecurityAmount: string;
+  weeklySocialSecurityHelp: string;
+  weeklySocialSecurityWarning: string;
+  yearToDateGross: string;
+  yearToDateTax: string;
+  totalsToDateHelp: string;
+  businessDetailsRequired: string;
+  businessDetailsUnsaved: string;
+  calculateDownload: string;
+  calculating: string;
+  downloaded: string;
+  previewTitle: string;
+  completedShiftsLabel: string;
+  hoursLabel: string;
+  grossPay: string;
+  itisLabel: string;
+  socialSecurityLabel: string;
+  totalDeductions: string;
+  netPay: string;
+  estimateNotice: string;
+  noReadyProfiles: string;
+  profileDetails: string;
+  employeeNumber: string;
+  taxReference: string;
+  socialReference: string;
+  hoursSummaryTitle: string;
+  hoursSummaryHelp: string;
+  thisMonth: string;
+  allCompletedShiftsLabel: string;
+  salaryDetailsTitle: string;
+  salaryDetailsHelp: string;
+  profileSavedStatus: string;
+  profileNotSavedStatus: string;
+  sensitiveEncrypted: string;
+  saveProfile: string;
+  updateProfile: string;
 
   // Auth & Onboarding
   secureAccess: string;
@@ -196,6 +306,16 @@ export const translations: Record<Language, Translations> = {
     historyTab: "Historial y Reportes",
     projectsTab: "Proyectos y Obras",
     signOut: "Cerrar sesión",
+    home: "Inicio",
+    sections: "Secciones",
+    overview: "Resumen",
+    statements: "Extractos",
+    storage: "Archivos",
+    invite: "Invitar",
+    loading: "Cargando",
+    managerRole: "Administrador",
+    builderRole: "Trabajador",
+    onTheClock: "Turno en curso",
     liveStatus: "Actualizado",
     online: "En línea",
     offline: "Sin conexión",
@@ -203,6 +323,106 @@ export const translations: Record<Language, Translations> = {
     syncedSuccess: "acciones sincronizadas con el servidor.",
     locationFooterNotice: "La ubicación GPS solo se captura al pulsar una acción de fichaje.",
     close: "Cerrar",
+    installApp: "Instalar app en Android",
+    installAppAndroidHelp: "En Android, abre el menú de Chrome y toca “Instalar aplicación” o “Añadir a pantalla principal”.",
+    installAppDismissed: "La instalación no se completó. Puedes usar el menú de Chrome para intentarlo de nuevo.",
+    installAppError: "Chrome no pudo abrir la instalación. Usa su menú y toca “Instalar aplicación” o “Añadir a pantalla principal”.",
+    salaryAdviceTab: "Salary Advice",
+    address: "Dirección",
+    salaryAdviceLoading: "Cargando herramientas de Salary Advice…",
+    salaryAdviceLoadError: "No se pudieron cargar los datos de Salary Advice.",
+    employeeDetailsOpenError: "No se pudieron abrir los datos del empleado.",
+    businessDetailsSaveError: "No se pudieron guardar los datos del negocio.",
+    hourlyRateValidation: "Introduce una tarifa entre £0,01 y £10.000 con hasta dos decimales.",
+    salaryAdviceDownloadError: "No se pudo calcular o descargar el Salary Advice.",
+    salaryAdviceUnsupportedCharacters: "El PDF no admite uno de los caracteres de la identidad. No se generó ningún documento; contacta a soporte sin modificar los datos legales.",
+    salaryAdviceFontLoadError: "No se pudo cargar la fuente segura del PDF. No se generó ningún documento; vuelve a intentarlo con conexión o contacta a soporte.",
+    salaryDocumentIdentityLabel: "Salary Advice · identidad del documento",
+    salaryEmployeesLabel: "Salary Advice · empleados",
+    salaryEstimateLabel: "Salary Advice · estimación",
+    salaryIdentityLabel: "Salary Advice · identidad",
+    payrollSummaryUnavailable: "El resumen de horas todavía no está disponible.",
+    payrollProfileLoading: "Cargando perfil para Salary Advice…",
+    payrollProfileSaveError: "No se pudo guardar el perfil para Salary Advice.",
+    statusLabel: "Estado",
+    legalName: "Nombre legal",
+    homeAddress: "Dirección del domicilio",
+    socialSecurityNumber: "Número de Social Security",
+    storedKeepPlaceholder: "Ya guardado · deja vacío para conservarlo",
+    requiredLabel: "Obligatorio",
+    employeeNumberHelp: "Usa A-Z, 0-9, punto, guion bajo, barra o guion; se guarda en mayúsculas.",
+    weeklyCoverageHelp: "Se muestran todas las semanas lunes–domingo que tocan 2026. Las dos semanas limítrofes quedan visibles pero deshabilitadas hasta configurar las reglas del año adyacente.",
+    adjacentRulesUnavailable: "reglas del año adyacente no disponibles",
+    accountMenu: "menú de cuenta",
+    setupGoogleSignIn: "Configurar acceso con Google",
+    googleRequestSent: "Solicitud de acceso con Google enviada. Un administrador debe aprobarla antes de usar Google para entrar.",
+    googleSignInReady: "El acceso con Google ya está listo para esta cuenta.",
+    googleSignInError: "No se pudo completar el acceso con Google. Tu sesión actual no cambió.",
+    loadingSecureSession: "Cargando sesión segura…",
+    salaryAdviceTitle: "Calcular y descargar Salary Advice",
+    salaryAdviceSubtitle: "Elige un empleado y un periodo. La descarga crea únicamente el documento y no inicia pagos.",
+    businessDetails: "Datos del negocio para el documento",
+    businessDetailsHelp: "Estos son los únicos datos del negocio que utiliza el documento.",
+    businessName: "Nombre del negocio",
+    businessAddress: "Dirección del negocio",
+    saveBusinessDetails: "Guardar datos del documento",
+    businessDetailsSaved: "Datos del documento guardados.",
+    profilesTitle: "Datos de empleados",
+    profilesHelp: "El Salary Advice requiere que los datos del empleado estén completos.",
+    profileReady: "Datos completos",
+    profileMissing: "Faltan datos",
+    viewDetails: "Ver datos",
+    employee: "Empleado",
+    periodType: "Tipo de periodo",
+    weekly: "Semanal",
+    monthly: "Mensual",
+    selectedWeek: "Semana (lunes a domingo)",
+    selectedMonth: "Mes calendario",
+    payDate: "Fecha de pago",
+    hourlyRateAdvice: "Tarifa para este Salary Advice (£)",
+    hourlyRateHelp: "Se usa solo en este cálculo; no se guarda como tarifa estándar del negocio.",
+    itisRateAdvice: "ITIS confirmado para este documento (%)",
+    itisRateHelp: "Introduce el porcentaje entero del aviso ITIS vigente del empleado.",
+    monthlySocialSecurityStatus: "Social Security mensual",
+    monthlySocialSecurityHelp: "Usa 0% únicamente si la tarjeta vigente confirma exención de la cotización primaria.",
+    socialSecurityStandard: "Estándar · 6%",
+    socialSecurityExempt: "Exento · 0%",
+    weeklySocialSecurityAmount: "Social Security semanal confirmada (£)",
+    weeklySocialSecurityHelp: "Introduce el importe comprobado con el acumulado salarial del mes; no se calcula aislando esta semana.",
+    weeklySocialSecurityWarning: "La Seguridad Social semanal fue confirmada por el administrador usando el acumulado salarial del mes y debe coincidir con el aviso oficial de cotización.",
+    yearToDateGross: "Bruto imponible acumulado (£)",
+    yearToDateTax: "ITIS pagado acumulado (£)",
+    totalsToDateHelp: "Valores confirmados que ya incluyen este Salary Advice; no se guardan ni se inventan.",
+    businessDetailsRequired: "Guarda primero el nombre y la dirección del negocio.",
+    businessDetailsUnsaved: "Guarda los cambios del nombre o la dirección del negocio antes de generar el PDF.",
+    calculateDownload: "Calcular y descargar PDF",
+    calculating: "Calculando y creando PDF…",
+    downloaded: "PDF descargado",
+    previewTitle: "Resumen del documento descargado",
+    completedShiftsLabel: "Turnos completados",
+    hoursLabel: "Horas",
+    grossPay: "Bruto",
+    itisLabel: "ITIS",
+    socialSecurityLabel: "Seguridad Social",
+    totalDeductions: "Deducciones",
+    netPay: "Neto",
+    estimateNotice: "Estimación basada en turnos completados y reglas Jersey 2026; confirma el resultado con el aviso oficial.",
+    noReadyProfiles: "Ningún empleado tiene todavía los datos completos para generar el documento.",
+    profileDetails: "Datos del empleado",
+    employeeNumber: "Número de empleado",
+    taxReference: "Referencia fiscal (ITIS)",
+    socialReference: "Referencia de Seguridad Social",
+    hoursSummaryTitle: "Resumen de horas",
+    hoursSummaryHelp: "Solo turnos completados. Las fechas y periodos del Salary Advice los elige el administrador.",
+    thisMonth: "Este mes",
+    allCompletedShiftsLabel: "Todos los turnos completados",
+    salaryDetailsTitle: "Tus datos salariales y fiscales",
+    salaryDetailsHelp: "Guárdalos para que el administrador pueda generar un Salary Advice semanal o mensual.",
+    profileSavedStatus: "Datos guardados y disponibles",
+    profileNotSavedStatus: "Datos pendientes",
+    sensitiveEncrypted: "Los identificadores sensibles están cifrados y solo se muestran cuando hacen falta para el documento.",
+    saveProfile: "Guardar perfil",
+    updateProfile: "Actualizar perfil",
 
     secureAccess: "Acceso seguro",
     welcomeBack: "Bienvenido de nuevo",
@@ -378,6 +598,16 @@ export const translations: Record<Language, Translations> = {
     historyTab: "History & Reports",
     projectsTab: "Projects & Sites",
     signOut: "Sign out",
+    home: "Home",
+    sections: "Sections",
+    overview: "Overview",
+    statements: "Statements",
+    storage: "Storage",
+    invite: "Invite",
+    loading: "Loading",
+    managerRole: "Manager",
+    builderRole: "Worker",
+    onTheClock: "On the clock",
     liveStatus: "Updated",
     online: "Online",
     offline: "Offline",
@@ -385,6 +615,106 @@ export const translations: Record<Language, Translations> = {
     syncedSuccess: "action(s) synced with the server.",
     locationFooterNotice: "Location is captured only for a clock action.",
     close: "Close",
+    installApp: "Install app on Android",
+    installAppAndroidHelp: "On Android, open Chrome’s menu and tap “Install app” or “Add to Home screen”.",
+    installAppDismissed: "Installation was not completed. You can retry from Chrome’s menu.",
+    installAppError: "Chrome could not open the installer. Use its menu and tap “Install app” or “Add to Home screen”.",
+    salaryAdviceTab: "Salary Advice",
+    address: "Address",
+    salaryAdviceLoading: "Loading Salary Advice tools…",
+    salaryAdviceLoadError: "Salary Advice data could not be loaded.",
+    employeeDetailsOpenError: "Employee details could not be opened.",
+    businessDetailsSaveError: "Business details could not be saved.",
+    hourlyRateValidation: "Enter a rate between £0.01 and £10,000 with up to two decimal places.",
+    salaryAdviceDownloadError: "Salary Advice could not be calculated or downloaded.",
+    salaryAdviceUnsupportedCharacters: "The PDF cannot represent a character in the identity. No document was generated; contact support without changing legal data.",
+    salaryAdviceFontLoadError: "The PDF font could not be loaded safely. No document was generated; retry while online or contact support.",
+    salaryDocumentIdentityLabel: "Salary Advice · document identity",
+    salaryEmployeesLabel: "Salary Advice · employees",
+    salaryEstimateLabel: "Salary Advice · estimate",
+    salaryIdentityLabel: "Salary Advice · identity",
+    payrollSummaryUnavailable: "The hours summary is not available yet.",
+    payrollProfileLoading: "Loading the Salary Advice profile…",
+    payrollProfileSaveError: "The Salary Advice profile could not be saved.",
+    statusLabel: "Status",
+    legalName: "Legal name",
+    homeAddress: "Home address",
+    socialSecurityNumber: "Social Security Number",
+    storedKeepPlaceholder: "Already stored · leave blank to keep",
+    requiredLabel: "Required",
+    employeeNumberHelp: "Use A-Z, 0-9, dot, underscore, slash or hyphen; it is stored in uppercase.",
+    weeklyCoverageHelp: "Every Monday-to-Sunday week touching 2026 is shown. The two boundary weeks stay visible but disabled until adjacent-year rules are configured.",
+    adjacentRulesUnavailable: "adjacent-year rules unavailable",
+    accountMenu: "account menu",
+    setupGoogleSignIn: "Set up Google sign-in",
+    googleRequestSent: "Google sign-in request sent. An administrator must approve it before you can use Google to sign in.",
+    googleSignInReady: "Google sign-in is ready for this account.",
+    googleSignInError: "Google sign-in could not be completed. Your current session is unchanged.",
+    loadingSecureSession: "Loading secure session…",
+    salaryAdviceTitle: "Calculate and download Salary Advice",
+    salaryAdviceSubtitle: "Choose one employee and period. The download creates only the document and does not initiate payment.",
+    businessDetails: "Business details for the document",
+    businessDetailsHelp: "These are the only business details used by the document.",
+    businessName: "Business name",
+    businessAddress: "Business address",
+    saveBusinessDetails: "Save document details",
+    businessDetailsSaved: "Document details saved.",
+    profilesTitle: "Employee details",
+    profilesHelp: "Salary Advice requires complete employee details.",
+    profileReady: "Details complete",
+    profileMissing: "Details missing",
+    viewDetails: "View details",
+    employee: "Employee",
+    periodType: "Period type",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    selectedWeek: "Week (Monday to Sunday)",
+    selectedMonth: "Calendar month",
+    payDate: "Pay date",
+    hourlyRateAdvice: "Rate for this Salary Advice (£)",
+    hourlyRateHelp: "Used only for this calculation; it is not saved as a standard business rate.",
+    itisRateAdvice: "Confirmed ITIS for this document (%)",
+    itisRateHelp: "Enter the whole percentage from the employee's current ITIS notice.",
+    monthlySocialSecurityStatus: "Monthly Social Security",
+    monthlySocialSecurityHelp: "Use 0% only when the current card confirms exemption from primary contributions.",
+    socialSecurityStandard: "Standard · 6%",
+    socialSecurityExempt: "Exempt · 0%",
+    weeklySocialSecurityAmount: "Confirmed weekly Social Security (£)",
+    weeklySocialSecurityHelp: "Enter the amount checked against the month's running wage total; it is not calculated from this week in isolation.",
+    weeklySocialSecurityWarning: "Weekly Social Security was confirmed by the administrator from the employee's running calendar-month record and must match the official contribution notice.",
+    yearToDateGross: "Gross taxable pay to date (£)",
+    yearToDateTax: "ITIS paid to date (£)",
+    totalsToDateHelp: "Confirmed values that already include this Salary Advice; they are neither stored nor invented.",
+    businessDetailsRequired: "Save the business name and address first.",
+    businessDetailsUnsaved: "Save business name or address changes before generating the PDF.",
+    calculateDownload: "Calculate and download PDF",
+    calculating: "Calculating and creating PDF…",
+    downloaded: "PDF downloaded",
+    previewTitle: "Downloaded document summary",
+    completedShiftsLabel: "Completed shifts",
+    hoursLabel: "Hours",
+    grossPay: "Gross pay",
+    itisLabel: "ITIS",
+    socialSecurityLabel: "Social Security",
+    totalDeductions: "Deductions",
+    netPay: "Net pay",
+    estimateNotice: "Estimate based on completed shifts and Jersey 2026 rules; confirm it against the official notice.",
+    noReadyProfiles: "No employee has complete details for the document yet.",
+    profileDetails: "Employee details",
+    employeeNumber: "Employee number",
+    taxReference: "Tax Reference (ITIS)",
+    socialReference: "Social Security Reference",
+    hoursSummaryTitle: "Hours overview",
+    hoursSummaryHelp: "Completed shifts only. The administrator chooses Salary Advice dates and periods.",
+    thisMonth: "This month",
+    allCompletedShiftsLabel: "All completed shifts",
+    salaryDetailsTitle: "Your salary and tax details",
+    salaryDetailsHelp: "Save them so the administrator can generate a weekly or monthly Salary Advice.",
+    profileSavedStatus: "Details saved and available",
+    profileNotSavedStatus: "Details pending",
+    sensitiveEncrypted: "Sensitive identifiers are encrypted and shown only when needed for the document.",
+    saveProfile: "Save profile",
+    updateProfile: "Update profile",
 
     secureAccess: "Secure access",
     welcomeBack: "Welcome back",
@@ -560,6 +890,16 @@ export const translations: Record<Language, Translations> = {
     historyTab: "Histórico e Relatórios",
     projectsTab: "Projetos e Obras",
     signOut: "Sair",
+    home: "Início",
+    sections: "Seções",
+    overview: "Visão geral",
+    statements: "Extratos",
+    storage: "Arquivos",
+    invite: "Convidar",
+    loading: "Carregando",
+    managerRole: "Administrador",
+    builderRole: "Funcionário",
+    onTheClock: "Turno em andamento",
     liveStatus: "Atualizado",
     online: "Online",
     offline: "Offline",
@@ -567,6 +907,106 @@ export const translations: Record<Language, Translations> = {
     syncedSuccess: "ação(ões) sincronizada(s) com o servidor.",
     locationFooterNotice: "A localização GPS é capturada apenas ao bater o ponto.",
     close: "Fechar",
+    installApp: "Instalar app no Android",
+    installAppAndroidHelp: "No Android, abra o menu do Chrome e toque em “Instalar app” ou “Adicionar à tela inicial”.",
+    installAppDismissed: "A instalação não foi concluída. Você pode tentar novamente pelo menu do Chrome.",
+    installAppError: "O Chrome não conseguiu abrir a instalação. Use o menu e toque em “Instalar app” ou “Adicionar à tela inicial”.",
+    salaryAdviceTab: "Salary Advice",
+    address: "Endereço",
+    salaryAdviceLoading: "Carregando ferramentas de Salary Advice…",
+    salaryAdviceLoadError: "Não foi possível carregar os dados de Salary Advice.",
+    employeeDetailsOpenError: "Não foi possível abrir os dados do funcionário.",
+    businessDetailsSaveError: "Não foi possível guardar os dados da empresa.",
+    hourlyRateValidation: "Introduza uma tarifa entre £0,01 e £10.000 com até duas casas decimais.",
+    salaryAdviceDownloadError: "Não foi possível calcular ou baixar o Salary Advice.",
+    salaryAdviceUnsupportedCharacters: "O PDF não suporta um caractere da identidade. Nenhum documento foi gerado; contacte o suporte sem alterar os dados legais.",
+    salaryAdviceFontLoadError: "Não foi possível carregar a fonte segura do PDF. Nenhum documento foi gerado; tente novamente com ligação ou contacte o suporte.",
+    salaryDocumentIdentityLabel: "Salary Advice · identidade do documento",
+    salaryEmployeesLabel: "Salary Advice · funcionários",
+    salaryEstimateLabel: "Salary Advice · estimativa",
+    salaryIdentityLabel: "Salary Advice · identidade",
+    payrollSummaryUnavailable: "O resumo de horas ainda não está disponível.",
+    payrollProfileLoading: "Carregando o perfil para Salary Advice…",
+    payrollProfileSaveError: "Não foi possível guardar o perfil para Salary Advice.",
+    statusLabel: "Estado",
+    legalName: "Nome legal",
+    homeAddress: "Endereço residencial",
+    socialSecurityNumber: "Número de Social Security",
+    storedKeepPlaceholder: "Já guardado · deixe vazio para manter",
+    requiredLabel: "Obrigatório",
+    employeeNumberHelp: "Use A-Z, 0-9, ponto, sublinhado, barra ou hífen; o valor é guardado em maiúsculas.",
+    weeklyCoverageHelp: "Todas as semanas de segunda a domingo que abrangem 2026 são mostradas. As duas semanas limítrofes ficam visíveis, mas desativadas até configurar as regras do ano adjacente.",
+    adjacentRulesUnavailable: "regras do ano adjacente indisponíveis",
+    accountMenu: "menu da conta",
+    setupGoogleSignIn: "Configurar acesso com Google",
+    googleRequestSent: "Pedido de acesso com Google enviado. Um administrador deve aprová-lo antes de usar o Google para entrar.",
+    googleSignInReady: "O acesso com Google está pronto para esta conta.",
+    googleSignInError: "Não foi possível concluir o acesso com Google. A sessão atual não foi alterada.",
+    loadingSecureSession: "Carregando sessão segura…",
+    salaryAdviceTitle: "Calcular e baixar Salary Advice",
+    salaryAdviceSubtitle: "Escolha um funcionário e um período. O download cria somente o documento e não inicia pagamentos.",
+    businessDetails: "Dados da empresa para o documento",
+    businessDetailsHelp: "Estes são os únicos dados da empresa usados pelo documento.",
+    businessName: "Nome da empresa",
+    businessAddress: "Endereço da empresa",
+    saveBusinessDetails: "Salvar dados do documento",
+    businessDetailsSaved: "Dados do documento guardados.",
+    profilesTitle: "Dados dos funcionários",
+    profilesHelp: "O Salary Advice exige que os dados do funcionário estejam completos.",
+    profileReady: "Dados completos",
+    profileMissing: "Faltam dados",
+    viewDetails: "Ver dados",
+    employee: "Funcionário",
+    periodType: "Tipo de período",
+    weekly: "Semanal",
+    monthly: "Mensal",
+    selectedWeek: "Semana (segunda a domingo)",
+    selectedMonth: "Mês civil",
+    payDate: "Data de pagamento",
+    hourlyRateAdvice: "Tarifa para este Salary Advice (£)",
+    hourlyRateHelp: "Usada só neste cálculo; não é salva como tarifa padrão da empresa.",
+    itisRateAdvice: "ITIS confirmado para este documento (%)",
+    itisRateHelp: "Informe a percentagem inteira do aviso ITIS atual do funcionário.",
+    monthlySocialSecurityStatus: "Social Security mensal",
+    monthlySocialSecurityHelp: "Use 0% apenas se o cartão atual confirmar isenção da contribuição primária.",
+    socialSecurityStandard: "Padrão · 6%",
+    socialSecurityExempt: "Isento · 0%",
+    weeklySocialSecurityAmount: "Social Security semanal confirmada (£)",
+    weeklySocialSecurityHelp: "Informe o valor conferido com o acumulado salarial do mês; ele não é calculado isolando esta semana.",
+    weeklySocialSecurityWarning: "A Segurança Social semanal foi confirmada pelo administrador usando o acumulado salarial do mês e deve coincidir com o aviso oficial de contribuição.",
+    yearToDateGross: "Bruto tributável acumulado (£)",
+    yearToDateTax: "ITIS pago acumulado (£)",
+    totalsToDateHelp: "Valores confirmados que já incluem este Salary Advice; não são salvos nem inventados.",
+    businessDetailsRequired: "Salve primeiro o nome e o endereço da empresa.",
+    businessDetailsUnsaved: "Salve as alterações no nome ou endereço da empresa antes de gerar o PDF.",
+    calculateDownload: "Calcular e baixar PDF",
+    calculating: "Calculando e criando PDF…",
+    downloaded: "PDF baixado",
+    previewTitle: "Resumo do documento baixado",
+    completedShiftsLabel: "Turnos concluídos",
+    hoursLabel: "Horas",
+    grossPay: "Bruto",
+    itisLabel: "ITIS",
+    socialSecurityLabel: "Segurança Social",
+    totalDeductions: "Deduções",
+    netPay: "Líquido",
+    estimateNotice: "Estimativa baseada em turnos concluídos e regras de Jersey 2026; confirme com o aviso oficial.",
+    noReadyProfiles: "Nenhum funcionário possui dados completos para o documento.",
+    profileDetails: "Dados do funcionário",
+    employeeNumber: "Número do funcionário",
+    taxReference: "Referência fiscal (ITIS)",
+    socialReference: "Referência da Segurança Social",
+    hoursSummaryTitle: "Resumo de horas",
+    hoursSummaryHelp: "Somente turnos concluídos. O administrador escolhe datas e períodos do Salary Advice.",
+    thisMonth: "Este mês",
+    allCompletedShiftsLabel: "Todos os turnos concluídos",
+    salaryDetailsTitle: "Seus dados salariais e fiscais",
+    salaryDetailsHelp: "Salve-os para o administrador gerar um Salary Advice semanal ou mensal.",
+    profileSavedStatus: "Dados salvos e disponíveis",
+    profileNotSavedStatus: "Dados pendentes",
+    sensitiveEncrypted: "Os identificadores sensíveis são criptografados e exibidos somente quando necessários para o documento.",
+    saveProfile: "Salvar perfil",
+    updateProfile: "Atualizar perfil",
 
     secureAccess: "Acesso seguro",
     welcomeBack: "Bem-vindo de volta",

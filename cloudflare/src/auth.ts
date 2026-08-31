@@ -108,6 +108,7 @@ export async function getAuth(request: Request, env: Env): Promise<AuthContext> 
      WHERE s.session_hash = ?1
        AND s.expires_at > ?2
        AND u.disabled_at IS NULL
+       AND (SELECT COUNT(*) FROM workforce_memberships membership_guard WHERE membership_guard.user_id = u.id) = 1
      LIMIT 1`,
   ).bind(sessionHash, new Date().toISOString()).first<AuthRow>();
   if (!row) throw new ApiError(401, "UNAUTHENTICATED", "Sign in to continue.");
@@ -198,6 +199,7 @@ export async function login(
      JOIN workforce_memberships m ON m.user_id = u.id
      JOIN workforce_organizations o ON o.id = m.organization_id
      WHERE u.email = ?1 AND u.disabled_at IS NULL
+       AND (SELECT COUNT(*) FROM workforce_memberships membership_guard WHERE membership_guard.user_id = u.id) = 1
      LIMIT 1`,
   ).bind(email).first<LoginRow>();
 

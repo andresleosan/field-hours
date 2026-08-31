@@ -7,12 +7,14 @@ function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function fetchWithRetries(url, retries, timeoutMs) {
+async function fetchWithRetries(url, retries, timeoutMs, { method = "GET", headers = {}, body } = {}) {
   let lastError;
   for (let attempt = 1; attempt <= retries; attempt += 1) {
     try {
       return await fetch(url, {
-        headers: { "User-Agent": "field-hours-production-monitor/1.0" },
+        method,
+        headers: { "User-Agent": "field-hours-production-monitor/1.0", ...headers },
+        body,
         redirect: "follow",
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -24,10 +26,15 @@ async function fetchWithRetries(url, retries, timeoutMs) {
   throw lastError;
 }
 
-async function checkResponse({ name, url, expectedStatus, validate }, options) {
+async function checkResponse({ name, url, method, headers, body, expectedStatus, validate }, options) {
   const startedAt = Date.now();
   try {
-    const response = await fetchWithRetries(url, options.retries, options.timeoutMs);
+    const response = await fetchWithRetries(
+      url,
+      options.retries,
+      options.timeoutMs,
+      { method, headers, body },
+    );
     if (response.status !== expectedStatus) {
       throw new Error(`expected HTTP ${expectedStatus}, received ${response.status}`);
     }
@@ -66,6 +73,49 @@ export async function runProductionHealthChecks({
       },
     },
     {
+      name: "PWA manifest",
+      url: `${app}/manifest.webmanifest`,
+      expectedStatus: 200,
+      validate: async (response) => {
+        const payload = await response.json();
+        const iconSources = Array.isArray(payload?.icons) ? payload.icons.map((icon) => icon?.src) : [];
+        if (payload?.display !== "standalone") throw new Error("PWA display mode is not standalone");
+        if (!iconSources.includes("/pwa-icon-192.png") || !iconSources.includes("/pwa-icon-512.png")) {
+          throw new Error("PWA install icons are incomplete");
+        }
+      },
+    },
+    {
+      name: "PWA service worker",
+      url: `${app}/sw.js`,
+      expectedStatus: 200,
+      validate: async (response) => {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("javascript")) throw new Error("service worker content type is invalid");
+        const source = await response.text();
+        if (!source.includes("field-hours-v4")) throw new Error("service worker cache version is stale");
+        if (source.includes("__PWA_BUILD_ASSETS__")) throw new Error("service worker assets were not injected");
+      },
+    },
+    {
+      name: "PWA icon 192",
+      url: `${app}/pwa-icon-192.png`,
+      expectedStatus: 200,
+      validate: async (response) => {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("image/png")) throw new Error("192px PWA icon content type is invalid");
+      },
+    },
+    {
+      name: "PWA icon 512",
+      url: `${app}/pwa-icon-512.png`,
+      expectedStatus: 200,
+      validate: async (response) => {
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!contentType.includes("image/png")) throw new Error("512px PWA icon content type is invalid");
+      },
+    },
+    {
       name: "proxy health",
       url: `${app}/api/health`,
       expectedStatus: 200,
@@ -88,7 +138,15 @@ export async function runProductionHealthChecks({
       },
     },
     { name: "worker auth boundary", url: `${worker}/api/worker/today`, expectedStatus: 401 },
-    { name: "proxy admin boundary", url: `${app}/api/admin/payroll-runs`, expectedStatus: 401 },
+    {
+      name: "Salary Advice auth boundary",
+      url: `${app}/api/admin/salary-advice`,
+      method: "POST",
+      headers: { Origin: app, "Content-Type": "application/json" },
+      body: "{}",
+      expectedStatus: 401,
+    },
+    { name: "retired payroll review route", url: `${app}/api/admin/payroll-runs`, expectedStatus: 404 },
   ];
 
   const results = await Promise.all(checks.map((check) => checkResponse(check, { retries, timeoutMs })));

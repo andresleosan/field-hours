@@ -136,7 +136,12 @@ function assertCsrf(route: Route): boolean {
 
 export async function installAdminApi(
   context: BrowserContext,
-  options: { payrollPreviewError?: boolean } = {},
+  options: {
+    salaryAdviceError?: boolean;
+    salaryAdviceDelayMs?: number;
+    settingsDelayMs?: number;
+    settingsError?: boolean;
+  } = {},
 ): Promise<MockApiControl> {
   const adminPeople = [{
     user_id: "worker-1",
@@ -164,97 +169,27 @@ export async function installAdminApi(
     created_at: NOW,
   }];
   let adminHistory: Array<Record<string, unknown>> = [];
-  const totals = {
-    grossPay: 2400,
-    workerSocialSecurity: 144,
-    incomeTax: 240,
-    netPay: 2016,
-    employerSocialSecurity: 156,
-    employerTotalCost: 2556,
-  };
-  const preview = {
-    periodStart: "2026-08-01",
-    periodEnd: "2026-08-31",
-    payDate: "2026-09-01",
-    currency: "GBP",
-    isEstimate: true,
-    rules: {
-      year: 2026,
-      minimumEarningsThreshold: 0,
-      standardEarningsLimit: 5000,
-      upperEarningsLimit: 10000,
-      workerSocialSecurityRate: 6,
-      employerSocialSecurityRate: 6.5,
-      employerUpperBandRate: 2.5,
-      defaultItisRate: 10,
-    },
-    lines: [{
-      userId: "worker-1",
-      displayName: "Worker Test",
-      email: "worker@field-hours.test",
-      employeeNumber: "EMP-001",
-      profileStatus: "approved",
-      shiftCount: 12,
-      hours: 120,
-      itisRate: 10,
-      grossPay: 2400,
-      workerSocialSecurity: 144,
-      incomeTax: 240,
-      netPay: 2016,
-      employerSocialSecurity: 156,
-      employerTotalCost: 2556,
-      warnings: [],
-    }],
-    totals,
-  };
-  const snapshotLine = {
-    userId: "worker-1",
-    displayName: "Worker Test",
-    employeeNumber: "EMP-001",
-    profileStatus: "approved",
-    shiftCount: 12,
-    netMinutes: 7200,
-    itisRate: 10,
-    grossPay: 2400,
-    workerSocialSecurity: 144,
-    incomeTax: 240,
-    netPay: 2016,
-    employerSocialSecurity: 156,
-    employerTotalCost: 2556,
-    warnings: [] as string[],
-  };
-  let submittedTotals = totals;
-  let submittedLine = snapshotLine;
   const profile = {
     userId: "worker-1",
     displayName: "Worker Test",
     email: "worker@field-hours.test",
-    legalName: "Worker Test",
-    address: "1 Test Street",
     employeeNumber: "EMP-001",
-    maskedSocialSecurityNumber: "***1234",
-    maskedTaxReference: "***5678",
-    maskedSocialReference: "***9012",
-    maskedBankAccountNumber: "***3456",
-    itisRate: 10,
-    status: "approved",
-    submittedAt: NOW,
-    reviewedAt: NOW,
-    reviewNote: null,
+    isComplete: true,
+    savedAt: NOW,
   };
-  const settings = {
-    hourlyRate: 20,
-    payFrequency: "monthly",
-    payDay: 1,
+  const secondProfile = {
+    userId: "worker-2",
+    displayName: "Second Worker",
+    email: "second@field-hours.test",
+    employeeNumber: "EMP-002",
+    isComplete: true,
+    savedAt: NOW,
+  };
+  let settings = {
     businessName: "Field Hours Test",
     businessAddress: "1 Test Street",
-    hasBusinessTaxReference: true,
-    hasBusinessSocialReference: true,
-    workerSocialSecurityRate: 6,
-    employerSocialSecurityRate: 6.5,
     updatedAt: NOW,
   };
-  let runs: Array<Record<string, unknown>> = [];
 
   return prepareContext(context, async (route, path, method, body) => {
     if (method === "GET" && path === "/api/session") return json(route, { user: sessionUser("admin") });
@@ -264,68 +199,222 @@ export async function installAdminApi(
     if (method === "GET" && path === "/api/admin/auth-requests") return json(route, []);
     if (method === "GET" && path === "/api/admin/password-reset-requests") return json(route, []);
     if (method === "GET" && path === "/api/admin/request-history") return json(route, []);
-    if (method === "GET" && path === "/api/admin/payroll-profiles") return json(route, [profile]);
+    if (method === "GET" && path === "/api/admin/payroll-profiles") return json(route, [profile, secondProfile]);
     if (method === "GET" && path === "/api/admin/payroll-settings") return json(route, settings);
-    if (method === "GET" && path === "/api/admin/payroll-preview") {
-      return options.payrollPreviewError
-        ? json(route, { error: "Configure payroll settings before calculating payroll.", code: "PAYROLL_SETTINGS_REQUIRED" }, 409)
-        : json(route, preview);
-    }
-    if (method === "GET" && path === "/api/admin/payroll-runs") return json(route, runs);
-    if (method === "GET" && path === "/api/admin/payroll-runs/payroll-run-1") {
-      if (!runs[0]) return json(route, { error: "Payroll run not found", code: "NOT_FOUND" }, 404);
-      return json(route, { ...runs[0], lines: [submittedLine] });
+
+    if (method === "POST" && path === "/api/admin/payroll-settings") {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as Record<string, unknown> | undefined;
+      const keys = Object.keys(input ?? {}).sort();
+      if (
+        JSON.stringify(keys) !== JSON.stringify(["businessAddress", "businessName"])
+        || typeof input?.businessName !== "string"
+        || typeof input.businessAddress !== "string"
+      ) {
+        return json(route, { error: "Unexpected Salary Advice settings contract", code: "INVALID_INPUT" }, 400);
+      }
+      if (options.settingsDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.settingsDelayMs));
+      }
+      if (options.settingsError) {
+        return json(route, { error: "Business details could not be saved.", code: "SETTINGS_WRITE_FAILED" }, 409);
+      }
+      settings = {
+        businessName: input.businessName,
+        businessAddress: input.businessAddress,
+        updatedAt: NOW,
+      };
+      return json(route, settings);
     }
 
-    if (method === "POST" && path === "/api/admin/payroll-runs") {
+    if (method === "POST" && path === "/api/admin/payroll-profiles/worker-1/reveal") {
       if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
-      const custom = (body as { custom?: { userId?: unknown; hours?: unknown } } | undefined)?.custom;
-      if (custom) {
-        if (custom.userId !== "worker-1" || custom.hours !== 40) {
-          return json(route, { error: "Unexpected custom payroll contract", code: "INVALID_INPUT" }, 400);
-        }
-        submittedTotals = {
-          grossPay: 800,
-          workerSocialSecurity: 48,
-          incomeTax: 80,
-          netPay: 672,
-          employerSocialSecurity: 52,
-          employerTotalCost: 852,
-        };
-        submittedLine = {
-          ...snapshotLine,
-          shiftCount: 0,
-          netMinutes: 2400,
-          grossPay: 800,
-          workerSocialSecurity: 48,
-          incomeTax: 80,
-          netPay: 672,
-          employerSocialSecurity: 52,
-          employerTotalCost: 852,
-          warnings: ["Hours entered manually by an administrator."],
-        };
-      } else if (JSON.stringify(body) !== "{}") {
-        return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
-      } else {
-        submittedTotals = totals;
-        submittedLine = snapshotLine;
+      if (JSON.stringify(body) !== "{}") return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
+      return json(route, {
+        ...profile,
+        legalName: "Worker Test",
+        address: "1 Worker Road",
+        taxReference: "TAX-123",
+        socialReference: "SOC-9012",
+      });
+    }
+
+    if (method === "POST" && path === "/api/admin/salary-advice") {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as Record<string, unknown> | undefined;
+      const keys = Object.keys(input ?? {}).sort();
+      const periodType = input?.periodType;
+      const periodStart = input?.periodStart;
+      const payDate = input?.payDate;
+      const hourlyRate = input?.hourlyRate;
+      const itisRate = input?.itisRate;
+      const weeklyWorkerSocialSecurity = input?.weeklyWorkerSocialSecurity;
+      const workerSocialSecurityRate = input?.workerSocialSecurityRate;
+      const yearToDateGrossTaxablePay = input?.yearToDateGrossTaxablePay;
+      const yearToDateTaxPaid = input?.yearToDateTaxPaid;
+      const expectedKeys = periodType === "weekly"
+        ? [
+            "hourlyRate",
+            "itisRate",
+            "payDate",
+            "periodStart",
+            "periodType",
+            "userId",
+            "weeklyWorkerSocialSecurity",
+            "yearToDateGrossTaxablePay",
+            "yearToDateTaxPaid",
+          ]
+        : [
+            "hourlyRate",
+            "itisRate",
+            "payDate",
+            "periodStart",
+            "periodType",
+            "userId",
+            "workerSocialSecurityRate",
+            "yearToDateGrossTaxablePay",
+            "yearToDateTaxPaid",
+          ];
+      const parsedStart = typeof periodStart === "string" ? new Date(`${periodStart}T00:00:00Z`) : new Date(Number.NaN);
+      const parsedPayDate = typeof payDate === "string" ? new Date(`${payDate}T00:00:00Z`) : new Date(Number.NaN);
+      const isWeeklyStart = periodType === "weekly" && parsedStart.getUTCDay() === 1;
+      const isMonthlyStart = periodType === "monthly" && parsedStart.getUTCDate() === 1;
+      const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) <= 1e-7;
+      if (
+        JSON.stringify(keys) !== JSON.stringify(expectedKeys)
+        || (input?.userId !== "worker-1" && input?.userId !== "worker-2")
+        || (periodType !== "weekly" && periodType !== "monthly")
+        || typeof periodStart !== "string"
+        || !/^2026-\d{2}-\d{2}$/.test(periodStart)
+        || Number.isNaN(parsedStart.valueOf())
+        || parsedStart.toISOString().slice(0, 10) !== periodStart
+        || (!isWeeklyStart && !isMonthlyStart)
+        || typeof payDate !== "string"
+        || !/^2026-\d{2}-\d{2}$/.test(payDate)
+        || Number.isNaN(parsedPayDate.valueOf())
+        || parsedPayDate.toISOString().slice(0, 10) !== payDate
+        || payDate < periodStart
+        || typeof hourlyRate !== "number"
+        || hourlyRate < 0.01
+        || hourlyRate > 10_000
+        || !hasAtMostTwoDecimals(hourlyRate)
+        || typeof itisRate !== "number"
+        || !Number.isInteger(itisRate)
+        || itisRate < 0
+        || itisRate > 100
+        || (periodType === "weekly" && (
+          typeof weeklyWorkerSocialSecurity !== "number"
+          || weeklyWorkerSocialSecurity < 0
+          || weeklyWorkerSocialSecurity > 10_000_000
+          || !hasAtMostTwoDecimals(weeklyWorkerSocialSecurity)
+        ))
+        || (periodType === "monthly" && workerSocialSecurityRate !== 0 && workerSocialSecurityRate !== 6)
+        || typeof yearToDateGrossTaxablePay !== "number"
+        || yearToDateGrossTaxablePay < 0
+        || yearToDateGrossTaxablePay > 10_000_000
+        || !hasAtMostTwoDecimals(yearToDateGrossTaxablePay)
+        || typeof yearToDateTaxPaid !== "number"
+        || yearToDateTaxPaid < 0
+        || yearToDateTaxPaid > 10_000_000
+        || !hasAtMostTwoDecimals(yearToDateTaxPaid)
+      ) {
+        return json(route, { error: "Unexpected Salary Advice contract", code: "INVALID_INPUT" }, 400);
       }
-      const run = {
-        id: "payroll-run-1",
-        periodStart: preview.periodStart,
-        periodEnd: preview.periodEnd,
-        payDate: preview.payDate,
+      const end = new Date(parsedStart);
+      if (periodType === "weekly") end.setUTCDate(end.getUTCDate() + 6);
+      else end.setUTCMonth(end.getUTCMonth() + 1, 0);
+      if (end.getUTCFullYear() !== 2026) {
+        return json(route, { error: "Salary Advice rules are configured for 2026 only.", code: "RULES_NOT_AVAILABLE" }, 409);
+      }
+      if (options.salaryAdviceError) {
+        return json(route, {
+          error: "Salary Advice could not be calculated for the selected period.",
+          code: "SALARY_ADVICE_NOT_CONFIGURED",
+        }, 409);
+      }
+      if (options.salaryAdviceDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, options.salaryAdviceDelayMs));
+      }
+
+      const netMinutes = periodType === "weekly" ? 2400 : 7200;
+      const shiftCount = periodType === "weekly" ? 5 : 12;
+      const hours = netMinutes / 60;
+      const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const grossTaxablePay = roundMoney(hours * hourlyRate);
+      const incomeTax = roundMoney(grossTaxablePay * (itisRate / 100));
+      const workerSocialSecurity = periodType === "weekly"
+        ? roundMoney(weeklyWorkerSocialSecurity as number)
+        : grossTaxablePay < 618
+          ? 0
+          : roundMoney(Math.min(Math.floor(grossTaxablePay), 6062) * ((workerSocialSecurityRate as number) / 100));
+      const total = roundMoney(incomeTax + workerSocialSecurity);
+      if (
+        workerSocialSecurity > grossTaxablePay
+        || total > grossTaxablePay
+        || yearToDateGrossTaxablePay < grossTaxablePay
+        || yearToDateTaxPaid < incomeTax
+        || yearToDateTaxPaid > yearToDateGrossTaxablePay
+      ) {
+        return json(route, { error: "Confirmed totals are inconsistent with this Salary Advice.", code: "INVALID_TOTALS_TO_DATE" }, 400);
+      }
+
+      return json(route, {
+        calculatedAt: NOW,
         currency: "GBP",
-        status: "pending_review",
-        submittedAt: NOW,
-        reviewedAt: null,
-        reviewedBy: null,
-        reviewNote: null,
-        totals: submittedTotals,
-        workerCount: 1,
-      };
-      runs = [run];
-      return json(route, run);
+        isEstimate: true,
+        period: {
+          type: periodType,
+          start: periodStart,
+          end: end.toISOString().slice(0, 10),
+          payDate,
+        },
+        employer: { name: settings.businessName, address: settings.businessAddress },
+        worker: input.userId === "worker-2"
+          ? {
+              userId: "worker-2",
+              displayName: "Second Worker",
+              legalName: "Second Worker",
+              address: "2 Worker Road",
+              employeeNumber: "EMP-002",
+              taxReference: "TAX-456",
+              socialReference: "SOC-3456",
+            }
+          : {
+              userId: "worker-1",
+              displayName: "Worker Test",
+              legalName: "Worker Test",
+              address: "1 Worker Road",
+              employeeNumber: "EMP-001",
+              taxReference: "TAX-123",
+              socialReference: "SOC-9012",
+            },
+        allowance: {
+          description: "Basic Hourly Pay",
+          shiftCount,
+          netMinutes,
+          hours,
+          hourlyRate,
+          amount: grossTaxablePay,
+        },
+        deductions: {
+          itisRate,
+          incomeTax,
+          workerSocialSecurityRate: periodType === "weekly" ? null : workerSocialSecurityRate,
+          workerSocialSecuritySource: periodType === "weekly" ? "operator_confirmed_weekly" : "calculated_monthly",
+          workerSocialSecurity,
+          total,
+        },
+        grossTaxablePay,
+        netPay: roundMoney(grossTaxablePay - total),
+        totalsToDate: {
+          grossTaxablePay: yearToDateGrossTaxablePay,
+          taxPaid: yearToDateTaxPaid,
+          source: "operator_confirmed",
+        },
+        warnings: periodType === "weekly"
+          ? ["WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED"]
+          : [],
+      });
     }
 
     if (method === "POST" && path === "/api/admin/shifts/create") {
@@ -372,70 +461,6 @@ export async function installAdminApi(
         },
       }];
       return json(route, { ok: true, shiftId });
-    }
-
-    if (method === "POST" && path === "/api/admin/payroll-runs/payroll-run-1/review") {
-      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
-      const decision = (body as { decision?: unknown } | undefined)?.decision;
-      if (decision !== "approved" && decision !== "changes_requested") {
-        return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
-      }
-      runs = [{
-        ...runs[0],
-        status: decision,
-        reviewedAt: "2026-08-25T09:05:00.000Z",
-        reviewedBy: "admin-1",
-        reviewNote: decision === "changes_requested"
-          ? "Review the payroll details and resubmit the corrected period."
-          : null,
-      }];
-      return json(route, runs[0]);
-    }
-
-    if (method === "POST" && path === "/api/admin/payroll-runs/payroll-run-1/payslips/worker-1") {
-      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
-      if (JSON.stringify(body) !== "{}") return json(route, { error: "Unexpected contract", code: "INVALID_INPUT" }, 400);
-      if (runs[0]?.status !== "approved") {
-        return json(route, { error: "Only approved runs can generate a Salary Advice", code: "PAYROLL_RUN_NOT_APPROVED" }, 409);
-      }
-      return json(route, {
-        generatedAt: "2026-08-25T09:06:00.000Z",
-        currency: "GBP",
-        run: {
-          id: "payroll-run-1",
-          periodStart: preview.periodStart,
-          periodEnd: preview.periodEnd,
-          payDate: preview.payDate,
-          submittedAt: NOW,
-          approvedAt: "2026-08-25T09:05:00.000Z",
-        },
-        employer: { name: "Field Hours <Test>", address: "1 Test Street" },
-        worker: {
-          userId: "worker-1",
-          displayName: "Worker Test",
-          legalName: "Worker <Test>",
-          address: "1 Worker Road",
-          employeeNumber: "EMP-001",
-          taxReference: "TAX-<123>",
-          socialReference: "SOC-9012",
-        },
-        allowances: [{
-          code: "basic_pay",
-          description: submittedLine.shiftCount === 0 ? "Basic pay · custom hours" : "Basic pay <approved>",
-          shiftCount: submittedLine.shiftCount,
-          netMinutes: submittedLine.netMinutes,
-          hours: submittedLine.netMinutes / 60,
-          amount: submittedLine.grossPay,
-        }],
-        deductions: {
-          workerSocialSecurity: submittedLine.workerSocialSecurity,
-          incomeTax: submittedLine.incomeTax,
-          total: submittedLine.workerSocialSecurity + submittedLine.incomeTax,
-        },
-        grossTaxablePay: submittedLine.grossPay,
-        netPay: submittedLine.netPay,
-        itisRate: 10,
-      });
     }
 
     return json(route, { error: `Unhandled test route: ${method} ${path}`, code: "TEST_ROUTE_MISSING" }, 501);
@@ -524,13 +549,11 @@ export async function installWorkerApi(
       return json(route, {
         timezone: "Europe/Jersey",
         asOfDate: "2026-08-25",
-        currentPeriodStart: "2026-08-01",
-        currentPeriodMinutes: completedMinutes,
-        currentPeriodShifts: completed.length,
+        currentMonthStart: "2026-08-01",
+        currentMonthMinutes: completedMinutes,
+        currentMonthShifts: completed.length,
         totalCompletedMinutes: completedMinutes,
         totalCompletedShifts: completed.length,
-        lastPayDate: "2026-08-01",
-        nextPayDate: "2026-09-01",
       });
     }
 

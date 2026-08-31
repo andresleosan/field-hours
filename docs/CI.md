@@ -6,7 +6,7 @@
 
 ## Pipeline
 
-`.github/workflows/ci.yml` corre el mismo gate en `ubuntu-latest` para cada push a `main` y cada pull request. Usa `npm ci`, instala Chromium, Firefox y WebKit, ejecuta el gate funcional completo en Chromium y después la auditoría crítica de legibilidad en los tres motores. Conserva permisos `contents: read`, timeout de 15 minutos y cancelación de ejecuciones obsoletas. El workflow no despliega, migra ni crea datos remotos; el repositorio sí tiene una integración Vercel separada que publica automáticamente los pushes a `main`.
+`.github/workflows/ci.yml` corre el mismo gate en `ubuntu-latest` para cada push a `main` y cada pull request. Usa `npm ci`, instala Chromium, Firefox y WebKit, ejecuta el gate funcional completo en Chromium y después la auditoría crítica de legibilidad en los tres motores. Conserva permisos `contents: read`, timeout de 15 minutos y cancelación de ejecuciones obsoletas. El workflow no despliega, migra ni crea datos remotos; el repositorio tiene una integración Vercel separada para los pushes a `main` y el runbook manual controlado de abajo.
 
 ## Browserslist
 
@@ -21,6 +21,26 @@ La política de scripts de npm también está fijada en `package.json`: `@swc/co
 ## Monitor operativo
 
 `.github/workflows/production-health.yml` es independiente del gate de código: corre después de cada `Verify` exitoso en `main`, cada 30 minutos y manualmente. Usa permisos `contents: read` e `issues: write` y solo hace comprobaciones HTTP de lectura. Deduplica una incidencia `production-alert` y la cierra al recuperarse. El runbook completo está en `docs/OPERATIONS.md`.
+
+## Publicación manual controlada en Vercel
+
+Cuando el operador autoriza un corte sin `git push`, usar una versión exacta del CLI y el proyecto
+local enlazado `fieldhours`:
+
+```powershell
+npx.cmd --yes vercel@59.10.0 inspect https://field-hours.vercel.app
+npx.cmd --yes vercel@59.10.0 deploy --prod --skip-domain --yes
+npx.cmd --yes vercel@59.10.0 inspect https://<deployment-inmutable> --logs
+npx.cmd --yes vercel@59.10.0 promote https://<deployment-inmutable> --yes
+node scripts/production-health.mjs
+```
+
+La URL inmutable puede estar protegida. En ese caso `vercel curl <ruta> --deployment
+https://<deployment-inmutable>` genera y usa el bypass sin imprimirlo. Validar allí API, PWA y assets
+antes de promover. No desplegar `.vercel/output` creado localmente cuando `vercel build` haya sustituido
+secretos no descargables por `[SENSITIVE]`; el deploy de fuente deja que el build remoto use las
+variables reales. Registrar siempre el deployment anterior y la URL inmutable para rollback. La
+evidencia e IDs del corte Salary Advice están en `docs/RELEASE-2026-08-30-salary-advice-correction.md`.
 
 ## Higiene del paquete Vercel
 

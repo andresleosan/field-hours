@@ -24,22 +24,14 @@ import {
   getWorkerPayrollProfile,
   listAdminPayrollProfiles,
   revealAdminPayrollProfile,
-  reviewAdminPayrollProfile,
   saveWorkerPayrollProfile,
 } from "./payrollProfiles";
 import { getWorkerPayrollSummary } from "./payrollSummary";
-import { getAdminPayrollPreview } from "./payrollCalculation";
-import {
-  generateAdminPayrollPayslip,
-  getAdminPayrollRun,
-  listAdminPayrollRuns,
-  reviewAdminPayrollRun,
-  submitAdminPayrollRun,
-} from "./payrollRuns";
 import {
   getAdminPayrollSettings,
   saveAdminPayrollSettings,
 } from "./payrollSettings";
+import { calculateAdminSalaryAdvice } from "./salaryAdvice";
 import { enforcePayrollRateLimit } from "./rateLimit";
 import {
   ApiError,
@@ -187,13 +179,9 @@ async function route(request: Request, env: Env): Promise<Response> {
         legalName?: unknown;
         address?: unknown;
         employeeNumber?: unknown;
-        socialSecurityNumber?: unknown;
         taxReference?: unknown;
         socialReference?: unknown;
-        bankAccountName?: unknown;
-        bankSortCode?: unknown;
-        bankAccountNumber?: unknown;
-        itisRate?: unknown;
+        [key: string]: unknown;
       }>(request),
     ) });
   }
@@ -208,26 +196,6 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await getAdminPayrollSettings(env, auth));
   }
 
-  if (request.method === "GET" && path === "/api/admin/payroll-preview") {
-    const auth = await getAuth(request, env);
-    return json(request, env, await getAdminPayrollPreview(env, auth, url.searchParams));
-  }
-
-  if (request.method === "GET" && path === "/api/admin/payroll-runs") {
-    const auth = await getAuth(request, env);
-    return json(request, env, await listAdminPayrollRuns(env, auth));
-  }
-
-  if (request.method === "POST" && path === "/api/admin/payroll-runs") {
-    const auth = await getAuth(request, env);
-    await assertCsrf(request, auth);
-    return json(request, env, await submitAdminPayrollRun(
-      env,
-      auth,
-      await readJson<{ startDate?: unknown; endDate?: unknown; custom?: unknown }>(request),
-    ), 201);
-  }
-
   if (request.method === "POST" && path === "/api/admin/payroll-settings") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
@@ -235,66 +203,43 @@ async function route(request: Request, env: Env): Promise<Response> {
       env,
       auth,
       await readJson<{
-        hourlyRate?: unknown;
-        payFrequency?: unknown;
-        payDay?: unknown;
         businessName?: unknown;
         businessAddress?: unknown;
-        businessTaxReference?: unknown;
-        businessSocialReference?: unknown;
-        workerSocialSecurityRate?: unknown;
-        employerSocialSecurityRate?: unknown;
+        [key: string]: unknown;
       }>(request),
     ));
   }
 
-  const payrollProfileMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/(reveal|review)$/);
+  if (request.method === "POST" && path === "/api/admin/salary-advice") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    await enforcePayrollRateLimit(env, auth, "payslip_generate");
+    return json(request, env, await calculateAdminSalaryAdvice(
+      env,
+      auth,
+      await readJson<{
+        userId?: unknown;
+        periodType?: unknown;
+        periodStart?: unknown;
+        payDate?: unknown;
+        hourlyRate?: unknown;
+        itisRate?: unknown;
+        workerSocialSecurityRate?: unknown;
+        weeklyWorkerSocialSecurity?: unknown;
+        yearToDateGrossTaxablePay?: unknown;
+        yearToDateTaxPaid?: unknown;
+        [key: string]: unknown;
+      }>(request),
+    ));
+  }
+
+  const payrollProfileMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/reveal$/);
   if (payrollProfileMatch && request.method === "POST") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
     const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
-    if (payrollProfileMatch[2] === "reveal") {
-      await enforcePayrollRateLimit(env, auth, "profile_reveal");
-      return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
-    }
-    const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
-    return json(request, env, await reviewAdminPayrollProfile(env, auth, userId, body.decision, body.note));
-  }
-
-  const payrollRunReviewMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)\/review$/);
-  if (payrollRunReviewMatch && request.method === "POST") {
-    const auth = await getAuth(request, env);
-    await assertCsrf(request, auth);
-    const runId = decodeURIComponent(payrollRunReviewMatch[1] ?? "");
-    const body = await readJson<{ decision?: unknown; note?: unknown }>(request);
-    return json(request, env, await reviewAdminPayrollRun(env, auth, runId, body.decision, body.note));
-  }
-
-  const payrollPayslipMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)\/payslips\/([^/]+)$/);
-  if (payrollPayslipMatch && request.method === "POST") {
-    const auth = await getAuth(request, env);
-    await assertCsrf(request, auth);
-    const body = await readJson<Record<string, unknown>>(request);
-    if (!body || Array.isArray(body) || typeof body !== "object" || Object.keys(body).length > 0) {
-      throw new ApiError(400, "INVALID_INPUT", "Salary Advice preparation does not accept input fields.");
-    }
-    await enforcePayrollRateLimit(env, auth, "payslip_generate");
-    return json(request, env, await generateAdminPayrollPayslip(
-      env,
-      auth,
-      decodeURIComponent(payrollPayslipMatch[1] ?? ""),
-      decodeURIComponent(payrollPayslipMatch[2] ?? ""),
-    ));
-  }
-
-  const payrollRunMatch = path.match(/^\/api\/admin\/payroll-runs\/([^/]+)$/);
-  if (payrollRunMatch && request.method === "GET") {
-    const auth = await getAuth(request, env);
-    return json(request, env, await getAdminPayrollRun(
-      env,
-      auth,
-      decodeURIComponent(payrollRunMatch[1] ?? ""),
-    ));
+    await enforcePayrollRateLimit(env, auth, "profile_reveal");
+    return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {

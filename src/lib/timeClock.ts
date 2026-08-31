@@ -1,146 +1,45 @@
 import { backend, type SessionUser } from "./safeClient";
 
-export type PayrollProfileStatus = "not_started" | "pending_review" | "approved" | "changes_requested";
-
 export interface PayrollProfile {
   userId: string;
   displayName: string;
-  email: string;
-  legalName: string | null;
-  address: string | null;
   employeeNumber: string | null;
-  maskedSocialSecurityNumber: string | null;
-  maskedTaxReference: string | null;
-  maskedSocialReference: string | null;
-  maskedBankAccountNumber: string | null;
-  itisRate: number | null;
-  status: PayrollProfileStatus;
-  submittedAt: string | null;
-  reviewedAt: string | null;
-  reviewNote: string | null;
+  isComplete: boolean;
+  savedAt: string | null;
 }
 
 export interface WorkerPayrollProfile extends PayrollProfile {
-  hasSocialSecurityNumber: boolean;
+  legalName: string;
+  address: string;
   hasTaxReference: boolean;
   hasSocialReference: boolean;
-  hasBankDetails: boolean;
 }
 
 export interface PayrollProfileDetails extends PayrollProfile {
+  legalName: string;
+  address: string;
   taxReference: string;
   socialReference: string;
-  bankAccountName: string | null;
-  bankSortCode: string | null;
-  bankAccountNumber: string | null;
 }
 
 export interface PayrollSettings {
-  hourlyRate: number;
-  payFrequency: "monthly";
-  payDay: number;
   businessName: string;
   businessAddress: string;
-  hasBusinessTaxReference: boolean;
-  hasBusinessSocialReference: boolean;
-  workerSocialSecurityRate: number;
-  employerSocialSecurityRate: number;
   updatedAt: string;
 }
 
-export interface PayrollPreviewLine {
-  userId: string;
-  displayName: string;
-  email: string;
-  employeeNumber: string | null;
-  profileStatus: PayrollProfileStatus | "not_started";
-  shiftCount: number;
-  hours: number;
-  itisRate: number | null;
-  grossPay: number | null;
-  workerSocialSecurity: number | null;
-  incomeTax: number | null;
-  netPay: number | null;
-  employerSocialSecurity: number | null;
-  employerTotalCost: number | null;
-  warnings: string[];
-}
+export type SalaryAdvicePeriodType = "weekly" | "monthly";
+export type SalaryAdviceWarningCode = "WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED";
 
-export interface PayrollPreview {
-  periodStart: string;
-  periodEnd: string;
-  payDate: string;
+export interface SalaryAdvice {
+  calculatedAt: string;
   currency: "GBP";
   isEstimate: true;
-  rules: {
-    year: number;
-    minimumEarningsThreshold: number;
-    standardEarningsLimit: number;
-    upperEarningsLimit: number;
-    workerSocialSecurityRate: number;
-    employerSocialSecurityRate: number;
-    employerUpperBandRate: number;
-    defaultItisRate: number;
-  };
-  lines: PayrollPreviewLine[];
-  totals: {
-    grossPay: number;
-    workerSocialSecurity: number;
-    incomeTax: number;
-    netPay: number;
-    employerSocialSecurity: number;
-    employerTotalCost: number;
-  };
-}
-
-export type PayrollRunStatus = "pending_review" | "approved" | "changes_requested";
-
-export interface PayrollRun {
-  id: string;
-  periodStart: string;
-  periodEnd: string;
-  payDate: string;
-  currency: "GBP";
-  status: PayrollRunStatus;
-  submittedAt: string;
-  reviewedAt: string | null;
-  reviewedBy: string | null;
-  reviewNote: string | null;
-  totals: PayrollPreview["totals"];
-  workerCount: number;
-}
-
-export interface PayrollRunLine {
-  userId: string;
-  displayName: string;
-  employeeNumber: string | null;
-  profileStatus: "pending_review" | "approved" | "changes_requested";
-  shiftCount: number;
-  netMinutes: number;
-  itisRate: number;
-  grossPay: number;
-  workerSocialSecurity: number;
-  incomeTax: number;
-  netPay: number;
-  employerSocialSecurity: number;
-  employerTotalCost: number;
-  warnings: string[];
-}
-
-export interface PayrollRunDetails extends PayrollRun {
-  lines: PayrollRunLine[];
-}
-
-export interface PayrollPayslip {
-  generatedAt: string;
-  currency: "GBP";
-  run: {
-    id: string;
-    periodStart: string;
-    periodEnd: string;
+  period: {
+    type: SalaryAdvicePeriodType;
+    start: string;
+    end: string;
     payDate: string;
-    submittedAt: string;
-    approvedAt: string;
   };
   employer: { name: string; address: string };
   worker: {
@@ -152,34 +51,40 @@ export interface PayrollPayslip {
     taxReference: string;
     socialReference: string;
   };
-  allowances: Array<{
-    code: "basic_pay";
-    description: string;
+  allowance: {
+    description: "Basic Hourly Pay";
     shiftCount: number;
     netMinutes: number;
     hours: number;
+    hourlyRate: number;
     amount: number;
-  }>;
+  };
   deductions: {
-    workerSocialSecurity: number;
+    itisRate: number;
     incomeTax: number;
+    workerSocialSecurityRate: number | null;
+    workerSocialSecurity: number;
+    workerSocialSecuritySource: "calculated_monthly" | "operator_confirmed_weekly";
     total: number;
+  };
+  totalsToDate: {
+    grossTaxablePay: number;
+    taxPaid: number;
+    source: "operator_confirmed";
   };
   grossTaxablePay: number;
   netPay: number;
-  itisRate: number;
+  warnings: SalaryAdviceWarningCode[];
 }
 
 export interface WorkerPayrollSummary {
   timezone: string;
   asOfDate: string;
-  currentPeriodStart: string;
-  currentPeriodMinutes: number;
-  currentPeriodShifts: number;
+  currentMonthStart: string;
+  currentMonthMinutes: number;
+  currentMonthShifts: number;
   totalCompletedMinutes: number;
   totalCompletedShifts: number;
-  lastPayDate: string;
-  nextPayDate: string;
 }
 
 export type Role = "admin" | "worker";
@@ -381,13 +286,8 @@ export async function saveWorkerPayrollProfile(input: {
   legalName: string;
   address: string;
   employeeNumber: string;
-  socialSecurityNumber?: string;
   taxReference?: string;
   socialReference?: string;
-  bankAccountName?: string;
-  bankSortCode?: string;
-  bankAccountNumber?: string;
-  itisRate: number;
 }): Promise<WorkerPayrollProfile> {
   const result = await backend.post<{ profile: WorkerPayrollProfile }>("/api/worker/payroll-profile", input, true);
   return result.profile;
@@ -402,78 +302,31 @@ export async function loadAdminPayrollSettings(): Promise<PayrollSettings | null
 }
 
 export async function saveAdminPayrollSettings(input: {
-  hourlyRate: number;
-  payFrequency: "monthly";
-  payDay: number;
   businessName: string;
   businessAddress: string;
-  businessTaxReference?: string;
-  businessSocialReference?: string;
-  workerSocialSecurityRate: number;
-  employerSocialSecurityRate: number;
 }): Promise<PayrollSettings> {
   return backend.post<PayrollSettings>("/api/admin/payroll-settings", input, true);
 }
 
-export async function loadAdminPayrollPreview(): Promise<PayrollPreview> {
-  return backend.get<PayrollPreview>("/api/admin/payroll-preview");
-}
-
-export async function loadAdminPayrollRuns(): Promise<PayrollRun[]> {
-  return backend.get<PayrollRun[]>("/api/admin/payroll-runs");
-}
-
-export async function loadAdminPayrollRunDetails(runId: string): Promise<PayrollRunDetails> {
-  return backend.get<PayrollRunDetails>(`/api/admin/payroll-runs/${encodeURIComponent(runId)}`);
-}
-
-export async function prepareAdminPayrollPayslip(runId: string, userId: string): Promise<PayrollPayslip> {
-  return backend.post<PayrollPayslip>(
-    `/api/admin/payroll-runs/${encodeURIComponent(runId)}/payslips/${encodeURIComponent(userId)}`,
-    {},
-    true,
-  );
-}
-
-export async function submitAdminPayrollRun(input?: {
-  startDate?: string;
-  endDate?: string;
-  custom?: {
-    userId: string;
-    hours: number;
-  };
-}): Promise<PayrollRun> {
-  return backend.post<PayrollRun>("/api/admin/payroll-runs", input ?? {}, true);
-}
-
-export async function reviewAdminPayrollRun(
-  runId: string,
-  decision: "approved" | "changes_requested",
-  note?: string,
-): Promise<PayrollRun> {
-  return backend.post<PayrollRun>(
-    `/api/admin/payroll-runs/${encodeURIComponent(runId)}/review`,
-    { decision, note },
-    true,
-  );
+export async function calculateAdminSalaryAdvice(input: {
+  userId: string;
+  periodType: SalaryAdvicePeriodType;
+  periodStart: string;
+  payDate: string;
+  hourlyRate: number;
+  itisRate: number;
+  workerSocialSecurityRate?: 0 | 6;
+  weeklyWorkerSocialSecurity?: number;
+  yearToDateGrossTaxablePay: number;
+  yearToDateTaxPaid: number;
+}): Promise<SalaryAdvice> {
+  return backend.post<SalaryAdvice>("/api/admin/salary-advice", input, true);
 }
 
 export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {
   return backend.post<PayrollProfileDetails>(
     `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/reveal`,
     {},
-    true,
-  );
-}
-
-export async function reviewAdminPayrollProfile(
-  userId: string,
-  decision: "approved" | "changes_requested",
-  note?: string,
-): Promise<PayrollProfile> {
-  return backend.post<PayrollProfile>(
-    `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/review`,
-    { decision, note },
     true,
   );
 }

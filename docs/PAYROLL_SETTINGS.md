@@ -1,50 +1,65 @@
-# Configuración de nómina
+# Datos base de Salary Advice
 
-La configuración pertenece a una organización y se guarda en `workforce_payroll_settings`.
+La configuración pertenece a una organización y contiene únicamente los datos reutilizables que sí
+necesita el Salary Advice. Se guarda en `workforce_salary_advice_settings`.
 
 ## Contrato administrativo
 
-- `GET /api/admin/payroll-settings`: devuelve la configuración visible para el administrador o `null` si aún no existe.
-- `POST /api/admin/payroll-settings`: guarda la configuración; requiere sesión de admin, origen permitido y `X-CSRF-Token` válido.
+- `GET /api/admin/payroll-settings`: devuelve los datos visibles para el administrador o `null` si aún no existen.
+- `POST /api/admin/payroll-settings`: guarda los datos; requiere sesión de administrador, origen permitido y `X-CSRF-Token` válido.
 
-El cuerpo de escritura contiene:
+El cuerpo de escritura vigente es:
 
 ```json
 {
-  "hourlyRate": 12.5,
-  "payFrequency": "monthly",
-  "payDay": 1,
   "businessName": "Libertys - Quayside Kitchen",
-  "businessAddress": "Jersey",
-  "businessTaxReference": "optional",
-  "businessSocialReference": "optional",
-  "workerSocialSecurityRate": 6,
-  "employerSocialSecurityRate": 6.5
+  "businessAddress": "Jersey"
 }
 ```
 
-La tarifa se persiste en peniques y los porcentajes en puntos básicos. El día de pago se limita a 1–28 para que sea válido en todos los meses. Las referencias fiscales del negocio se cifran con la clave existente `PAYROLL_ENCRYPTION_KEY`; la respuesta nunca devuelve sus valores completos. Los campos opcionales en blanco conservan el valor cifrado existente.
+- `businessName` y `businessAddress` identifican al empleador en el PDF.
+- Cada actualización registra `salary_advice.settings.updated` sin referencias fiscales ni datos bancarios.
 
-Cada actualización registra `payroll.settings.updated` en la auditoría sin incluir referencias fiscales ni otros secretos. El resumen del trabajador utiliza el día configurado para calcular el inicio del periodo y la próxima fecha de pago; si no existe configuración, mantiene el valor seguro por defecto del día 1.
+El endpoint rechaza campos ajenos al contrato. En particular, ya no acepta una tarifa horaria global,
+frecuencia o día de pago, tasas de Social Security, Social Security del empleador, coste del empleador,
+Business Tax Reference ni Business Social Reference.
 
-## Reutilización en nómina
+## Datos elegidos para cada documento
 
-La interfaz denomina `Standard hourly rate (£)` al campo `hourlyRate`. Es obligatorio porque es la
-fuente de verdad tanto para la nómina automática basada en jornadas como para una nómina
-personalizada en la que el administrador solo selecciona trabajador e introduce horas. Nombre y
-dirección del negocio, frecuencia, día de pago y porcentajes de Social Security se reutilizan de
-la misma configuración; no deben volver a escribirse al preparar cada Salary Advice.
+La tarifa horaria no es configuración del negocio. El administrador la introduce al preparar cada
+Salary Advice y se usa únicamente en ese cálculo; no se guarda como tarifa estándar.
 
-## Migración y rollback
+La frecuencia tampoco se guarda aquí. En cada documento el administrador elige:
 
-- Migración: `cloudflare/migrations/0007_payroll_settings.sql`.
-- Antes de aplicarla en producción se debe crear y verificar un backup D1 reciente.
-- Rollback manual, solo con aprobación explícita y después de verificar el backup:
+- un empleado;
+- `weekly`, con una semana completa de lunes a domingo; o
+- `monthly`, con un mes calendario completo;
+- el periodo concreto, la fecha de pago y la tarifa horaria del documento;
+- `itisRate`, la tasa ITIS confirmada para ese advice desde el aviso aplicable;
+- para `monthly`, `workerSocialSecurityRate` con el único valor 6 (estándar) o 0 (exento), según la tarjeta/aviso confirmado;
+- para `weekly`, el importe `weeklyWorkerSocialSecurity` confirmado por el operador según el
+  acumulado mensual del empleado o el aviso oficial;
+- `yearToDateGrossTaxablePay` y `yearToDateTaxPaid`, acumulados confirmados e inclusivos del documento actual.
 
-```sql
-DROP INDEX IF EXISTS workforce_payroll_settings_updated_idx;
-DROP TABLE workforce_payroll_settings;
-```
+ITIS y Social Security no se toman del perfil del trabajador ni de una configuración global. La
+aplicación tampoco tiene un ledger que permita derivar automáticamente Social Security semanal o
+`Totals to Date`: son valores confirmados por el operador para el documento.
 
-El rollback elimina únicamente la configuración de nómina de la organización; no modifica perfiles de trabajadores ni turnos.
+El cálculo solo se habilita cuando existen los datos base del negocio. Los detalles de periodo y
+fórmulas están en [PAYROLL_CALCULATIONS.md](PAYROLL_CALCULATIONS.md).
 
+## Persistencia limpia y compatibilidad histórica
+
+La migración aditiva `cloudflare/migrations/0010_salary_advice_contract.sql` crea la tabla activa con
+solo `business_name`, `business_address`, fecha y actor de actualización, y copia la identidad desde
+`workforce_payroll_settings`. La aplicación ya no escribe valores inertes en las columnas heredadas.
+
+La tabla histórica de `0007` queda intacta para evitar una eliminación destructiva, pero no participa
+en lecturas ni escrituras activas. Antes de aplicar `0010` en producción se exige backup verificado,
+preflight, rollback revisado y autorización explícita. El rollback elimina únicamente las tablas e
+índices nuevos después de exportar cualquier escritura que solo exista en ellos.
+
+## Sin aprobación ni pago
+
+Guardar estos datos no crea una nómina, no aprueba un cálculo y no inicia un pago. Solo habilita la
+identidad del empleador que aparecerá en el documento. El flujo activo no solicita ni usa datos bancarios.

@@ -4,9 +4,29 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
-## Fase 7: Payroll, historial administrativo y experiencia móvil (Completada y desplegada)
+## Fase 8: Corrección del Salary Advice y distribución PWA (Completada y desplegada)
 
-> Estado: el perfil, configuración, preview, revisión/aprobación y Salary Advice final están desplegados en Worker/Vercel con D1 `0008/0009`; no se ejecutan transferencias automáticas.
+> Decisión del operador, 30 de agosto de 2026: el workflow “Review and approve payroll”, el preview automático global, la tarifa estándar del negocio y la configuración patronal/fiscal señalada fueron inferencias incorrectas. Las referencias de la Fase 7 se conservan solo como historial de lo que llegó a existir; esta fase define el comportamiento vigente y las sustituye.
+
+- [x] **Tarea 8.1 (Auditoría y alcance)**: Contrastar capturas, código, contratos, documentos, pruebas y grafo; identificar todas las dependencias del flujo alucinado y fijar las reglas canónicas sin desplegar ni modificar producción.
+- [x] **Tarea 8.2 (DDD y estrategia de producto)**: Corregir `BRIEF.md`, `STACK.md` y este roadmap. Quedan fuera revisión/aprobación de nómina, “payment ready”, preview automático de toda la plantilla, tarifa global, coste/cotización patronal, referencias fiscal/social del negocio, acumulados inventados y APK nativo.
+- [x] **Tarea 8.3 (Contrato backend)**: Sustituir los contratos activos de preview/runs/review por un cálculo explícito para un trabajador y un periodo; aceptar semanal lunes–domingo o mensual por mes calendario; validar fechas y tarifa del recibo; usar solo turnos completados del trabajador seleccionado; no exigir aprobación del perfil para calcular.
+- [x] **Tarea 8.4 (Cálculo Jersey)**: Calcular horas, bruto, ITIS, seguridad social del trabajador y neto con reglas 2026 documentadas y aritmética en enteros. No calcular ni devolver Employer Social Security/Employer Cost. Tratar el resultado como estimación verificable, no como presentación fiscal.
+- [x] **Tarea 8.5 (Configuración y privacidad)**: Reducir la configuración visible a nombre/dirección del negocio; confirmar Social Security del trabajador en cada documento (6%/0% mensual o importe semanal reconciliado); retirar tarifa/frecuencia/día de pago, Employer Social Security y referencias del negocio del UI y contrato activo. Preservar cifrado y datos históricos con la migración aditiva `0010`, sin limpieza destructiva.
+- [x] **Tarea 8.6 (Experiencia de cálculo)**: Reemplazar `Automatic payroll preview`, `Create for review` y `Review and approve payroll` por una sola sección que permita elegir empleado, semanal/mensual, semana o mes, fecha de pago y tarifa aplicable únicamente a ese Salary Advice. El cálculo solo muestra al empleado y periodo elegidos.
+- [x] **Tarea 8.7 (PDF Salary Advice)**: Descargar directamente un PDF inspirado en la referencia: Allowances, Hours, Amount, Deductions, totales del recibo, identidad del trabajador/negocio y Net Pay. Prohibido incluir cotización patronal, referencias del negocio, banco, aprobación o acumulados no disponibles.
+- [x] **Tarea 8.8 (Perfiles sin aprobación de nómina)**: Retirar de la UI y del camino de exportación los estados/acciones de aprobación del perfil fiscal; conservar validación, cifrado, enmascarado, autorización y auditoría de acceso. Las aprobaciones de acceso/OAuth no cambian.
+- [x] **Tarea 8.9 (Instalación Android/PWA)**: Añadir en el panel compartido de cada usuario una acción para instalar la PWA en Android, manejar `beforeinstallprompt`, instalación completada, rechazo y fallback guiado; aportar iconos raster 192/512 y no presentarlo como descarga de APK.
+- [x] **Tarea 8.10 (i18n y accesibilidad)**: Incorporar ES/EN/PT, teclado, foco, contraste y viewport 390×844; eliminar textos heredados de approval/review/monthly-only de las vistas activas.
+- [x] **Tarea 8.11 (Pruebas y artefacto visual)**: Cubrir backend, seguridad/CSRF/roles, límites de periodo, selector sin mezcla de trabajadores, PDF real y exclusiones negativas, instalación PWA y regresión E2E. Renderizar el PDF de muestra e inspeccionarlo visualmente.
+- [x] **Tarea 8.12 (Autocrítica y Graphify)**: Ejecutados los sombreros funcional, seguridad, rendimiento, QA y simplicidad; corregidos el falso positivo visual de Unifont WOFF2 y el contrato obsoleto del monitor; gate reproducible aprobado; documentación/release y Graphify 0.9.53 actualizados.
+- [x] **Tarea 8.13 (Corte productivo autorizado)**: Preflight D1 limpio, bookmark Time Travel remoto, migración aditiva `0010`, verificación de copia/integridad, Worker `6c551bca-3a7c-4a98-a019-23538c9e379f` y Vercel `dpl_CfgtC97pgeFRD2EkJtVuk46F1FDf` desplegados. Candidato protegido, assets críticos y monitor público 10/10 aprobados; rollback Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` y Vercel `dpl_9w53QSuwsVAiTm5mzgw9UBFfzhcp` conservados. No se exportó PII ni se ejecutaron cálculos autenticados sintéticos.
+
+---
+
+## Fase 7: Payroll, historial administrativo y experiencia móvil (Histórica; alcance de nómina sustituido por Fase 8)
+
+> Estado histórico: el perfil, configuración, preview, revisión/aprobación y Salary Advice llegaron a desplegarse con D1 `0008/0009`. El operador rechazó ese diseño el 30 de agosto de 2026; no es el comportamiento objetivo vigente.
 
 - [x] Guardar y mostrar el historial de solicitudes de acceso, migración y restablecimiento, incluyendo aprobadas, rechazadas, motivo, administrador y fecha. Validado con typecheck/build y despliegue del Worker y Vercel.
 - [x] Permitir que los trabajadores aprobados indiquen su porcentaje de ITIS (impuestos/tax rate), con validación y control administrativo. Validado en UI móvil, typecheck/build/lint y despliegue de Worker/Vercel.
@@ -44,10 +64,10 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] **Tarea O.17 (Confirmación fiable de clock-in y nómina manual) — DESPLEGADA**: El clock-in productivo de Luis se confirmó por consulta de solo lectura, sin modificarlo. La UI ahora reconcilia el fichaje con el servidor, la PWA no cachea APIs y el administrador puede preparar un snapshot personalizado con trabajador+horas reutilizando configuración y perfil aprobados. Commit `d490710`, Verify `33264186422`, monitor `33264327193`, ambos checks Vercel y Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` aprobaron. Smoke 5/5; D1 final `rows_written: 0`, Luis continúa `working` y no se crearon runs. Release/rollback: `docs/RELEASE-2026-08-29-clock-in-custom-payroll.md`.
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 7 — Payroll, QA de datos y jornadas administrativas (COMPLETADA Y DESPLEGADA)
-- **Mantenimiento actual**: sin tareas operativas abiertas; O.14 y O.15 quedaron desplegadas y verificadas.
+- **Fase Actual**: Fase 8 — corrección del Salary Advice y distribución PWA (COMPLETADA Y DESPLEGADA)
+- **Mantenimiento actual**: observar el monitor 10/10, conservar los IDs de rollback y no eliminar las tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
 - **Seguimiento separado**: Fase 6 completada y validada en staging y producción; el administrador puede seguir usando credenciales locales y no necesita una identidad Google.
-- **Última Actualización**: 29 de Agosto de 2026
+- **Última Actualización**: 30 de Agosto de 2026
 
 ---
 

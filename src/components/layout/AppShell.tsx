@@ -4,12 +4,14 @@ import { HardHat, LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { homeOf, signOutAndRedirect, type AppRole } from "@/hooks/useRequireRole";
+import { PwaInstallAction } from "@/components/PwaInstallAction";
+import { useI18n } from "@/lib/useI18n";
 
 const MANAGER_NAV = [
-  { to: "/managers", label: "Overview" },
-  { to: "/statements", label: "Statements" },
-  { to: "/storage", label: "Storage" },
-  { to: "/invite", label: "Invite" },
+  { to: "/managers", labelKey: "overview" as const },
+  { to: "/statements", labelKey: "statements" as const },
+  { to: "/storage", labelKey: "storage" as const },
+  { to: "/invite", labelKey: "invite" as const },
 ];
 
 interface AppShellProps {
@@ -29,6 +31,7 @@ interface AppShellProps {
  * Managers get section tabs; builders get a single-screen shell.
  */
 export function AppShell({ role, fullName, eyebrow, live = false, onSignOut, children }: AppShellProps) {
+  const { t } = useI18n();
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
@@ -37,19 +40,19 @@ export function AppShell({ role, fullName, eyebrow, live = false, onSignOut, chi
             <Link
               to={homeOf(role)}
               className={cn("rounded-md p-1.5 transition-colors", live ? "bg-brand" : "bg-primary")}
-              aria-label="Home"
+              aria-label={t("home")}
             >
               <HardHat className={cn("h-[18px] w-[18px]", live ? "text-brand-foreground" : "text-primary-foreground")} strokeWidth={1.75} />
             </Link>
             <div className="min-w-0">
-              <p className="label-eyebrow font-mono">{eyebrow ?? role}</p>
-              <p className="truncate text-[15px] font-semibold leading-tight">{fullName || "BuildTrack Pro"}</p>
+              <p className="label-eyebrow font-mono">{eyebrow ?? t(role === "manager" ? "managerRole" : "builderRole")}</p>
+              <p className="truncate text-[15px] font-semibold leading-tight">{fullName || t("appTitle")}</p>
             </div>
           </div>
 
           {role === "manager" && (
-            <nav aria-label="Sections" className="hidden md:flex items-center gap-1">
-              {MANAGER_NAV.map(({ to, label }) => (
+            <nav aria-label={t("sections")} className="hidden md:flex items-center gap-1">
+              {MANAGER_NAV.map(({ to, labelKey }) => (
                 <NavLink
                   key={to}
                   to={to}
@@ -60,22 +63,27 @@ export function AppShell({ role, fullName, eyebrow, live = false, onSignOut, chi
                     )
                   }
                 >
-                  {label}
+                  {t(labelKey)}
                 </NavLink>
               ))}
             </nav>
           )}
 
-          <Button variant="outline" size="sm" onClick={onSignOut ?? signOutAndRedirect}>
+          <div className="hidden sm:block"><PwaInstallAction /></div>
+          <Button variant="outline" size="sm" onClick={onSignOut ?? signOutAndRedirect} aria-label={t("signOut")}>
             <LogOut strokeWidth={1.75} />
-            <span className="hidden sm:inline">Sign out</span>
+            <span className="hidden sm:inline">{t("signOut")}</span>
           </Button>
+        </div>
+
+        <div className="container mx-auto px-4 pb-2 sm:hidden">
+          <PwaInstallAction />
         </div>
 
         {/* Same nav as a scrollable row on small screens */}
         {role === "manager" && (
-          <nav aria-label="Sections" className="container mx-auto flex gap-1 overflow-x-auto px-4 pb-2 md:hidden">
-            {MANAGER_NAV.map(({ to, label }) => (
+          <nav aria-label={t("sections")} className="container mx-auto flex gap-1 overflow-x-auto px-4 pb-2 md:hidden">
+            {MANAGER_NAV.map(({ to, labelKey }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -86,7 +94,7 @@ export function AppShell({ role, fullName, eyebrow, live = false, onSignOut, chi
                   )
                 }
               >
-                {label}
+                {t(labelKey)}
               </NavLink>
             ))}
           </nav>
@@ -100,9 +108,10 @@ export function AppShell({ role, fullName, eyebrow, live = false, onSignOut, chi
 
 /** Full-screen spinner used while the session guard resolves. */
 export function PageLoader() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-label="Loading" />
+      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" aria-label={t("loading")} />
     </div>
   );
 }

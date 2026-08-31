@@ -1,68 +1,112 @@
-# Exportación final de Salary Advice
+# Descarga de Salary Advice en PDF
 
 ## Fuente de verdad
 
-El documento final se genera únicamente desde un `workforce_payroll_run` con estado `approved` y su línea inmutable en `workforce_payroll_run_lines`. El navegador no recalcula bruto, ITIS, Social Security ni neto, y no permite editar esos importes.
+El administrador selecciona un empleado y periodo, introduce una tarifa y confirma ITIS, Social
+Security y `Totals to Date` para el documento. El servidor calcula los importes desde los turnos
+completos del intervalo y devuelve el resultado de
+`POST /api/admin/salary-advice`. El navegador no vuelve a calcular bruto, ITIS, Social Security ni neto:
+usa esa respuesta para construir el PDF.
 
-- Snapshot aprobado: periodo, fecha de pago, turnos, minutos netos, tasa ITIS e importes en peniques.
-- Perfil cifrado vigente: nombre legal, dirección, Tax Reference (ITIS) y Social Security Number.
-- Configuración vigente: nombre y dirección del negocio.
+No existe `payroll run`, snapshot aprobado o estado de pago. La identidad y los turnos son los datos
+vigentes en el momento de cada cálculo.
 
-Las referencias y la identidad no se duplican en el snapshot para evitar otra copia de datos sensibles. Si cambian después de la aprobación, el documento usa el perfil vigente; los importes financieros permanecen bloqueados en el snapshot.
+## Descarga directa
 
-## Contrato API
+El PDF se genera en el navegador con `pdf-lib` en A4 horizontal y con texto seleccionable.
+Se crea un `Blob` de tipo `application/pdf` y un enlace temporal con el atributo `download`; la acción
+descarga el archivo directamente y después revoca la URL temporal.
 
-- `GET /api/admin/payroll-runs/:runId`: detalle del snapshot y líneas de trabajadores, sin referencias fiscales descifradas.
-- `POST /api/admin/payroll-runs/:runId/payslips/:userId`: prepara un único Salary Advice final. Requiere sesión admin, origen permitido y CSRF; solo acepta un run `approved` y una línea perteneciente a ese run.
-- La respuesta incluye únicamente los datos necesarios para el documento. Excluye número completo de Social Security y datos bancarios.
-- Cada preparación registra `payroll.payslip.generated` con run, periodo y trabajador, sin importes ni referencias en metadata.
+No se abre popup, vista de impresión ni diálogo de aprobación. El nombre sigue este patrón:
 
-Errores esperados:
+```text
+salary-advice_<employee-number>_<period-start>_<period-end>.pdf
+```
 
-- `404 NOT_FOUND`: run, línea o perfil inexistente.
-- `409 PAYROLL_RUN_NOT_APPROVED`: el snapshot todavía no está aprobado.
-- `409 PAYROLL_PROFILE_INCOMPLETE`: faltan Tax Reference (ITIS), Social Security Number o identidad necesaria.
+El número de empleado se normaliza para el nombre de archivo y no se incluye el nombre legal ni una
+referencia fiscal en él.
 
-## Interfaz y documento
+El documento normal ocupa una página. Si una identidad válida no cabe en el bloque de la referencia,
+se añade una segunda página con los valores completos: nunca se sustituyen por puntos suspensivos ni
+se recortan silenciosamente. Todas las páginas llevan el sello `ESTIMATE`. La ruta habitual usa la
+fuente PDF estándar; solo cuando una identidad queda fuera de WinAnsi se cargan de forma diferida
+Archivo y GNU Unifont Latin WOFF desde assets del mismo origen y precacheados por la PWA. Los glifos
+compatibles se preservan exactamente, sin transliteración.
 
-Se conserva el sistema visual “site office” definido en `STACK.md`:
+`pdf-lib`/fontkit no ofrece shaping suficiente para garantizar identidades legales en escrituras
+complejas o bidireccionales. Esos textos, un fallo al cargar las fuentes o cualquier glifo ausente
+bloquean la generación antes de crear/descargar el archivo y presentan un error específico; nunca se
+entrega una identidad visualmente alterada.
 
-- Paleta: bone/charcoal para lectura documental y ámbar solo como señal de control.
-- Tipografía: Archivo para texto y JetBrains Mono para identificadores e importes.
-- Layout: el historial de runs funciona como un archivador; cada run aprobado abre su roster bloqueado y desde ahí se prepara un documento por trabajador.
-- Elemento firma: banda `Approved · locked snapshot` con ID de run y cifras monoespaciadas.
+La prueba del camino Unicode comprueba tanto extracción exacta del texto como píxeles de tres regiones
+dinámicas del PDF renderizado. Este segundo control evita aceptar fuentes que conserven el mapa de
+texto interno pero dibujen los glifos en blanco.
 
-El Salary Advice muestra Allowances, horas, deducciones, Net Pay, Gross Taxable Pay, Tax Paid, Tax Reference (ITIS) y Social Security Number. No afirma que la nómina o la transferencia esté `Paid`, no inicia transferencias y aclara que la aprobación confirma el cálculo, no el movimiento bancario.
+## Campos incluidos
 
-Cuando el snapshot se creó con horas introducidas por el administrador, Allowances muestra
-`Basic pay · custom hours` y la cantidad de horas guardada. El resto del documento mantiene el
-mismo contrato: importes tomados del snapshot aprobado y datos vigentes del trabajador y del
-empleador, sin recalcular en el navegador.
+El PDF contiene únicamente datos del documento actual:
 
-## Estrategia de pruebas
+- título `Salary Advice`;
+- sello `ESTIMATE` y aviso de que es un documento informativo;
+- nombre y dirección del empleador;
+- inicio y fin del periodo, fecha de pago y frecuencia semanal o mensual;
+- `Allowances`: `Basic Hourly Pay`, cantidad de turnos completos, tarifa por hora, horas e importe;
+- `Deductions`: tasa e importe de Income Tax / ITIS e importe de Employee Social Security; en mensual
+  se aplica la selección confirmada de 6% estándar o 0% exento y en semanal se usa el importe confirmado por el operador;
+- Gross total y Total deductions;
+- número, nombre legal y dirección del empleado;
+- Tax Ref y Social Ref del empleado;
+- bloque `This advice` con Net Pay del periodo actual;
+- bloque `Totals to Date` con Gross Taxable Pay y Tax Paid confirmados e inclusivos del documento actual;
+- advertencia sobre el origen confirmado del Social Security cuando el periodo es semanal.
 
-- Contrato: run pendiente rechazado; run aprobado devuelve exactamente su línea; usuario ajeno al run devuelve 404; POST exige CSRF.
-- Seguridad: trabajador sin controles; datos HTML escapados; sin Social Security completo ni banco; sin rutas de pago/transferencia.
-- Finanzas: peniques a libras sin recalcular, total de deducciones coherente y documento con valores exactos del snapshot.
-- UI: preparación intencional, popup final, contenido A4 y viewport móvil sin overflow de página.
+`Totals to Date` no se deriva de un ledger ni se inventa a partir de datos incompletos. El PDF copia
+`yearToDateGrossTaxablePay` y `yearToDateTaxPaid`, confirmados por el operador e inclusivos del
+documento actual. La respuesta conserva su procedencia en `totalsToDate.source`; también declara el
+origen de la deducción en `deductions.workerSocialSecuritySource` como `calculated_monthly` u
+`operator_confirmed_weekly`.
 
-No se ejecutan pruebas de carga contra producción. El payload es pequeño y acotado a un trabajador; el riesgo relevante es contrato/seguridad, no throughput.
+## Campos y afirmaciones excluidos
 
-## Implementación local y autocrítica
+El PDF no contiene:
 
-Estado al 25 de agosto de 2026: implementación local lista, todavía no desplegada.
+- Employer Social Security ni employer cost;
+- Business Tax Reference ni Business Social Reference;
+- datos bancarios, `Bacs` o instrucciones de transferencia; el flujo activo no solicita datos bancarios;
+- el campo separado `socialSecurityNumber`; solo usa el `Social Ref` necesario para el formato;
+- acumulados calculados o inferidos por la aplicación;
+- estados `pending_review`, `approved`, `changes_requested` o `Payment ready`;
+- ID de run, firma de aprobación, fecha de aprobación o nota de revisión;
+- afirmaciones de que el salario fue pagado o presentado oficialmente.
 
-- Corrección financiera: `grossPay`, ITIS, Social Security y `netPay` salen de la línea guardada en peniques; el navegador solo presenta los valores. La preparación se bloquea con `PAYROLL_RUN_NOT_APPROVED` si el run no está aprobado.
-- Seguridad: ambas rutas requieren admin y permanecen acotadas a la organización; el POST exige origen permitido, sesión y CSRF. La respuesta no contiene Social Security Number completo ni datos bancarios, usa `Cache-Control: no-store`, y la auditoría guarda únicamente run, periodo y trabajador.
-- Inyección: nombre, dirección, referencias, ID de run y descripciones se escapan antes de escribir el HTML del popup. El documento no carga recursos externos ni ejecuta scripts embebidos.
-- UX: se eliminó el flujo anterior de importes manuales. La preparación asíncrona y la impresión son acciones separadas para que `window.open` ocurra directamente desde el clic del administrador y no sea bloqueado por el navegador.
+Generar o descargar el documento no aprueba nada y no inicia un pago.
 
-Las operaciones de revelado de identidad y preparación de Salary Advice están protegidas por
-límites por administrador; consulta `docs/RATE_LIMITING.md` para la política y configuración por
-entorno.
-- QA Nivel 3: Playwright valida snapshot pendiente sin acción de documento, snapshot aprobado, cifras exactas, campos obligatorios, escape de HTML, ausencia de rutas de transferencia, separación de rol y viewport 390x844. La API de la suite es simulada; el contrato del Worker se valida además por TypeScript y bundle dry-run, y requerirá smoke autenticado después de un despliegue autorizado.
+## Privacidad y controles
 
-No se detectaron hallazgos críticos. Como defensa en profundidad no bloqueante se implementó la
-Tarea O.6 en `tasks.md` para limitar el abuso repetitivo de las operaciones privilegiadas de
-descifrado/preparación; su smoke HTTP local de límite `429` y recuperación quedó validado el 26 de
-agosto de 2026. El despliegue de estas variables aún requiere autorización.
+- El cálculo exige rol de administrador y queda acotado a la organización autenticada.
+- El `POST` exige origen permitido y CSRF válido, y está sujeto a límite de tasa.
+- La respuesta de API usa `Cache-Control: no-store`.
+- El servidor registra el evento de cálculo sin importes ni referencias fiscales en la metadata.
+- El PDF no se almacena en el servidor; queda bajo control del navegador y del dispositivo que lo descarga.
+
+Aunque el PDF excluye datos bancarios, sí contiene identidad y referencias del empleado. Debe tratarse
+como un documento sensible y no compartirse fuera de los destinatarios autorizados.
+
+## Verificación esperada
+
+- La acción produce un evento de descarga, no un popup.
+- El archivo comienza con la firma `%PDF`, usa el nombre esperado y muestra `ESTIMATE` en cada página.
+- Periodo semanal: lunes a domingo; periodo mensual: primer a último día del mes.
+- En semanal falta `weeklyWorkerSocialSecurity` → el cálculo se rechaza; si está presente, el PDF usa
+  exactamente ese importe sin calcularlo desde una semana aislada.
+- En mensual no se solicita el importe semanal y se aplican 6% estándar o 0% exento, redondeo y SEL mensuales.
+- ITIS usa `itisRate`, confirmado para el advice, y no un valor guardado por el trabajador.
+- `yearToDateGrossTaxablePay` y `yearToDateTaxPaid` aparecen exactamente como entradas confirmadas e
+  inclusivas del documento; no se derivan.
+- Importes exactos a dos decimales y `gross - deductions = net`.
+- El texto requerido está presente y los campos excluidos no aparecen.
+- Identidades largas válidas aparecen completas en una página de continuación; Unicode compatible se
+  conserva exactamente y un glifo o layout complejo no soportado bloquea la descarga en vez de
+  producir `?`, alterar el orden visual o truncar una identidad.
+- La descarga funciona en viewport móvil sin introducir scroll horizontal en la página.
+- No se invoca ninguna ruta de revisión, aprobación, pago o transferencia.

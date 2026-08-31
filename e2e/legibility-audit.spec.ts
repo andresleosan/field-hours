@@ -18,7 +18,7 @@ for (const viewport of viewports) {
     await expectKeyboardFocusVisible(page, testInfo, `admin-live-${viewport.name}`);
 
     await page.getByRole("button", { name: "History & Reports", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Automatic payroll preview" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Shift History & Reports" })).toBeVisible();
     await expectLegiblePage(page, testInfo, `admin-history-${viewport.name}`);
 
     await page.getByRole("button", { name: "Add workday", exact: true }).click();
@@ -34,6 +34,10 @@ for (const viewport of viewports) {
     await expect(page.getByRole("dialog", { name: "Adjust shift times" })).toBeVisible();
     await expectLegiblePage(page, testInfo, `admin-adjust-dialog-${viewport.name}`);
     await page.getByRole("dialog", { name: "Adjust shift times" }).getByRole("button", { name: "Close" }).click();
+
+    await page.getByRole("button", { name: "Salary Advice", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `admin-salary-advice-${viewport.name}`);
 
     await page.getByRole("button", { name: "Projects & Sites", exact: true }).click();
     await expectLegiblePage(page, testInfo, `admin-projects-${viewport.name}`);
@@ -59,11 +63,20 @@ for (const viewport of viewports) {
   });
 }
 
-test("admin payroll error state remains legible", async ({ context, page }, testInfo) => {
+test("admin Salary Advice error state remains legible", async ({ context, page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await installAdminApi(context, { payrollPreviewError: true });
+  await installAdminApi(context, { salaryAdviceError: true });
   await page.goto("/");
-  await page.getByRole("button", { name: "History & Reports", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("Configure payroll settings");
-  await expectLegiblePage(page, testInfo, "admin-payroll-error-desktop");
+  await page.getByRole("button", { name: "Salary Advice", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
+  await page.getByRole("button", { name: "Monthly", exact: true }).click();
+  await page.getByRole("combobox", { name: "Calendar month" }).selectOption("2026-08-01");
+  await page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" }).fill("5");
+  await page.getByRole("spinbutton", { name: "Confirmed ITIS for this document (%)" }).fill("15");
+  await page.getByRole("button", { name: /Standard.*6%/i }).click();
+  await page.getByRole("spinbutton", { name: "Gross taxable pay to date (£)" }).fill("17928.50");
+  await page.getByRole("spinbutton", { name: "ITIS paid to date (£)" }).fill("2554.08");
+  await page.getByRole("button", { name: "Calculate and download PDF" }).click();
+  await expect(page.getByRole("alert")).toContainText("Salary Advice could not be calculated for the selected period.");
+  await expectLegiblePage(page, testInfo, "admin-salary-advice-error-desktop");
 });

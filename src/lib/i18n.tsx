@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { I18nContext } from "./i18nContext";
 import { translations, type Language, type Translations } from "./i18n.constants";
 
@@ -15,6 +15,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLangState(newLang);
     localStorage.setItem("fh_lang", newLang);
   };
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const t = (key: keyof Translations): string => {
     return translations[lang]?.[key] || translations.es[key] || key;

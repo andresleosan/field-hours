@@ -22,7 +22,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 ## Frontend
 
 - Tecnología: React 18, TypeScript 5, Vite 8, React Router 7, TanStack Query, Tailwind CSS, shadcn/ui y Radix UI.
-- PWA: `manifest.webmanifest`, service worker propio y cola offline en `localStorage`.
+- PWA: `manifest.webmanifest`, service worker propio, cola offline en `localStorage` y acción de instalación reutilizable basada en `beforeinstallprompt`, con alternativa guiada cuando el navegador no expone el evento. El build inyecta en el service worker todos los assets con hash, los precarga para el primer relanzamiento offline y purga hashes retirados; un miss de JS/CSS nunca usa HTML como fallback.
 - Por qué: es el stack heredado y operativo del producto; permite una SPA responsive y módulos cargados de forma diferida.
 
 ## Identidad visual
@@ -38,14 +38,14 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 - Tecnología principal: Cloudflare Workers en TypeScript para autenticación, fichaje, proyectos, historial, nómina y auditoría.
 - Subsistema heredado: Supabase JS para módulos BuildTrack y sus flujos de datos/realtime.
-- Contratos: API HTTP bajo `/api`, sesiones seguras por cookie, CSRF para escrituras y autorización por rol/organización.
+- Contratos: API HTTP bajo `/api`, sesiones seguras por cookie, CSRF para escrituras y autorización por rol/organización. El contrato activo de Salary Advice calcula una selección explícita trabajador+periodo y devuelve datos documentales; no crea payroll runs ni estados de aprobación.
 - Por qué: documenta la arquitectura híbrida actualmente desplegada; no propone una migración de proveedor en esta fase.
 
 ## Base de datos
 
 - Cloudflare D1/SQLite: fuente de datos del módulo workforce/payroll y sus migraciones versionadas en `cloudflare/migrations/`.
 - Supabase/PostgreSQL: fuente de datos de los módulos BuildTrack; migraciones en `supabase/migrations/`.
-- Estado: `0008_payroll_runs.sql` y `0009_worker_flexibility.sql` están aplicadas en D1 remoto; no quedan migraciones pendientes.
+- Estado: `0008_payroll_runs.sql` y `0009_worker_flexibility.sql` permanecen como historial del producto; el flujo de payroll runs está retirado del contrato activo. `0010_salary_advice_contract.sql` fue aplicada y verificada en D1 productiva el 30 de agosto de 2026: crea almacenamiento limpio `workforce_salary_advice_*`, copió únicamente identidades completas de workers activos, exige una membership válida organización+usuario, normaliza el identificador del empleado a ASCII mayúsculo y deja intactas las tablas históricas.
 - Regla: toda migración lleva rollback; las destructivas requieren además backup verificado y autorización explícita.
 
 ## Hosting / Despliegue
@@ -53,8 +53,8 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Frontend: Vercel.
 - API: Cloudflare Workers.
 - Datos: Cloudflare D1 y Supabase.
-- CI/CD: `.github/workflows/ci.yml` ejecuta `npm run verify` en push/PR; Vercel se despliega asociado al repositorio y el Worker se opera con Wrangler.
-- Monitoreo operativo: GitHub Actions ejecutará comprobaciones HTTP de solo lectura sobre frontend, health directo/proxy, rutas protegidas y cabeceras de seguridad; una única incidencia deduplicada se abrirá durante una falla y se cerrará al recuperarse.
+- CI/CD: `.github/workflows/ci.yml` ejecuta `npm run verify` en push/PR; Vercel está asociado al repositorio y también admite el corte manual controlado con CLI fijado, candidato protegido y promoción posterior. El Worker se opera con Wrangler 4.127.1.
+- Monitoreo operativo: GitHub Actions ejecuta comprobaciones sin sesión sobre frontend, PWA, health directo/proxy, Salary Advice protegido, ruta de review retirada y cabeceras de seguridad; una única incidencia deduplicada se abre durante una falla y se cierra al recuperarse.
 - Recuperación D1: un ensayo automatizado aplicará migraciones y datos sintéticos a una D1 local, exportará el SQL, lo importará en otra D1 local aislada y comparará esquema, conteos e integridad referencial. Producción no es destino de la prueba; Time Travel solo se consulta para confirmar un bookmark vigente.
 - Gate: no desplegar ni migrar para “probar”; primero seguridad, E2E limpio, backup/rollback y confirmación del operador.
 
@@ -65,7 +65,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Ruta elegida: Playwright Test CLI con fixtures y datos sintéticos, sin cuentas ni escrituras de producción.
 - Ubicación de la suite E2E: `e2e/`; runner reproducible en `scripts/run-playwright.mjs` y scripts `test:e2e*` en `package.json`.
 - Reportes: `qa/reports/` y artefactos de Playwright, no versionados.
-- Última corrida: 16/16 pruebas aprobadas en Chromium; cubren nómina/Salary Advice, separación de roles, CSRF, flexibilidad de jornada y auditoría de contraste/foco/nombres accesibles/overflow para admin y trabajador en escritorio y móvil, sin tráfico externo.
+- Última corrida: 23/23 pruebas aprobadas en Chromium; cubren Salary Advice/PDF sin aprobación, selección y bloqueo de estado, instalación PWA, separación de roles, CSRF, flexibilidad de jornada y auditoría de contraste/foco/nombres accesibles/overflow para admin y trabajador en escritorio y móvil, sin tráfico externo. El mismo gate aprobó 34/34 pruebas Worker, 6/6 PDF con extracción y render visual, 4/4 operaciones, restauración D1 sintética y auditoría npm sin vulnerabilidades.
 - Matriz crítica: la auditoría integral de legibilidad se ejecuta además en Chromium, Firefox y WebKit mediante `npm run test:e2e:cross-browser`; no reemplaza el gate completo de Chromium.
 
 ## Integraciones externas
@@ -76,6 +76,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Supabase Auth/Database/Storage/Realtime.
 - OpenStreetMap mediante enlaces/recursos permitidos por CSP.
 - SheetJS CE 0.20.3 (`xlsx` desde el tarball oficial con integridad fijada en el lockfile) para importación/exportación local de hojas de cálculo.
+- `pdf-lib` + `@pdf-lib/fontkit` para generar en el navegador un PDF descargable y determinista, sin popup de impresión ni dependencia de un servicio externo. La ruta común usa Helvetica; las identidades Unicode compatibles cargan de forma diferida Archivo y GNU Unifont Latin WOFF desde los assets del mismo build/PWA. Se conserva WOFF porque el renderer PDF probado extraía WOFF2 pero dejaba los glifos visualmente en blanco.
 
 ## Costo
 
@@ -108,8 +109,8 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Estilo: TypeScript estricto, componentes funcionales React, imports por alias `@/`, ESLint y utilidades Tailwind.
 - Estructura: `src/` para SPA, `cloudflare/src/` para Worker, migraciones separadas por proveedor, `docs/` para decisiones y releases.
 - Nomenclatura: componentes React en PascalCase; funciones/variables en camelCase; migraciones con prefijo numérico; endpoints REST bajo `/api`.
-- Idioma: interfaz actualmente mayormente en inglés con soporte i18n; documentación de Cronos en español.
+- Idioma: interfaz con cadenas operativas ES/EN/PT; documentación de Cronos en español.
 
 ## Estado de este documento
 
-Reconstruido y confirmado por el operador el 25 de agosto de 2026. Actualizado ese mismo día después de cerrar la infraestructura E2E y la remediación de dependencias.
+Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados; los IDs y la estrategia conservadora de rollback están en la release de la fase.

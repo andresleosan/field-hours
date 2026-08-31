@@ -14,7 +14,7 @@ const bundle = await build({
   stdin: {
     contents: [
       'export { listAdminPayrollProfiles } from "./payrollProfiles.ts";',
-      'export { getAdminPayrollPreview } from "./payrollCalculation.ts";',
+      'export { getAdminPayrollPayslipIdentity } from "./payrollProfiles.ts";',
     ].join("\n"),
     loader: "ts",
     resolveDir: sourceDirectory,
@@ -22,7 +22,7 @@ const bundle = await build({
 });
 const bundledSource = bundle.outputFiles[0]?.text;
 if (!bundledSource) throw new Error("The disabled worker test bundle could not be built.");
-const { getAdminPayrollPreview, listAdminPayrollProfiles } = await import(
+const { getAdminPayrollPayslipIdentity, listAdminPayrollProfiles } = await import(
   `data:text/javascript;base64,${Buffer.from(bundledSource).toString("base64")}`
 );
 
@@ -50,16 +50,8 @@ function fakeEnvironment() {
           return this;
         },
         async first() {
-          if (!query.includes("FROM workforce_payroll_settings")) {
-            throw new Error(`Unexpected first query: ${query}`);
-          }
-          return {
-            hourlyRatePence: 1500,
-            payFrequency: "monthly",
-            payDay: 1,
-            workerSocialSecurityRateBps: 600,
-            employerSocialSecurityRateBps: 650,
-          };
+          allQueries.push(query);
+          return null;
         },
         async all() {
           allQueries.push(query);
@@ -71,7 +63,7 @@ function fakeEnvironment() {
   return { env: { DB: database }, allQueries };
 }
 
-test("disabled workers are excluded from payroll profile and preview queries", async () => {
+test("disabled workers are excluded from payroll profile and Salary Advice identity queries", async () => {
   const profiles = fakeEnvironment();
   await listAdminPayrollProfiles(profiles.env, adminAuth);
   assert.equal(profiles.allQueries.length, 1);
@@ -80,15 +72,14 @@ test("disabled workers are excluded from payroll profile and preview queries", a
     /JOIN workforce_users u ON u\.id = m\.user_id AND u\.disabled_at IS NULL/,
   );
 
-  const preview = fakeEnvironment();
-  await getAdminPayrollPreview(
-    preview.env,
-    adminAuth,
-    new URLSearchParams({ start_date: "2026-08-01", end_date: "2026-08-31" }),
+  const identity = fakeEnvironment();
+  await assert.rejects(
+    getAdminPayrollPayslipIdentity(identity.env, adminAuth, "worker-disabled"),
+    { code: "NOT_FOUND", status: 404 },
   );
-  assert.equal(preview.allQueries.length, 1);
+  assert.equal(identity.allQueries.length, 1);
   assert.match(
-    preview.allQueries[0],
+    identity.allQueries[0],
     /JOIN workforce_users u ON u\.id = m\.user_id AND u\.disabled_at IS NULL/,
   );
 });

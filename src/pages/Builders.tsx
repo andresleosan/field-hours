@@ -18,6 +18,7 @@ import MaterialDeliveryDialog from "@/components/dashboard/MaterialDeliveryDialo
 import ToolRequestDialog from "@/components/builders/ToolRequestDialog";
 import JobsToDoList from "@/components/jobs/JobsToDoList";
 import SelectJobDialog from "@/components/jobs/SelectJobDialog";
+import { useI18n } from "@/lib/useI18n";
 interface Project {
   id: string;
   name: string;
@@ -31,6 +32,7 @@ const greeting = () => {
 };
 
 const Builders = () => {
+  const { t } = useI18n();
   const { userId, fullName, isLoading } = useRequireRole("builder");
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
@@ -294,7 +296,7 @@ const Builders = () => {
     <AppShell
       role="builder"
       fullName={fullName}
-      eyebrow={isClockedIn ? "On the clock" : undefined}
+      eyebrow={isClockedIn ? t("onTheClock") : undefined}
       live={isClockedIn}
       onSignOut={handleSignOut}
     >

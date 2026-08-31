@@ -74,6 +74,19 @@ VALUES
   ('org-recovery-test', 2000, 'monthly', 25, 'Synthetic Business', 'Synthetic address',
    600, 650, '2026-01-16T10:00:00.000Z', 'user-recovery-admin');
 
+INSERT INTO workforce_salary_advice_profiles
+  (organization_id, user_id, legal_name, address, employee_number,
+   tax_reference_ciphertext, social_reference_ciphertext, saved_at)
+VALUES
+  ('org-recovery-test', 'user-recovery-worker', 'Synthetic Worker', 'Synthetic address', 'REC-001',
+   'synthetic-ciphertext', 'synthetic-ciphertext', '2026-01-16T10:00:00.000Z');
+
+INSERT INTO workforce_salary_advice_settings
+  (organization_id, business_name, business_address, updated_at, updated_by)
+VALUES
+  ('org-recovery-test', 'Synthetic Business', 'Synthetic address',
+   '2026-01-16T10:00:00.000Z', 'user-recovery-admin');
+
 INSERT INTO workforce_payroll_runs
   (id, organization_id, period_start, period_end, pay_date, status, gross_pay_pence,
    worker_social_security_pence, income_tax_pence, net_pay_pence,

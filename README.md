@@ -62,12 +62,13 @@ This project is built with:
 
 ## How can I deploy this project?
 
-Simply open [Lovable](https://lovable.dev/projects/1a8e93e5-df5e-4d77-9dd9-6cc3dd781583) and click on Share -> Publish.
+Production is hosted on Vercel and the API on Cloudflare Workers. Do not use Lovable's Share/Publish
+flow for this repository. Run the complete verification gate first, then follow the controlled Vercel
+and Wrangler runbooks in [`docs/CI.md`](docs/CI.md) and the applicable release document. Production
+migrations and deployments require explicit operator approval.
 
 ## Can I connect a custom domain to my Lovable project?
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Manage domains in the linked Vercel project. The current production alias is
+`https://field-hours.vercel.app`; changing aliases is an operational production change and must follow
+the same approval and rollback rules.
