@@ -71,4 +71,4 @@ La Fase 9 implementa y verifica localmente una experiencia workforce centrada en
 
 ## Estado de este documento
 
-Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. Revisado el 31 de agosto de 2026 tras completar y validar localmente la Fase 9 móvil; el cambio aún no está desplegado.
+Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. La Fase 9 móvil quedó desplegada y verificada en producción el 31 de agosto de 2026, sin cambios de Worker, D1, cálculo o PDF.

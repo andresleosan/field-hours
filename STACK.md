@@ -117,4 +117,4 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 ## Estado de este documento
 
-Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados; los IDs y la estrategia conservadora de rollback están en la release de la fase. La Fase 9 queda completada y verificada únicamente en local el 31 de agosto de 2026; no se desplegó ni alteró backend o datos.
+Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados. La Fase 9 móvil quedó desplegada y verificada el 31 de agosto de 2026 en Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY`; el Worker permaneció en `6c551bca-3a7c-4a98-a019-23538c9e379f` y no se alteraron backend, D1, cálculo o PDF. Evidencia y rollback: `docs/RELEASE-2026-08-31-mobile-workforce.md`.

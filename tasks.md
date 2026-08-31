@@ -4,9 +4,9 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
-## Fase 9: Experiencia móvil workforce centrada en tareas (COMPLETADA LOCALMENTE; NO DESPLEGADA)
+## Fase 9: Experiencia móvil workforce centrada en tareas (DESPLEGADA Y VERIFICADA)
 
-> Alcance aprobado por el operador el 31 de agosto de 2026 a partir de una auditoría visual, de arquitectura de información y WCAG sobre capturas reales a 390 px. Esta fase no cambia backend, D1, reglas de Salary Advice ni el PDF; tampoco autoriza despliegue. Conserva como guardrail la selección explícita trabajador+periodo, la descarga directa y la ausencia total de review/approve/payroll run.
+> Alcance y despliegue aprobados por el operador el 31 de agosto de 2026 a partir de una auditoría visual, de arquitectura de información y WCAG. Esta fase no cambia backend, D1, reglas de Salary Advice ni el PDF. Conserva como guardrail la selección explícita trabajador+periodo, la descarga directa y la ausencia total de review/approve/payroll run.
 
 - [x] **MOB-01 (Primitives móviles y diálogos)**: Unificados nombre accesible, foco inicial/confinado, Escape, retorno al disparador, scroll con `100dvh`, safe areas y cierres/acciones táctiles de 44×44 en `SelfieModal`, el primitive compartido y los diálogos propios de workforce.
 - [x] **MOB-02 (Navegación enlazable)**: Navegación móvil persistente con etiquetas compactas, sección en URL y conservación de recarga/atrás/adelante; escritorio mantiene los mismos destinos y significado.
@@ -28,12 +28,14 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - Salary Advice explica bloqueos antes del formulario y descarga el documento sin estados de aprobación.
 - Typecheck, lint, build, seguridad y E2E relevante pasan sin reintentos; Firefox debe ejecutar la UI o quedar la fase bloqueada, no aprobada.
 
-### Evidencia de cierre local
+### Evidencia de cierre
 
 - Gate reproducible: pasaron typechecks frontend/Worker, lint, build, SheetJS, Worker 34/34, PDF 6/6, operaciones 4/4, recuperación D1 sintética y E2E Chromium 43/43. La consulta al registro quedó bloqueada dentro del sandbox y se repitió de forma aislada: `npm.cmd audit --audit-level=high` → 0 vulnerabilidades.
 - `npm.cmd run test:e2e:cross-browser -- --project=webkit --retries=0` → 10/10; Firefox → 10/10 con variables `MOZ_DISABLE_*` efímeras limitadas al proceso de prueba por la incidencia de Playwright/Windows `SpawnTarget/_page`. No se persistió esa relajación.
 - Inspección humana de capturas completas: primer viewport trabajador/admin, Salary Advice, proyectos, historial y acceso denso; sin tablas móviles ni scroll horizontal. La pantalla de acceso conserva abiertas las solicitudes accionables y pliega invitación/auditoría secundaria.
-- No se modificaron endpoints, D1, reglas de cálculo ni generación PDF; no hubo despliegue, migración, escritura productiva ni gasto nuevo.
+- Producción: commit `6386063`, Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY` (`fieldhours-7ljop9brq-andres-leo-san-s-projects.vercel.app`) y alias `field-hours.vercel.app`. Logs remotos confirman rama `main`, commit correcto y build Vite aprobado. GitHub `Verify` `33422470403` y `Production health` `33422929412` terminaron en `success`; monitor público 10/10 aprobado.
+- Bundle público `index-BjWcdz1P.js`: contiene navegación/listas progresivas y Salary Advice directo; no contiene `Review and approve payroll` ni `Automatic payroll preview`. Baseline móvil 390×844: 391.619 bytes en 11 recursos iniciales, sin overflow; los assets pesados del PDF permanecen fuera de la carga inicial.
+- Worker productivo intacto en `6c551bca-3a7c-4a98-a019-23538c9e379f` al 100%. No se modificaron endpoints, D1, reglas de cálculo ni generación PDF; no hubo migración, escritura autenticada productiva ni gasto nuevo. Release y rollback: `docs/RELEASE-2026-08-31-mobile-workforce.md`.
 
 ---
 
@@ -97,8 +99,8 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] **Tarea O.17 (Confirmación fiable de clock-in y nómina manual) — DESPLEGADA**: El clock-in productivo de Luis se confirmó por consulta de solo lectura, sin modificarlo. La UI ahora reconcilia el fichaje con el servidor, la PWA no cachea APIs y el administrador puede preparar un snapshot personalizado con trabajador+horas reutilizando configuración y perfil aprobados. Commit `d490710`, Verify `33264186422`, monitor `33264327193`, ambos checks Vercel y Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` aprobaron. Smoke 5/5; D1 final `rows_written: 0`, Luis continúa `working` y no se crearon runs. Release/rollback: `docs/RELEASE-2026-08-29-clock-in-custom-payroll.md`.
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 9 — experiencia móvil workforce centrada en tareas (COMPLETADA Y VERIFICADA LOCALMENTE; NO DESPLEGADA)
-- **Mantenimiento actual**: conservar la Fase 8 productiva y sus IDs de rollback; la Fase 9 requiere una autorización separada antes de commit/push o despliegue. No eliminar tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
+- **Fase Actual**: Fase 9 — experiencia móvil workforce centrada en tareas (DESPLEGADA Y VERIFICADA EN PRODUCCIÓN)
+- **Mantenimiento actual**: conservar el rollback frontend inmediato de la Fase 9 y los IDs productivos de la Fase 8. No eliminar tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
 - **Seguimiento separado**: Fase 6 completada y validada en staging y producción; el administrador puede seguir usando credenciales locales y no necesita una identidad Google.
 - **Última Actualización**: 31 de agosto de 2026
 

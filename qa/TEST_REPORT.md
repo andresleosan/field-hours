@@ -1,16 +1,19 @@
 # Reporte de QA — Field Hours
 
-## Fase 9 — experiencia móvil workforce (31 de agosto de 2026; local, no desplegada)
+## Fase 9 — experiencia móvil workforce (31 de agosto de 2026; desplegada)
 
-Resultado: **gate funcional y matriz móvil aprobados sin reintentos**.
+Resultado: **gate funcional, matriz móvil y smoke productivo aprobados**.
 
 - Chromium: 43/43 E2E. Incluye CTA de fichaje completo en los cuatro viewports y sin solapamiento a 320×568, métricas y primer trabajador visibles a 390×844, secciones enlazables que vuelven arriba al cambiar o usar atrás/adelante y conservan `?section` al recargar, rutas clave ES/EN/PT a 360×800, targets de 44 px en los escenarios declarados, Salary Advice directo sin aprobación, PWA Android, CSRF, diálogos, listas densas de revelado progresivo, paneles de acceso compactos y ausencia de tablas/overflow horizontal en móvil.
 - Matriz crítica de legibilidad: WebKit 10/10 y Firefox 10/10 sobre 320×568, 360×800, 390×844 y 430×932; cubre reflow, contraste WCAG AA, nombres accesibles, foco visible y errores, sin sustituir la cobertura funcional/idiomática de Chromium.
 - Firefox: el sandbox de procesos de Windows falló antes de renderizar con `SpawnTarget/_page`, consistente con [Playwright #36594](https://github.com/microsoft/playwright/issues/36594). La suite ejecutó 10/10 con `MOZ_DISABLE_CONTENT_SANDBOX`, `MOZ_DISABLE_RDD_SANDBOX` y `MOZ_DISABLE_GMP_SANDBOX` solo en el proceso local; no se persistieron en configuración, CI o producto.
 - Gate no visual: frontend/Worker typecheck, lint, build, SheetJS, Worker 34/34, PDF 6/6, operaciones 4/4 y recuperación D1 sintética aprobados. `npm audit --audit-level=high`, repetido fuera del sandbox porque este bloqueó el registro, devolvió 0 vulnerabilidades.
-- Seguridad/contratos: no cambiaron endpoints, autorización, D1, cálculo ni PDF. Los mocks validan rutas/métodos/cuerpos y bloquean tráfico externo. No se usaron secretos, cuentas, producción, migraciones ni APIs de pago.
+- Seguridad/contratos: no cambiaron endpoints, autorización, D1, cálculo ni PDF. Los mocks validan rutas/métodos/cuerpos y bloquean tráfico externo. El cierre productivo fue read-only y no usó secretos, cuentas, migraciones ni APIs de pago.
 - Capacidad: no corresponde carga de backend a este cambio visual; se ejercitaron 14 trabajadores, 18 jornadas, 12 proyectos, solicitudes pendientes y 12 eventos de auditoría para detectar reflow, crecimiento y overflow.
 - Inspección humana: capturas completas de trabajador, `En vivo`, historial, Salary Advice, proyectos y accesos. El CTA de fichaje queda íntegro sobre la navegación inferior a 320×568; el menú administrativo ya no trunca etiquetas; las solicitudes accionables permanecen abiertas y la invitación/auditoría secundaria se pliega en móvil.
+- Producción: Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY` fue construido desde `main@6386063` y está `READY` detrás de `field-hours.vercel.app`. GitHub `Verify` y `Production health` aprobaron; el monitor público pasó 10/10 y el bundle publicado coincide con `index-BjWcdz1P.js`.
+- Rendimiento móvil 390×844: tres cargas públicas HTTP 200; DCL frío observado 3.470 ms y dos repeticiones 655/583 ms, 391.619 bytes y 11 recursos iniciales, `scrollWidth=viewportWidth=390`. Fontkit/Unifont del PDF no forman parte de esa carga inicial.
+- Guardia backend: Cloudflare conserva al 100% la versión `6c551bca-3a7c-4a98-a019-23538c9e379f`. No hubo despliegue Worker, migración D1 ni cálculo autenticado con datos reales.
 
 El reporte HTML local más reciente queda en `qa/reports/playwright/index.html`. Cada ejecución reemplaza el reporte anterior; las cifras canónicas están en este documento y en `tasks.md`.
 
