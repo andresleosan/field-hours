@@ -4,6 +4,17 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
+## Backlog preventivo: reglas Jersey 2027 (PENDIENTE)
+
+> El contrato vigente permanece limitado a 2026 y falla cerrado fuera de ese año. Este backlog no autoriza cifras inferidas, migraciones ni despliegues; debe ejecutarse cuando existan fuentes oficiales verificables y antes de emitir el primer Salary Advice con fechas de 2027.
+
+- [ ] **JER-2027-01 (Fuentes oficiales y alcance)**: Verificar en fuentes oficiales de Jersey las reglas efectivas 2027 para contribución primaria del trabajador, límites/mínimos, redondeos y tratamiento semanal/mensual; documentar fecha de consulta y discrepancias. ITIS continúa siendo un valor confirmado del aviso individual, no una tasa global inventada.
+- [ ] **JER-2027-02 (Ruleset versionado)**: Incorporar un conjunto de reglas 2027 separado y seleccionado por fechas, sin modificar resultados 2026. Mantener `RULES_NOT_AVAILABLE` para años no configurados y no habilitar el selector frontend antes del contrato backend.
+- [ ] **JER-2027-03 (QA y documentación)**: Cubrir límites de año, semanas lunes-domingo, meses calendario, fechas de pago, Social Security semanal confirmado/mensual calculado, aritmética en enteros, PDF y exclusiones de coste patronal/referencias/aprobación. Actualizar `BRIEF.md`, `STACK.md`, esta guía y el reporte QA con evidencia real.
+- [ ] **JER-2027-04 (Corte productivo autorizado)**: Ejecutar autocrítica de seguridad y QA, preparar rollback, obtener autorización explícita y verificar Worker/frontend/monitor después del despliegue. No usar PII ni cálculos autenticados con datos reales como smoke sintético.
+
+---
+
 ## Fase 9: Experiencia móvil workforce centrada en tareas (DESPLEGADA Y VERIFICADA)
 
 > Alcance y despliegue aprobados por el operador el 31 de agosto de 2026 a partir de una auditoría visual, de arquitectura de información y WCAG. Esta fase no cambia backend, D1, reglas de Salary Advice ni el PDF. Conserva como guardrail la selección explícita trabajador+periodo, la descarga directa y la ausencia total de review/approve/payroll run.
@@ -98,8 +109,11 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 - [x] **Tarea O.17 (Confirmación fiable de clock-in y nómina manual) — DESPLEGADA**: El clock-in productivo de Luis se confirmó por consulta de solo lectura, sin modificarlo. La UI ahora reconcilia el fichaje con el servidor, la PWA no cachea APIs y el administrador puede preparar un snapshot personalizado con trabajador+horas reutilizando configuración y perfil aprobados. Commit `d490710`, Verify `33264186422`, monitor `33264327193`, ambos checks Vercel y Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` aprobaron. Smoke 5/5; D1 final `rows_written: 0`, Luis continúa `working` y no se crearon runs. Release/rollback: `docs/RELEASE-2026-08-29-clock-in-custom-payroll.md`.
 
+- [x] **Tarea O.18 (Gobernanza documental y AutoSkills) — COMPLETADA**: Reconciliados el cierre productivo de Fase 9 y O.14 en `BRIEF.md`, `STACK.md` y `docs/OPERATIONS.md`; creado el backlog fail-closed Jersey 2027 sin inventar reglas. Versionadas `accessibility` y `supabase-postgres-best-practices` con licencia, procedencia, restricciones y hashes reproducibles en `.agents/skills-lock.json`; el contenido son 39 archivos Markdown sin ejecutables. `.firebaserc` permanece local e ignorado porque Firebase no forma parte del stack activo. No cambia código, bundle, Worker, D1 ni producción.
+
 ## 📊 Estado General del Proyecto
 - **Fase Actual**: Fase 9 — experiencia móvil workforce centrada en tareas (DESPLEGADA Y VERIFICADA EN PRODUCCIÓN)
+- **Próxima tarea planificada**: `JER-2027-01`, pendiente de fuentes oficiales verificables; 2026 continúa como único año habilitado.
 - **Mantenimiento actual**: conservar el rollback frontend inmediato de la Fase 9 y los IDs productivos de la Fase 8. No eliminar tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
 - **Seguimiento separado**: Fase 6 completada y validada en staging y producción; el administrador puede seguir usando credenciales locales y no necesita una identidad Google.
 - **Última Actualización**: 31 de agosto de 2026

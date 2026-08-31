@@ -68,11 +68,13 @@ corte Salary Advice, D1 aprobó `quick_check`, cero FK rotas y ambos preflight e
 `000000a8-00000000-000050d8-11ce9361a6afc61a299021333ff1cbe7`. No se exportó la base sensible a
 un archivo local sin cifrar; la recuperación quedó en Time Travel y el backup automático de D1.
 
-El Worker `6c551bca-3a7c-4a98-a019-23538c9e379f` y Vercel
-`dpl_CfgtC97pgeFRD2EkJtVuk46F1FDf` están activos. El monitor público aprobó 10/10: frontend,
+El Worker `6c551bca-3a7c-4a98-a019-23538c9e379f` permaneció activo durante la Fase 9 y el deployment
+funcional Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY` quedó verificado. El monitor público aprobó 10/10: frontend,
 PWA, health directo/proxy, límites de autenticación y 404 de la ruta de review retirada. Rollback
-conocido-bueno: Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` y Vercel
-`dpl_9w53QSuwsVAiTm5mzgw9UBFfzhcp`. No se ejecutaron cálculos autenticados con datos reales.
+frontend inmediato: Vercel `dpl_26y4U66jrPjnn85GPPkpgAnKn6ph`; no revertir Worker ni D1 por una
+regresión exclusiva de la Fase 9. Para una regresión independiente del Worker se conserva como
+versión conocida-buena `900f64d6-9c0b-4814-be29-03661fe94ad9`. No se ejecutaron cálculos
+autenticados con datos reales.
 
 El 28 de agosto de 2026 el ensayo sintético restauró 50 objetos de esquema y comparó 13 contadores sin diferencias ni violaciones de claves foráneas. El monitor de solo lectura pasó los cinco contratos productivos y D1 devolvió un bookmark Time Travel vigente. No se ejecutaron escrituras, exportaciones ni restauraciones sobre producción.
 
@@ -93,4 +95,4 @@ Controles operativos:
 
 El procedimiento completo, evidencia y rollback están en `docs/RELEASE-2026-08-28-password-pepper.md` y la decisión en `docs/adr/ADR-001-password-pepper-versioning.md`.
 
-Estado productivo del 28 de agosto de 2026: Worker `14f4748b-88a4-48db-aefe-174d6fe77dca` desplegado y monitor 5/5. El administrador local migró a `v2$` y dejó un evento de auditoría; los conteos agregados quedaron en 0 administradores legados y 1 cuenta local sin Google todavía en legado. Se mantiene `PASSWORD_PEPPER_LEGACY` hasta que esa última cuenta inicie sesión o restablezca su contraseña.
+Estado productivo cerrado el 29 de agosto de 2026: antes del retiro se confirmaron `legacy_admins = 0` y `legacy_without_google = 0`, sin escrituras. Con autorización explícita se eliminó únicamente `PASSWORD_PEPPER_LEGACY`, se conservó `PASSWORD_PEPPER_CURRENT` y Cloudflare desplegó `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6`. La lista posterior confirmó la ausencia del binding legado sin leer valores; monitor 5/5 y login sintético directo/proxy HTTP 401 `INVALID_CREDENTIALS` aprobaron, con conteos D1 sin cambios. Rollback compatible: `e4fb038c-ca09-409b-8158-d3b1a569f2e4`; las cuentas que conservan hash histórico acceden mediante Google o restablecimiento para generar `v2$`.

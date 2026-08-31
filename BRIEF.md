@@ -28,7 +28,7 @@ Centralizar en una experiencia móvil y auditable la jornada laboral y la operac
 
 ## Prioridad actual
 
-La Fase 9 implementa y verifica localmente una experiencia workforce centrada en tareas móviles, sin cambiar sus contratos de backend:
+La Fase 9 quedó desplegada y verificada en producción el 31 de agosto de 2026. Sus decisiones vigentes, sin cambios en los contratos de backend, son:
 
 1. Colocar el fichaje y el estado operativo como primera tarea del trabajador.
 2. Colocar el estado del equipo como primera tarea del administrador y separar la gestión de accesos.
@@ -36,6 +36,8 @@ La Fase 9 implementa y verifica localmente una experiencia workforce centrada en
 4. Sustituir tablas horizontales por representaciones móviles y asegurar diálogos, foco y objetivos táctiles WCAG 2.2.
 5. Ampliar el gate reproducible a varios tamaños móviles, idiomas y estados con datos densos antes de considerar terminada la fase.
 6. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
+
+La siguiente prioridad preventiva es preparar las reglas Jersey 2027 sin modificar ni extrapolar las reglas 2026. El año 2027 debe permanecer deshabilitado hasta verificar fuentes oficiales, versionar el conjunto de reglas y completar el gate descrito en `tasks.md`.
 
 ## Reglas de negocio y restricciones
 
@@ -50,6 +52,8 @@ La Fase 9 implementa y verifica localmente una experiencia workforce centrada en
 - No se usan cuentas, datos reales ni escrituras de producción para pruebas automatizadas.
 - Las comprobaciones operativas de producción deben ser de solo lectura; cualquier alerta debe deduplicarse y dejar evidencia accionable sin incluir datos personales.
 - Las reglas de nómina actuales corresponden a Jersey 2026 y deben presentarse como estimación cuando corresponda.
+- Todo año sin un conjunto de reglas validado debe fallar cerrado con `RULES_NOT_AVAILABLE`; nunca se reutilizan automáticamente límites, tasas o redondeos del año anterior.
+- Habilitar Jersey 2027 requiere fuentes oficiales fechadas, reglas versionadas sin alterar la reproducibilidad de 2026, pruebas automatizadas y una autorización productiva separada.
 
 ## Fuera de alcance inmediato
 
@@ -61,7 +65,7 @@ La Fase 9 implementa y verifica localmente una experiencia workforce centrada en
 - Migraciones o despliegues automáticos sin gate humano.
 - Rediseño general del subsistema BuildTrack: la fase móvil aprobada se limita a la experiencia workforce de administrador/trabajador y a primitives compartidos que use directamente.
 
-## Criterios de éxito de la fase actual
+## Criterios de éxito para el siguiente cambio funcional
 
 - Typecheck, lint, build y empaquetado del Worker correctos.
 - Suite E2E ejecutable y en verde para nómina, turnos, descansos, proyectos y permisos.
@@ -71,4 +75,4 @@ La Fase 9 implementa y verifica localmente una experiencia workforce centrada en
 
 ## Estado de este documento
 
-Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. La Fase 9 móvil quedó desplegada y verificada en producción el 31 de agosto de 2026, sin cambios de Worker, D1, cálculo o PDF.
+Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. La Fase 9 móvil quedó desplegada y verificada en producción el 31 de agosto de 2026, sin cambios de Worker, D1, cálculo o PDF. El único backlog funcional planificado es la renovación anual Jersey 2027, que permanece pendiente y fail-closed hasta completar su evidencia oficial y técnica.

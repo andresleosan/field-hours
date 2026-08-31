@@ -18,6 +18,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Core Cronos: `4.2.0`, restaurado en `.cronos/`; coincide con `.agencia-version`.
 - Compatibilidad: el core fue verificado documentalmente contra Codex al 3 de agosto de 2026, no contra esta versión alfa exacta. En esta sesión se comprobaron lectura/escritura del workspace, permisos con aprobación y ejecución de herramientas; Playwright MCP no está expuesto.
 - Superpowers instalado: no aplica en Codex CLI según el core vigente.
+- AutoSkills versionadas en el proyecto: `accessibility` y `supabase-postgres-best-practices`, con procedencia, revisión, restricciones y hashes reproducibles en `.agents/skills-lock.json`. La segunda aplica solo al subsistema Supabase/PostgreSQL; no aplica a D1/SQLite y sus ejemplos nunca autorizan ejecutar SQL.
 
 ## Frontend
 
@@ -42,6 +43,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Tecnología principal: Cloudflare Workers en TypeScript para autenticación, fichaje, proyectos, historial, nómina y auditoría.
 - Subsistema heredado: Supabase JS para módulos BuildTrack y sus flujos de datos/realtime.
 - Contratos: API HTTP bajo `/api`, sesiones seguras por cookie, CSRF para escrituras y autorización por rol/organización. El contrato activo de Salary Advice calcula una selección explícita trabajador+periodo y devuelve datos documentales; no crea payroll runs ni estados de aprobación.
+- Versionado anual: el motor activo solo admite fechas de 2026 y responde `RULES_NOT_AVAILABLE` para años sin reglas verificadas. Jersey 2027 se incorporará como un conjunto separado, preservando las reglas y pruebas 2026; no se habilitará desde la UI antes que el backend.
 - Por qué: documenta la arquitectura híbrida actualmente desplegada; no propone una migración de proveedor en esta fase.
 
 ## Base de datos
@@ -78,6 +80,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Cloudflare Workers y D1.
 - Vercel.
 - Supabase Auth/Database/Storage/Realtime.
+- Firebase no forma parte del stack activo. Un `.firebaserc` local no vinculado a la aplicación queda ignorado y no se versiona.
 - OpenStreetMap mediante enlaces/recursos permitidos por CSP.
 - SheetJS CE 0.20.3 (`xlsx` desde el tarball oficial con integridad fijada en el lockfile) para importación/exportación local de hojas de cálculo.
 - `pdf-lib` + `@pdf-lib/fontkit` para generar en el navegador un PDF descargable y determinista, sin popup de impresión ni dependencia de un servicio externo. La ruta común usa Helvetica; las identidades Unicode compatibles cargan de forma diferida Archivo y GNU Unifont Latin WOFF desde los assets del mismo build/PWA. Se conserva WOFF porque el renderer PDF probado extraía WOFF2 pero dejaba los glifos visualmente en blanco.
@@ -93,7 +96,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - `.gitignore`: sí; excluye `.env*`, credenciales, claves, backups y estado local de Wrangler, conservando ejemplos.
 - `.env.example`: existe y documenta la conexión pública de Supabase; no debe contener secretos privilegiados.
 - Producción: variables de entorno de Vercel, secretos de Cloudflare Worker y configuración segura de Supabase.
-- O.14 validada en staging: `PASSWORD_PEPPER_CURRENT` es obligatorio para hashes `v2$`; `PASSWORD_PEPPER_LEGACY` existe solo durante la transición y nunca tiene fallback en código. Worker staging `1981cf0f-965a-4942-ab3d-fc1ec0c691ae`, configuración de login y límites aprobados. El protocolo, gate y rollback están en `docs/adr/ADR-001-password-pepper-versioning.md` y `docs/RELEASE-2026-08-28-password-pepper.md`; producción sigue pendiente.
+- O.14 cerrada en producción el 29 de agosto de 2026: `PASSWORD_PEPPER_CURRENT` permanece obligatorio para hashes `v2$` y `PASSWORD_PEPPER_LEGACY` fue retirado después de confirmar `legacy_admins = 0` y `legacy_without_google = 0`, sin leer valores ni modificar D1. El cambio desplegó el Worker `1f34fd8f-8449-4a0e-aa25-8da6e7c480e6`, seguido de monitor 5/5 y login sintético HTTP 401; rollback compatible `e4fb038c-ca09-409b-8158-d3b1a569f2e4`. Protocolo y evidencia: `docs/adr/ADR-001-password-pepper-versioning.md` y `docs/RELEASE-2026-08-28-password-pepper.md`.
 - Datos sensibles de nómina: AES-256-GCM con clave del Worker; revelado administrativo protegido y auditado.
 
 ## Dependencias y seguridad
@@ -117,4 +120,4 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 ## Estado de este documento
 
-Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados. La Fase 9 móvil quedó desplegada y verificada el 31 de agosto de 2026 en Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY`; el Worker permaneció en `6c551bca-3a7c-4a98-a019-23538c9e379f` y no se alteraron backend, D1, cálculo o PDF. Evidencia y rollback: `docs/RELEASE-2026-08-31-mobile-workforce.md`.
+Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados. La Fase 9 móvil quedó desplegada y verificada el 31 de agosto de 2026 en Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY`; el Worker permaneció en `6c551bca-3a7c-4a98-a019-23538c9e379f` y no se alteraron backend, D1, cálculo o PDF. Evidencia y rollback: `docs/RELEASE-2026-08-31-mobile-workforce.md`. El siguiente cambio funcional planificado es el ruleset Jersey 2027, todavía pendiente y sin cifras inferidas.

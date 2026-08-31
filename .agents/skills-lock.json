@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "purpose": "Reproducible, security-reviewed project skill provenance for Field Hours",
+  "bundle_hash_algorithm": "sha256(sorted(relative_path + \"\\0\" + lowercase_file_sha256 + \"\\n\"))",
+  "third_party_notices": ".agents/THIRD_PARTY_NOTICES.md",
+  "installed": [
+    {
+      "name": "accessibility",
+      "source": {
+        "repository": "addyosmani/web-quality-skills",
+        "path": "skills/accessibility",
+        "ref": "afa8da942115f2961fdbfa80807ea0b232ff6c00"
+      },
+      "file_count": 3,
+      "byte_count": 29473,
+      "bundle_sha256": "c2f2bb2c0c56d1190eeabb704ff2ff09588ca88e43dd1255277d7d6bc3b8bb92",
+      "license": "MIT",
+      "review": "approved",
+      "constraints": [
+        "Use as evidence-led WCAG guidance; automated tools do not replace manual keyboard and screen-reader checks.",
+        "Any optional npm, npx, Lighthouse, axe, or browser command remains subject to project permissions and verification rules."
+      ]
+    },
+    {
+      "name": "supabase-postgres-best-practices",
+      "source": {
+        "repository": "supabase/agent-skills",
+        "path": "skills/supabase-postgres-best-practices",
+        "ref": "8331f910845103c08d51f6ca1d86ebb7d1f745e3"
+      },
+      "file_count": 36,
+      "byte_count": 62007,
+      "bundle_sha256": "da4f46b5274e5ea3a98aeeb5c6517a25494bcd3c510abc9349796141441eee1a",
+      "license": "MIT",
+      "review": "approved_with_conditions",
+      "constraints": [
+        "Apply only to PostgreSQL/Supabase, never to Cloudflare D1/SQLite.",
+        "Treat SQL snippets as review material, not as authorization to execute them.",
+        "Project database-design, security, backup, rollback, migration, and production-approval rules take precedence.",
+        "Verify privileged, destructive, RLS, and role-management examples against current official documentation before use."
+      ]
+    }
+  ],
+  "reviewed_not_installed": [
+    {
+      "name": "composition-patterns",
+      "source": {
+        "repository": "vercel-labs/agent-skills",
+        "path": "skills/composition-patterns",
+        "ref": "063bee94c3f4df8453406c830b0a7df0f2860278"
+      },
+      "file_count": 14,
+      "byte_count": 50339,
+      "bundle_sha256": "3aedb52e074252062ec63bd345cba544d7dd97653421a7c182025ca40f35b9d4",
+      "review": "blocked",
+      "reason": "General rules leak React 19-only APIs and contain internally invalid examples, while Field Hours uses React 18.3.1."
+    },
+    {
+      "name": "playwright-best-practices",
+      "source": {
+        "repository": "currents-dev/playwright-best-practices-skill",
+        "path": "playwright-best-practices",
+        "ref": "283d5cbc5d11aac1abda058b16ad22c317d54dc0"
+      },
+      "file_count": 59,
+      "byte_count": 762190,
+      "bundle_sha256": "6ded6f91387ccfcb07a302fdd63f9297920db6f321c07224b307f63fce39aa1a",
+      "review": "blocked",
+      "reason": "Guidance includes destructive database/filesystem operations, external artifact uploads, and examples incompatible with the project's Playwright configuration."
+    }
+  ]
+}

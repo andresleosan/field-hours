@@ -115,6 +115,23 @@ Fuentes oficiales de referencia:
 
 Los avisos oficiales de Revenue Jersey prevalecen sobre el cálculo de la aplicación.
 
+## Renovación anual y backlog Jersey 2027
+
+La página oficial de contribuciones consultada el 31 de agosto de 2026 publica el calculador y los
+límites 2026. Este documento no presupone cifras para 2027: hasta verificar una tabla o aviso oficial
+aplicable, todo periodo o fecha de pago de 2027 debe continuar respondiendo `RULES_NOT_AVAILABLE`.
+
+El backlog `JER-2027` de `tasks.md` exige, en este orden:
+
+1. registrar fuentes oficiales, fecha de vigencia, tasas, límites, mínimos, redondeos y tratamiento semanal/mensual;
+2. añadir un ruleset 2027 separado sin modificar los resultados reproducibles de 2026;
+3. cubrir límites de año, semanas/meses, Social Security, ITIS confirmado, PDF y exclusiones negativas;
+4. actualizar UI y documentación solo después del contrato backend, y desplegar únicamente con autorización y rollback.
+
+No se reutiliza una tasa 2026 por similitud ni se activa 2027 para “probar”. Si una fuente oficial y
+un aviso individual entran en conflicto, prevalece el aviso y el Salary Advice continúa presentándose
+como estimación verificable.
+
 ## Resultado y persistencia
 
 La respuesta contiene periodo, identidad mínima del empleador y del empleado, Basic Hourly Pay,

@@ -1,0 +1,4 @@
+# Keep vendored skill bundles byte-stable across operating systems.
+.agents/skills/** text eol=lf whitespace=-blank-at-eol
+.agents/skills-lock.json text eol=lf
+.agents/THIRD_PARTY_NOTICES.md text eol=lf

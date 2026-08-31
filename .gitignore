@@ -44,4 +44,5 @@ cloudflare/backups/
 credentials*.json
 service-account*.json
 
-.vercel
+# Local provider metadata not used by the active Vercel/Cloudflare/Supabase stack
+.firebaserc
