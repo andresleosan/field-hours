@@ -9,7 +9,7 @@ export default defineConfig({
   outputDir: "qa/reports/playwright-artifacts",
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   reporter: [
     ["list"],
     ["html", { outputFolder: "qa/reports/playwright", open: "never" }],

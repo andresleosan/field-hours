@@ -33,6 +33,9 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Design DNA — tono: operativo, sobrio, legible en móvil y orientado al trabajo de campo.
 - Default genérico evitado: dashboards con gradientes, exceso de tarjetas anidadas y múltiples colores decorativos sin significado.
 - Regla de contraste semántico: los tokens `*-foreground` se reservan para fondos semánticos sólidos; sobre fondos translúcidos (`*/10`, `*/15`) se usa `text-foreground` para contenido o el color semántico oscuro para etiquetas breves. Todo texto normal debe alcanzar al menos 4.5:1 en modo claro.
+- Arquitectura móvil workforce: navegación persistente centrada en tareas. Trabajador: `Hoy`, `Historial`, `Horas y pago`; administrador: `En vivo`, `Jornadas`, `Salary Advice`, `Proyectos` y `Más`. Las secciones principales se reflejan en URL y mantienen el mismo significado en escritorio.
+- Densidad móvil: una sola superficie elevada para la acción principal; listas/divisores para información secundaria; tarjetas de registro bajo `md` y tablas completas solo en escritorio.
+- Accesibilidad móvil: WCAG 2.2 AA como piso, objetivos interactivos de 24 px mínimo y 44 px como tamaño operativo, diálogos con nombre, foco confinado, Escape, retorno de foco, scroll interno y safe areas.
 
 ## Backend
 
@@ -65,8 +68,9 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Ruta elegida: Playwright Test CLI con fixtures y datos sintéticos, sin cuentas ni escrituras de producción.
 - Ubicación de la suite E2E: `e2e/`; runner reproducible en `scripts/run-playwright.mjs` y scripts `test:e2e*` en `package.json`.
 - Reportes: `qa/reports/` y artefactos de Playwright, no versionados.
-- Última corrida: 23/23 pruebas aprobadas en Chromium; cubren Salary Advice/PDF sin aprobación, selección y bloqueo de estado, instalación PWA, separación de roles, CSRF, flexibilidad de jornada y auditoría de contraste/foco/nombres accesibles/overflow para admin y trabajador en escritorio y móvil, sin tráfico externo. El mismo gate aprobó 34/34 pruebas Worker, 6/6 PDF con extracción y render visual, 4/4 operaciones, restauración D1 sintética y auditoría npm sin vulnerabilidades.
-- Matriz crítica: la auditoría integral de legibilidad se ejecuta además en Chromium, Firefox y WebKit mediante `npm run test:e2e:cross-browser`; no reemplaza el gate completo de Chromium.
+- Última corrida: 43/43 pruebas aprobadas en Chromium con `retries=0`; cubren Salary Advice/PDF sin aprobación, selección y bloqueo de estado, instalación PWA, separación de roles, CSRF, flexibilidad de jornada, CTA completo a 320×568, scroll restablecido al cambiar sección y listas densas progresivas. El mismo gate aprobó 34/34 pruebas Worker, 6/6 PDF con extracción y render visual, 4/4 operaciones, restauración D1 sintética y auditoría npm con 0 vulnerabilidades.
+- Matriz crítica: la auditoría de legibilidad aprobó 10/10 en WebKit con `npm.cmd run test:e2e:cross-browser -- --project=webkit --retries=0` y 10/10 en Firefox con el mismo proyecto y las variables `MOZ_DISABLE_*` efímeras limitadas al proceso local por el fallo de Playwright/Windows `SpawnTarget/_page`; no reemplaza el gate funcional completo de Chromium ni altera la configuración del producto.
+- Fase móvil: legibilidad comprobada en 320×568, 360×800, 390×844 y 430×932 sobre Chromium/WebKit/Firefox; rutas clave ES/EN/PT y objetivos táctiles comprobados por el gate Chromium a sus viewports declarados. Navegación/recarga, instalación, modales, errores y estados densos están cubiertos por pruebas funcionales Chromium. El reporte reproducible queda en `qa/reports/playwright/`.
 
 ## Integraciones externas
 
@@ -113,4 +117,4 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 ## Estado de este documento
 
-Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados; los IDs y la estrategia conservadora de rollback están en la release de la fase.
+Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados; los IDs y la estrategia conservadora de rollback están en la release de la fase. La Fase 9 queda completada y verificada únicamente en local el 31 de agosto de 2026; no se desplegó ni alteró backend o datos.

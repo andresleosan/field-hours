@@ -1,73 +1,108 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { expectKeyboardFocusVisible, expectLegiblePage } from "./support/legibility";
 import { installAdminApi, installWorkerApi } from "./support/mockApi";
 
-const viewports = [
-  { name: "desktop", width: 1440, height: 900 },
-  { name: "mobile", width: 390, height: 844 },
+const mobileViewports = [
+  { name: "mobile-320x568", width: 320, height: 568 },
+  { name: "mobile-360x800", width: 360, height: 800 },
+  { name: "mobile-390x844", width: 390, height: 844 },
+  { name: "mobile-430x932", width: 430, height: 932 },
 ] as const;
 
-for (const viewport of viewports) {
-  test(`admin interface remains legible on ${viewport.name}`, async ({ context, page }, testInfo) => {
+function visibleButton(page: Page, name: string | RegExp) {
+  return page.getByRole("button", { name, exact: typeof name === "string" }).filter({ visible: true });
+}
+
+async function chooseSection(page: Page, name: string): Promise<void> {
+  await visibleButton(page, name).click();
+  await expect(visibleButton(page, name)).toHaveAttribute("aria-current", "page");
+}
+
+for (const viewport of mobileViewports) {
+  test(`dense admin interface remains legible on ${viewport.name}`, async ({ context, page }, testInfo) => {
     await page.setViewportSize(viewport);
-    await installAdminApi(context);
-    await page.goto("/");
-    await expect(page.getByRole("button", { name: "History & Reports", exact: true })).toBeVisible();
+    await installAdminApi(context, { denseData: true });
+    await page.goto("/clock?section=today");
+    await expect(page.getByText("Worker Test", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
     await expectLegiblePage(page, testInfo, `admin-live-${viewport.name}`);
     await expectKeyboardFocusVisible(page, testInfo, `admin-live-${viewport.name}`);
 
-    await page.getByRole("button", { name: "History & Reports", exact: true }).click();
+    await chooseSection(page, "History & Reports");
+    await expect(page).toHaveURL(/section=history/);
     await expect(page.getByRole("heading", { name: "Shift History & Reports" })).toBeVisible();
     await expectLegiblePage(page, testInfo, `admin-history-${viewport.name}`);
 
-    await page.getByRole("button", { name: "Add workday", exact: true }).click();
-    const workdayDialog = page.getByRole("dialog", { name: "Create workday hours" });
-    await expect(workdayDialog).toBeVisible();
-    await expectLegiblePage(page, testInfo, `admin-workday-dialog-${viewport.name}`);
-    await workdayDialog.getByRole("combobox", { name: "Worker *" }).selectOption("worker-1");
-    await workdayDialog.getByRole("textbox", { name: "Workday description *" }).fill("Legibility audit workday");
-    await workdayDialog.getByRole("button", { name: "Save Workday" }).click();
-    await expect(page.getByRole("status")).toContainText("Workday created successfully");
-
-    await page.getByRole("button", { name: "Adjust", exact: true }).first().click();
-    await expect(page.getByRole("dialog", { name: "Adjust shift times" })).toBeVisible();
-    await expectLegiblePage(page, testInfo, `admin-adjust-dialog-${viewport.name}`);
-    await page.getByRole("dialog", { name: "Adjust shift times" }).getByRole("button", { name: "Close" }).click();
-
-    await page.getByRole("button", { name: "Salary Advice", exact: true }).click();
+    await chooseSection(page, "Salary Advice");
     await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
-    await expectLegiblePage(page, testInfo, `admin-salary-advice-${viewport.name}`);
+    await expectLegiblePage(page, testInfo, `admin-salary-create-${viewport.name}`);
+    await visibleButton(page, "Business").click();
+    await expect(page.getByRole("heading", { name: "Business details for the document" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `admin-salary-business-${viewport.name}`);
+    await visibleButton(page, "Employees").click();
+    await expect(page.getByRole("heading", { name: "Employee details" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `admin-salary-employees-${viewport.name}`);
 
-    await page.getByRole("button", { name: "Projects & Sites", exact: true }).click();
+    await chooseSection(page, "Projects & Sites");
+    await expect(page.getByRole("heading", { name: "Manage Construction Projects" })).toBeVisible();
     await expectLegiblePage(page, testInfo, `admin-projects-${viewport.name}`);
-    await page.getByRole("button", { name: "Add Project", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
-    await expectLegiblePage(page, testInfo, `admin-project-dialog-${viewport.name}`);
-    await page.getByRole("dialog", { name: "New Project" }).getByRole("button", { name: "Close" }).click();
+
+    await chooseSection(page, "More");
+    await expect(page.getByRole("heading", { name: "Team & access" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `admin-access-${viewport.name}`);
   });
 
-  test(`worker interface remains legible on ${viewport.name}`, async ({ context, page }, testInfo) => {
+  test(`dense worker interface remains legible on ${viewport.name}`, async ({ context, page }, testInfo) => {
     await page.setViewportSize(viewport);
-    await installWorkerApi(context, { adminCreatedHistory: true });
-    await page.goto("/");
+    await installWorkerApi(context, { denseData: true });
+    await page.goto("/clock?section=today");
     await expect(page.getByText("My shift", { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Clock in", exact: true })).toBeInViewport({ ratio: 1 });
 
     await expectLegiblePage(page, testInfo, `worker-main-${viewport.name}`);
     await expectKeyboardFocusVisible(page, testInfo, `worker-main-${viewport.name}`);
 
-    await page.getByRole("button", { name: "Add Project" }).click();
-    await expect(page.getByRole("dialog", { name: "New Project" })).toBeVisible();
-    await expectLegiblePage(page, testInfo, `worker-project-dialog-${viewport.name}`);
-    await page.getByRole("dialog", { name: "New Project" }).getByRole("button", { name: "Close" }).click();
+    await chooseSection(page, "History & Reports");
+    await expect(page.getByRole("heading", { name: "My Past Shifts" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `worker-history-${viewport.name}`);
+
+    await chooseSection(page, "Hours overview");
+    await expect(page.getByRole("heading", { name: "Hours overview" })).toBeVisible();
+    await expectLegiblePage(page, testInfo, `worker-pay-${viewport.name}`);
   });
 }
 
+test("mobile dialogs remain legible at 390x844", async ({ context, page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await installAdminApi(context);
+  await page.goto("/clock?section=history");
+
+  const addWorkday = page.getByRole("button", { name: "Add workday", exact: true });
+  await addWorkday.focus();
+  await page.keyboard.press("Enter");
+  const workdayDialog = page.getByRole("dialog", { name: "Create workday hours" });
+  await expect(workdayDialog).toBeVisible();
+  await expectLegiblePage(page, testInfo, "admin-workday-dialog-mobile-390x844");
+  await page.keyboard.press("Escape");
+  await expect(workdayDialog).toHaveCount(0);
+  await expect(addWorkday).toBeFocused();
+
+  await chooseSection(page, "Projects & Sites");
+  const addProject = page.getByRole("button", { name: "Add Project", exact: true });
+  await addProject.focus();
+  await page.keyboard.press("Enter");
+  const projectDialog = page.getByRole("dialog", { name: "New Project" });
+  await expect(projectDialog).toBeVisible();
+  await expectLegiblePage(page, testInfo, "admin-project-dialog-mobile-390x844");
+  await page.keyboard.press("Escape");
+  await expect(projectDialog).toHaveCount(0);
+  await expect(addProject).toBeFocused();
+});
+
 test("admin Salary Advice error state remains legible", async ({ context, page }, testInfo) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 390, height: 844 });
   await installAdminApi(context, { salaryAdviceError: true });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Salary Advice", exact: true }).click();
+  await page.goto("/clock?section=salary");
   await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
   await page.getByRole("button", { name: "Monthly", exact: true }).click();
   await page.getByRole("combobox", { name: "Calendar month" }).selectOption("2026-08-01");
@@ -78,5 +113,5 @@ test("admin Salary Advice error state remains legible", async ({ context, page }
   await page.getByRole("spinbutton", { name: "ITIS paid to date (£)" }).fill("2554.08");
   await page.getByRole("button", { name: "Calculate and download PDF" }).click();
   await expect(page.getByRole("alert")).toContainText("Salary Advice could not be calculated for the selected period.");
-  await expectLegiblePage(page, testInfo, "admin-salary-advice-error-desktop");
+  await expectLegiblePage(page, testInfo, "admin-salary-advice-error-mobile-390x844");
 });

@@ -109,8 +109,11 @@ function money(value: number): string {
   return new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(value);
 }
 
+type SalaryWorkspaceSection = "create" | "business" | "employees";
+
 export function SalaryAdviceWorkspace() {
   const { lang, t } = useI18n();
+  const [activeSection, setActiveSection] = useState<SalaryWorkspaceSection>("create");
   const [profiles, setProfiles] = useState<PayrollProfile[]>([]);
   const [settings, setSettings] = useState<PayrollSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -120,6 +123,7 @@ export function SalaryAdviceWorkspace() {
   const detailsReturnFocus = useRef<HTMLElement | null>(null);
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const salaryAdviceLoadError = t("salaryAdviceLoadError");
 
   useEffect(() => {
     let active = true;
@@ -130,7 +134,7 @@ export function SalaryAdviceWorkspace() {
         setSettings(loadedSettings);
       })
       .catch((error) => {
-        if (active) setLoadError(errorMessage(error, t("salaryAdviceLoadError")));
+        if (active) setLoadError(errorMessage(error, salaryAdviceLoadError));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -138,7 +142,7 @@ export function SalaryAdviceWorkspace() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [salaryAdviceLoadError]);
 
   async function reveal(profile: PayrollProfile) {
     detailsReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -166,6 +170,21 @@ export function SalaryAdviceWorkspace() {
     );
   }
 
+  const sectionCopy = {
+    create: t("salaryCreateSection"),
+    business: t("salaryBusinessSection"),
+    employees: t("salaryEmployeesSection"),
+  };
+  const mobileSections: Array<{
+    id: SalaryWorkspaceSection;
+    label: string;
+    icon: typeof FileText;
+  }> = [
+    { id: "create", label: sectionCopy.create, icon: FileText },
+    { id: "business", label: sectionCopy.business, icon: Building2 },
+    { id: "employees", label: sectionCopy.employees, icon: Users },
+  ];
+
   return (
     <div className="space-y-6" data-testid="salary-advice-workspace">
       {loadError && (
@@ -173,18 +192,52 @@ export function SalaryAdviceWorkspace() {
           {loadError}
         </p>
       )}
-      <SalaryAdviceCalculator
-        profiles={profiles.filter((profile) => profile.isComplete)}
-        settingsReady={Boolean(settings) && !settingsDirty && !settingsSaving}
-        settingsNeedSave={Boolean(settings) && (settingsDirty || settingsSaving)}
-      />
-      <BusinessDetailsCard
-        settings={settings}
-        onSaved={setSettings}
-        onDirtyChange={setSettingsDirty}
-        onSavingChange={setSettingsSaving}
-      />
-      <EmployeeProfilesCard profiles={profiles} detailsBusy={detailsBusy} onReveal={reveal} />
+      <nav aria-label={t("sections")} className="rounded-2xl border border-border bg-card p-1 shadow-sm md:hidden">
+        <div className="grid grid-cols-3 gap-1">
+          {mobileSections.map(({ id, label, icon: Icon }) => {
+            const selected = activeSection === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                aria-controls={`salary-${id}-section`}
+                aria-pressed={selected}
+                onClick={() => setActiveSection(id)}
+                className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${
+                  selected
+                    ? "bg-foreground text-background shadow-sm"
+                    : "text-foreground/75 hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <Icon aria-hidden="true" className="h-4 w-4" />
+                <span className="w-full truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+      <div id="salary-create-section" className={activeSection === "create" ? "block" : "hidden md:block"}>
+        <SalaryAdviceCalculator
+          profiles={profiles.filter((profile) => profile.isComplete)}
+          settingsReady={Boolean(settings) && !settingsDirty && !settingsSaving}
+          settingsNeedSave={Boolean(settings) && (settingsDirty || settingsSaving)}
+          onOpenBusiness={() => {
+            setActiveSection("business");
+            window.requestAnimationFrame(() => document.getElementById("salary-business-section")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+          }}
+        />
+      </div>
+      <div id="salary-business-section" className={activeSection === "business" ? "block" : "hidden md:block"}>
+        <BusinessDetailsCard
+          settings={settings}
+          onSaved={setSettings}
+          onDirtyChange={setSettingsDirty}
+          onSavingChange={setSettingsSaving}
+        />
+      </div>
+      <div id="salary-employees-section" className={activeSection === "employees" ? "block" : "hidden md:block"}>
+        <EmployeeProfilesCard profiles={profiles} detailsBusy={detailsBusy} onReveal={reveal} />
+      </div>
       {details && <EmployeeDetailsDialog details={details} onClose={closeDetails} />}
       <p className="sr-only" aria-live="polite">{lang}</p>
     </div>
@@ -329,10 +382,12 @@ function SalaryAdviceCalculator({
   profiles,
   settingsReady,
   settingsNeedSave,
+  onOpenBusiness,
 }: {
   profiles: PayrollProfile[];
   settingsReady: boolean;
   settingsNeedSave: boolean;
+  onOpenBusiness: () => void;
 }) {
   const { lang, t } = useI18n();
   const [periodType, setPeriodType] = useState<SalaryAdvicePeriodType>("weekly");
@@ -352,6 +407,12 @@ function SalaryAdviceCalculator({
   const documentRevision = useRef(0);
   const values = useMemo(() => periodType === "weekly" ? weekOptions() : monthOptions(), [periodType]);
   const locale = lang === "es" ? "es-ES" : lang === "pt" ? "pt-PT" : "en-GB";
+  const sectionCopy = {
+    business: t("salaryBusinessSection"),
+    employeePeriod: t("salaryEmployeePeriodGroup"),
+    confirmedAmounts: t("salaryConfirmedAmountsGroup"),
+    totalsDownload: t("salaryTotalsDownloadGroup"),
+  };
 
   useEffect(() => {
     if (!profiles.some((profile) => profile.userId === userId)) setUserId(profiles[0]?.userId ?? "");
@@ -476,16 +537,28 @@ function SalaryAdviceCalculator({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-eyebrow">{t("salaryEstimateLabel")}</p>
-          <h2 id="salary-calculator-title" className="mt-1 text-xl font-semibold">{t("salaryAdviceTitle")}</h2>
+          <h1 id="salary-calculator-title" className="mt-1 text-xl font-semibold">{t("salaryAdviceTitle")}</h1>
           <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{t("salaryAdviceSubtitle")}</p>
         </div>
         <FileText className="h-5 w-5 shrink-0 text-brand" />
       </div>
+      {!settingsReady && (
+        <div role="alert" className="mt-5 rounded-2xl border border-warning/40 bg-warning/15 p-4 text-sm text-foreground">
+          <p>{t(settingsNeedSave ? "businessDetailsUnsaved" : "businessDetailsRequired")}</p>
+          <button type="button" onClick={onOpenBusiness} className="mt-3 min-h-11 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted">
+            {sectionCopy.business}
+          </button>
+        </div>
+      )}
       {profiles.length === 0 ? (
         <p className="mt-5 rounded-2xl border border-warning/40 bg-warning/15 px-4 py-3 text-sm text-foreground">{t("noReadyProfiles")}</p>
       ) : (
-        <form className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3" onSubmit={(event) => void submit(event)} aria-busy={busy}>
+        <form className="mt-6 grid gap-6" onSubmit={(event) => void submit(event)} aria-busy={busy}>
           <fieldset disabled={busy} className="contents">
+          <section aria-labelledby="salary-period-group-title" className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="md:col-span-2 xl:col-span-3">
+            <h3 id="salary-period-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.employeePeriod}</h3>
+          </div>
           <label className="text-sm font-medium">
             {t("employee")}
             <select value={userId} onChange={(event) => { setUserId(event.target.value); clearDocumentInputs(); }} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3">
@@ -496,7 +569,7 @@ function SalaryAdviceCalculator({
             <legend className="text-sm font-medium">{t("periodType")}</legend>
             <div className="mt-1.5 grid grid-cols-2 rounded-xl border border-input bg-muted/30 p-1">
               {(["weekly", "monthly"] as const).map((type) => (
-                <button key={type} type="button" onClick={() => selectPeriodType(type)} aria-pressed={periodType === type} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${periodType === type ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                <button key={type} type="button" onClick={() => selectPeriodType(type)} aria-pressed={periodType === type} className={`min-h-11 rounded-lg px-3 text-sm font-semibold transition-colors ${periodType === type ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                   {t(type)}
                 </button>
               ))}
@@ -517,6 +590,11 @@ function SalaryAdviceCalculator({
             {t("payDate")}
             <input type="date" value={payDate} min={periodStart} onChange={(event) => { setPayDate(event.target.value); markDocumentChanged(); }} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
           </label>
+          </section>
+          <section aria-labelledby="salary-amounts-group-title" className="grid gap-4 border-t border-border pt-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="md:col-span-2 xl:col-span-3">
+            <h3 id="salary-amounts-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.confirmedAmounts}</h3>
+          </div>
           <label className="text-sm font-medium">
             {t("hourlyRateAdvice")}
             <input type="number" min="0.01" max="10000" step="0.01" value={hourlyRate} onChange={(event) => { setHourlyRate(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
@@ -532,7 +610,7 @@ function SalaryAdviceCalculator({
               <legend className="text-sm font-medium">{t("monthlySocialSecurityStatus")}</legend>
               <div className="mt-1.5 grid grid-cols-2 rounded-xl border border-input bg-muted/30 p-1">
                 {([6, 0] as const).map((rate) => (
-                  <button key={rate} type="button" onClick={() => { setMonthlySocialSecurityRate(rate); markDocumentChanged(); }} aria-pressed={monthlySocialSecurityRate === rate} className={`min-h-9 rounded-lg px-2 text-xs font-semibold ${monthlySocialSecurityRate === rate ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                  <button key={rate} type="button" onClick={() => { setMonthlySocialSecurityRate(rate); markDocumentChanged(); }} aria-pressed={monthlySocialSecurityRate === rate} className={`min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors ${monthlySocialSecurityRate === rate ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                     {rate === 6 ? t("socialSecurityStandard") : t("socialSecurityExempt")}
                   </button>
                 ))}
@@ -546,6 +624,11 @@ function SalaryAdviceCalculator({
               <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("weeklySocialSecurityHelp")}</span>
             </label>
           )}
+          </section>
+          <section aria-labelledby="salary-totals-group-title" className="grid gap-4 border-t border-border pt-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="md:col-span-2 xl:col-span-3">
+            <h3 id="salary-totals-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.totalsDownload}</h3>
+          </div>
           <label className="text-sm font-medium">
             {t("yearToDateGross")}
             <input type="number" min="0" step="0.01" value={yearToDateGross} onChange={(event) => { setYearToDateGross(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
@@ -556,15 +639,15 @@ function SalaryAdviceCalculator({
             <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("totalsToDateHelp")}</span>
           </label>
           <div className="flex items-end">
-            <button type="submit" disabled={!settingsReady} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground hover:bg-brand/90 disabled:opacity-60">
+            <button type="submit" disabled={!settingsReady} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {busy ? t("calculating") : t("calculateDownload")}
             </button>
           </div>
+          </section>
           </fieldset>
-          {!settingsReady && <p role="alert" className="text-sm text-destructive md:col-span-2 xl:col-span-3">{t(settingsNeedSave ? "businessDetailsUnsaved" : "businessDetailsRequired")}</p>}
-          {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive md:col-span-2 xl:col-span-3">{error}</p>}
-          {downloaded && <p role="status" className="rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-sm text-foreground md:col-span-2 xl:col-span-3">{downloaded}</p>}
+          {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
+          {downloaded && <p role="status" className="rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-sm text-foreground">{downloaded}</p>}
         </form>
       )}
       {advice && <SalaryAdviceSummary advice={advice} />}
@@ -588,12 +671,34 @@ function SalaryAdviceSummary({ advice }: { advice: SalaryAdvice }) {
     [t("yearToDateGross"), money(advice.totalsToDate.grossTaxablePay)],
     [t("yearToDateTax"), money(advice.totalsToDate.taxPaid)],
   ];
+  const primaryMetrics = [
+    [t("grossPay"), money(advice.grossTaxablePay)],
+    [t("totalDeductions"), money(advice.deductions.total)],
+    [t("netPay"), money(advice.netPay)],
+  ];
+  const breakdownMetrics = [
+    [t("completedShiftsLabel"), String(advice.allowance.shiftCount)],
+    [t("hoursLabel"), hours],
+    [t("itisLabel"), money(advice.deductions.incomeTax)],
+    [t("socialSecurityLabel"), money(advice.deductions.workerSocialSecurity)],
+    [t("yearToDateGross"), money(advice.totalsToDate.grossTaxablePay)],
+    [t("yearToDateTax"), money(advice.totalsToDate.taxPaid)],
+  ];
   return (
     <div className="mt-6 border-t border-border pt-5">
       <div className="flex items-center gap-2"><CalendarDays className="h-4 w-4 text-brand" /><h3 className="font-semibold">{t("previewTitle")}</h3></div>
       <p className="mt-1 text-xs text-muted-foreground">{advice.worker.displayName} · {advice.period.start} – {advice.period.end}</p>
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {metrics.map(([label, value]) => <div key={label} className="rounded-2xl border border-border bg-muted/25 p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-mono text-sm font-semibold">{value}</dd></div>)}
+      <dl className="mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-border md:hidden">
+        {primaryMetrics.map(([label, value]) => <div key={label} className="min-w-0 border-r border-border p-3 last:border-r-0"><dt className="truncate text-[11px] text-muted-foreground">{label}</dt><dd className="mt-1 truncate font-mono text-sm font-semibold">{value}</dd></div>)}
+      </dl>
+      <details className="mt-3 rounded-2xl border border-border md:hidden">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">{t("viewBreakdown")}</summary>
+        <dl className="divide-y divide-border border-t border-border px-4">
+          {breakdownMetrics.map(([label, value]) => <div key={label} className="flex items-center justify-between gap-4 py-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="font-mono text-xs font-semibold">{value}</dd></div>)}
+        </dl>
+      </details>
+      <dl className="mt-4 hidden overflow-hidden rounded-2xl border border-border md:grid md:grid-cols-3 xl:grid-cols-5">
+        {metrics.map(([label, value]) => <div key={label} className="border-b border-r border-border bg-muted/20 p-3"><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-1 font-mono text-sm font-semibold">{value}</dd></div>)}
       </dl>
       {advice.isEstimate && (
         <p className="mt-4 rounded-xl border border-warning/40 bg-warning/15 px-3 py-3 text-xs leading-5 text-foreground">

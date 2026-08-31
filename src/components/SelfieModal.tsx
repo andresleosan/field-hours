@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
-import { Camera, X, RefreshCw, Check, SkipForward, AlertCircle } from "lucide-react";
+import { Camera, RefreshCw, Check, SkipForward, AlertCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useI18n } from "@/lib/useI18n";
 
 interface SelfieModalProps {
@@ -16,6 +17,20 @@ export function SelfieModal({ onCapture, onClose }: SelfieModalProps) {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(
+    typeof document !== "undefined" && document.activeElement instanceof HTMLElement ? document.activeElement : null,
+  );
+
+  useEffect(
+    () => () => {
+      const previouslyFocusedElement = previouslyFocusedElementRef.current;
+      if (previouslyFocusedElement?.isConnected) {
+        previouslyFocusedElement.focus({ preventScroll: true });
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     let activeStream: MediaStream | null = null;
@@ -112,49 +127,68 @@ export function SelfieModal({ onCapture, onClose }: SelfieModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-sm" onClick={handleClose}>
-      <section
-        role="dialog"
-        aria-modal="true"
-        className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open) handleClose();
+      }}
+    >
+      <DialogContent
+        closeLabel={t("close")}
+        overlayClassName="bg-foreground/50 backdrop-blur-sm"
+        className="max-w-sm gap-0 overflow-x-hidden overflow-y-auto rounded-3xl border-border bg-card p-0 shadow-2xl"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          titleRef.current?.focus({ preventScroll: true });
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault();
+          const previouslyFocusedElement = previouslyFocusedElementRef.current;
+          if (previouslyFocusedElement?.isConnected) {
+            previouslyFocusedElement.focus({ preventScroll: true });
+          }
+        }}
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-4">
+        <div className="flex items-center border-b border-border py-4 pl-5 pr-16">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand/10 text-brand">
-              <Camera className="h-4 w-4" />
+              <Camera className="h-4 w-4" aria-hidden="true" />
             </div>
             <div>
-              <h3 className="text-sm font-bold">{t("takeSelfieTitle")}</h3>
-              <p className="text-[11px] text-muted-foreground">{t("takeSelfiePrompt")}</p>
+              <DialogTitle ref={titleRef} tabIndex={-1} className="text-sm font-bold outline-none">
+                {t("takeSelfieTitle")}
+              </DialogTitle>
+              <DialogDescription className="text-[11px] text-muted-foreground">
+                {t("takeSelfiePrompt")}
+              </DialogDescription>
             </div>
           </div>
-          <button type="button" onClick={handleClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted">
-            <X className="h-4 w-4" />
-          </button>
         </div>
 
         <div className="p-4 space-y-4">
           {capturedImage ? (
             /* Preview of captured image */
             <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-black shadow-inner">
-              <img src={capturedImage} alt="Captured selfie" className="h-full w-full object-cover" />
+              <img src={capturedImage} alt={t("takeSelfiePrompt")} className="h-full w-full object-cover" />
               <div className="absolute top-2 right-2 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white">
                 ✓ Ready
               </div>
             </div>
           ) : cameraError ? (
             /* Camera error or permission blocked */
-            <div className="flex aspect-square w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/40 p-5 text-center">
-              <AlertCircle className="h-10 w-10 text-warning" />
+            <div
+              className="flex aspect-square w-full flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/40 p-5 text-center"
+              role="alert"
+            >
+              <AlertCircle className="h-10 w-10 text-warning" aria-hidden="true" />
               <p className="mt-2 text-xs font-semibold text-foreground">{cameraError}</p>
               <p className="mt-1 text-[11px] text-muted-foreground">You can still clock in without taking a photo.</p>
               <button
                 type="button"
                 onClick={handleSkip}
-                className="mt-4 flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                className="mt-4 flex min-h-11 items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
               >
-                <SkipForward className="h-3.5 w-3.5" /> {t("skipPhoto")}
+                <SkipForward className="h-3.5 w-3.5" aria-hidden="true" /> {t("skipPhoto")}
               </button>
             </div>
           ) : (
@@ -174,9 +208,10 @@ export function SelfieModal({ onCapture, onClose }: SelfieModalProps) {
                 type="button"
                 onClick={switchCamera}
                 title={t("switchCamera")}
-                className="absolute top-3 right-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-black/80"
+                aria-label={t("switchCamera")}
+                className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black"
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -190,16 +225,16 @@ export function SelfieModal({ onCapture, onClose }: SelfieModalProps) {
                 <button
                   type="button"
                   onClick={handleRetake}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold hover:bg-muted"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold hover:bg-muted"
                 >
-                  <RefreshCw className="h-3.5 w-3.5" /> {t("retake")}
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("retake")}
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirm}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-xs font-semibold text-brand-foreground hover:brightness-95"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand py-2.5 text-xs font-semibold text-brand-foreground hover:brightness-95"
                 >
-                  <Check className="h-4 w-4" /> {t("confirmPhoto")}
+                  <Check className="h-4 w-4" aria-hidden="true" /> {t("confirmPhoto")}
                 </button>
               </>
             ) : !cameraError ? (
@@ -207,22 +242,22 @@ export function SelfieModal({ onCapture, onClose }: SelfieModalProps) {
                 <button
                   type="button"
                   onClick={handleSkip}
-                  className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border py-2.5 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                 >
-                  <SkipForward className="h-3.5 w-3.5" /> {t("skipPhoto")}
+                  <SkipForward className="h-3.5 w-3.5" aria-hidden="true" /> {t("skipPhoto")}
                 </button>
                 <button
                   type="button"
                   onClick={handleCapture}
-                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-xs font-bold text-brand-foreground shadow-sm hover:brightness-95"
+                  className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand py-2.5 text-xs font-bold text-brand-foreground shadow-sm hover:brightness-95"
                 >
-                  <Camera className="h-4 w-4" /> {t("capturePhoto")}
+                  <Camera className="h-4 w-4" aria-hidden="true" /> {t("capturePhoto")}
                 </button>
               </>
             ) : null}
           </div>
         </div>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

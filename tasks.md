@@ -4,6 +4,39 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ---
 
+## Fase 9: Experiencia móvil workforce centrada en tareas (COMPLETADA LOCALMENTE; NO DESPLEGADA)
+
+> Alcance aprobado por el operador el 31 de agosto de 2026 a partir de una auditoría visual, de arquitectura de información y WCAG sobre capturas reales a 390 px. Esta fase no cambia backend, D1, reglas de Salary Advice ni el PDF; tampoco autoriza despliegue. Conserva como guardrail la selección explícita trabajador+periodo, la descarga directa y la ausencia total de review/approve/payroll run.
+
+- [x] **MOB-01 (Primitives móviles y diálogos)**: Unificados nombre accesible, foco inicial/confinado, Escape, retorno al disparador, scroll con `100dvh`, safe areas y cierres/acciones táctiles de 44×44 en `SelfieModal`, el primitive compartido y los diálogos propios de workforce.
+- [x] **MOB-02 (Navegación enlazable)**: Navegación móvil persistente con etiquetas compactas, sección en URL y conservación de recarga/atrás/adelante; escritorio mantiene los mismos destinos y significado.
+- [x] **MOB-03 (Trabajador centrado en fichaje)**: `Hoy`, `Historial` y `Horas y pago` separados; estado/CTA/proyecto en el primer viewport, evidencia diaria resumida y acceso persistente al turno activo desde las secciones secundarias.
+- [x] **MOB-04 (Administrador centrado en operación)**: `En vivo` empieza por métricas/equipo; solicitudes, recuperación, invitación y auditoría viven en `Equipo y accesos`, con pendientes visibles y contenido secundario desplegable.
+- [x] **MOB-05 (Salary Advice progresivo)**: `Crear`, `Negocio` y `Empleados` separados; cálculo agrupado en empleado+periodo, importes confirmados y acumulados+descarga; resultado móvil resumido con desglose accesible. No se introdujo aprobación, coste/cotización patronal ni referencias del negocio en el recibo.
+- [x] **MOB-06 (Listas responsive)**: Historial y auditoría usan tarjetas móviles y tablas solo desde `md`; filtros, invitación y auditoría secundaria se compactan mediante paneles desplegables sin ocultar acciones pendientes. Historiales, equipo y proyectos presentan 8 registros iniciales y revelan el resto de forma progresiva.
+- [x] **MOB-07 (Cabecera y feedback)**: Idioma/cuenta compactados, instalación PWA conservada en Cuenta y eliminados truncamientos del menú mediante etiquetas móviles cortas localizadas.
+- [x] **MOB-08 (QA móvil real)**: Legibilidad aprobada en 320×568, 360×800, 390×844 y 430×932 sobre Chromium/WebKit/Firefox; rutas clave ES/EN/PT comprobadas en Chromium a 360×800; targets, reflow, navegación, PWA, modales, errores y datos densos cubiertos por el gate funcional Chromium. Chromium 43/43, WebKit 10/10 y Firefox 10/10, siempre con `retries=0`.
+- [x] **MOB-09 (Higiene documental)**: Referencias activas a aprobación de nómina retiradas o marcadas como históricas; `BRIEF.md`, `STACK.md`, `tasks.md` y `qa/TEST_REPORT.md` reconciliados con el comportamiento vigente.
+
+### Gate de aceptación de Fase 9
+
+- El CTA de fichaje completo aparece en el primer viewport de trabajador a 320×568, 360×800, 390×844 y 430×932; a 320×568 queda además íntegramente por encima de la navegación inferior.
+- Métricas y primer trabajador aparecen en el primer viewport de `En vivo` a 390×844.
+- Ninguna acción primaria ni registro móvil exige desplazamiento horizontal.
+- Cada cambio de sección, incluida la navegación atrás/adelante, vuelve al inicio de su contenido; la recarga conserva una `?section` válida.
+- Historiales, equipo y proyectos densos muestran un primer bloque manejable y permiten revelar más registros sin scroll horizontal.
+- Salary Advice explica bloqueos antes del formulario y descarga el documento sin estados de aprobación.
+- Typecheck, lint, build, seguridad y E2E relevante pasan sin reintentos; Firefox debe ejecutar la UI o quedar la fase bloqueada, no aprobada.
+
+### Evidencia de cierre local
+
+- Gate reproducible: pasaron typechecks frontend/Worker, lint, build, SheetJS, Worker 34/34, PDF 6/6, operaciones 4/4, recuperación D1 sintética y E2E Chromium 43/43. La consulta al registro quedó bloqueada dentro del sandbox y se repitió de forma aislada: `npm.cmd audit --audit-level=high` → 0 vulnerabilidades.
+- `npm.cmd run test:e2e:cross-browser -- --project=webkit --retries=0` → 10/10; Firefox → 10/10 con variables `MOZ_DISABLE_*` efímeras limitadas al proceso de prueba por la incidencia de Playwright/Windows `SpawnTarget/_page`. No se persistió esa relajación.
+- Inspección humana de capturas completas: primer viewport trabajador/admin, Salary Advice, proyectos, historial y acceso denso; sin tablas móviles ni scroll horizontal. La pantalla de acceso conserva abiertas las solicitudes accionables y pliega invitación/auditoría secundaria.
+- No se modificaron endpoints, D1, reglas de cálculo ni generación PDF; no hubo despliegue, migración, escritura productiva ni gasto nuevo.
+
+---
+
 ## Fase 8: Corrección del Salary Advice y distribución PWA (Completada y desplegada)
 
 > Decisión del operador, 30 de agosto de 2026: el workflow “Review and approve payroll”, el preview automático global, la tarifa estándar del negocio y la configuración patronal/fiscal señalada fueron inferencias incorrectas. Las referencias de la Fase 7 se conservan solo como historial de lo que llegó a existir; esta fase define el comportamiento vigente y las sustituye.
@@ -64,10 +97,10 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [x] **Tarea O.17 (Confirmación fiable de clock-in y nómina manual) — DESPLEGADA**: El clock-in productivo de Luis se confirmó por consulta de solo lectura, sin modificarlo. La UI ahora reconcilia el fichaje con el servidor, la PWA no cachea APIs y el administrador puede preparar un snapshot personalizado con trabajador+horas reutilizando configuración y perfil aprobados. Commit `d490710`, Verify `33264186422`, monitor `33264327193`, ambos checks Vercel y Worker `900f64d6-9c0b-4814-be29-03661fe94ad9` aprobaron. Smoke 5/5; D1 final `rows_written: 0`, Luis continúa `working` y no se crearon runs. Release/rollback: `docs/RELEASE-2026-08-29-clock-in-custom-payroll.md`.
 
 ## 📊 Estado General del Proyecto
-- **Fase Actual**: Fase 8 — corrección del Salary Advice y distribución PWA (COMPLETADA Y DESPLEGADA)
-- **Mantenimiento actual**: observar el monitor 10/10, conservar los IDs de rollback y no eliminar las tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
+- **Fase Actual**: Fase 9 — experiencia móvil workforce centrada en tareas (COMPLETADA Y VERIFICADA LOCALMENTE; NO DESPLEGADA)
+- **Mantenimiento actual**: conservar la Fase 8 productiva y sus IDs de rollback; la Fase 9 requiere una autorización separada antes de commit/push o despliegue. No eliminar tablas históricas/aditivas sin una tarea y autorización destructiva separadas.
 - **Seguimiento separado**: Fase 6 completada y validada en staging y producción; el administrador puede seguir usando credenciales locales y no necesita una identidad Google.
-- **Última Actualización**: 30 de Agosto de 2026
+- **Última Actualización**: 31 de agosto de 2026
 
 ---
 

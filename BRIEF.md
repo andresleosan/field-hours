@@ -28,13 +28,14 @@ Centralizar en una experiencia móvil y auditable la jornada laboral y la operac
 
 ## Prioridad actual
 
-Estabilizar la operación ya desplegada antes de abrir otra función grande:
+La Fase 9 implementa y verifica localmente una experiencia workforce centrada en tareas móviles, sin cambiar sus contratos de backend:
 
-1. Mantener un gate reproducible para administrador y trabajador en Chromium, Firefox y WebKit.
-2. Cerrar cada release con evidencia de CI, alias productivo, smoke HTTP y rollback documentado.
-3. Activar alertas operativas reproducibles y practicar la recuperación de D1 usando exclusivamente datos sintéticos en entornos locales aislados.
-4. Mantener Google OAuth con comprobaciones no mutantes y revalidación manual controlada cuando cambie el cliente o el Worker.
-5. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
+1. Colocar el fichaje y el estado operativo como primera tarea del trabajador.
+2. Colocar el estado del equipo como primera tarea del administrador y separar la gestión de accesos.
+3. Dividir Salary Advice en creación, datos del negocio y empleados, conservando la descarga directa sin aprobación.
+4. Sustituir tablas horizontales por representaciones móviles y asegurar diálogos, foco y objetivos táctiles WCAG 2.2.
+5. Ampliar el gate reproducible a varios tamaños móviles, idiomas y estados con datos densos antes de considerar terminada la fase.
+6. Mantener la nómina como estimación hasta validar formalmente las reglas estatutarias aplicables.
 
 ## Reglas de negocio y restricciones
 
@@ -58,7 +59,7 @@ Estabilizar la operación ya desplegada antes de abrir otra función grande:
 - APK/AAB nativo: la entrega móvil vigente es una PWA instalable; una app Android nativa requeriría una decisión de producto separada.
 - Cálculos para jurisdicciones distintas de Jersey.
 - Migraciones o despliegues automáticos sin gate humano.
-- Rediseño general de los módulos que ya están operativos mientras se consolida la operación multiplataforma.
+- Rediseño general del subsistema BuildTrack: la fase móvil aprobada se limita a la experiencia workforce de administrador/trabajador y a primitives compartidos que use directamente.
 
 ## Criterios de éxito de la fase actual
 
@@ -70,4 +71,4 @@ Estabilizar la operación ya desplegada antes de abrir otra función grande:
 
 ## Estado de este documento
 
-Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas.
+Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. Revisado el 31 de agosto de 2026 tras completar y validar localmente la Fase 9 móvil; el cambio aún no está desplegado.

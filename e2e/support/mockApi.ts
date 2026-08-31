@@ -5,6 +5,7 @@ const CSRF_TOKEN = "synthetic-e2e-csrf-token";
 const NOW = "2026-08-25T09:00:00.000Z";
 
 type Role = "admin" | "worker";
+export type MockLanguage = "en" | "es" | "pt";
 type ShiftAction = "clock_in" | "start_break" | "end_break" | "clock_out";
 type ShiftState = "off_shift" | "working" | "on_break" | "complete";
 
@@ -95,15 +96,16 @@ function emptyShift(): ShiftSnapshot {
 async function prepareContext(
   context: BrowserContext,
   handler: (route: Route, path: string, method: string, body: unknown) => Promise<void>,
+  language: MockLanguage = "en",
 ): Promise<MockApiControl> {
   const calls: ApiCall[] = [];
   const externalRequests: string[] = [];
 
   await context.addCookies([{ name: "fh_csrf", value: CSRF_TOKEN, url: APP_ORIGIN }]);
-  await context.addInitScript(() => {
+  await context.addInitScript((selectedLanguage: MockLanguage) => {
     localStorage.clear();
-    localStorage.setItem("fh_lang", "en");
-  });
+    localStorage.setItem("fh_lang", selectedLanguage);
+  }, language);
   await context.route("**/*", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -137,13 +139,15 @@ function assertCsrf(route: Route): boolean {
 export async function installAdminApi(
   context: BrowserContext,
   options: {
+    denseData?: boolean;
+    language?: MockLanguage;
     salaryAdviceError?: boolean;
     salaryAdviceDelayMs?: number;
     settingsDelayMs?: number;
     settingsError?: boolean;
   } = {},
 ): Promise<MockApiControl> {
-  const adminPeople = [{
+  const baseAdminPerson = {
     user_id: "worker-1",
     display_name: "Worker Test",
     role: "worker",
@@ -155,8 +159,33 @@ export async function installAdminApi(
     project_id: null,
     project_name: null,
     events: [],
-  }];
-  const adminProjects: Project[] = [{
+  };
+  const denseAdminPeople = Array.from({ length: 13 }, (_, index) => {
+    const sequence = index + 2;
+    const state: ShiftState = index % 3 === 0 ? "working" : index % 3 === 1 ? "on_break" : "off_shift";
+    const clockInAt = state === "off_shift" ? null : `2026-08-25T${String(7 + (index % 3)).padStart(2, "0")}:00:00.000Z`;
+    const event: ShiftEvent | null = clockInAt
+      ? {
+          id: `dense-event-${sequence}`,
+          type: "clock_in",
+          at: clockInAt,
+          location: { latitude: 49.2144 + index / 10_000, longitude: -2.1313, accuracy: 12 + index },
+        }
+      : null;
+    return {
+      ...baseAdminPerson,
+      user_id: `worker-${sequence}`,
+      display_name: `Worker ${String(sequence).padStart(2, "0")} With Long Name`,
+      state,
+      clock_in_at: clockInAt,
+      break_started_at: state === "on_break" ? `2026-08-25T12:${String(index).padStart(2, "0")}:00.000Z` : null,
+      project_id: `project-${(index % 8) + 1}`,
+      project_name: `Jersey Operations Site ${(index % 8) + 1}`,
+      events: event ? [event] : [],
+    };
+  });
+  const adminPeople = options.denseData ? [baseAdminPerson, ...denseAdminPeople] : [baseAdminPerson];
+  const baseAdminProject: Project = {
     id: "project-1",
     name: "Existing Site",
     description: "Existing test project",
@@ -167,8 +196,69 @@ export async function installAdminApi(
     radius_m: 200,
     is_active: true,
     created_at: NOW,
-  }];
-  let adminHistory: Array<Record<string, unknown>> = [];
+  };
+  const adminProjects: Project[] = options.denseData
+    ? [baseAdminProject, ...Array.from({ length: 11 }, (_, index) => ({
+        ...baseAdminProject,
+        id: `project-${index + 2}`,
+        name: `Jersey Operations Site ${index + 2} — Waterfront Refurbishment`,
+        description: `Dense test project ${index + 2} with a deliberately descriptive operational name.`,
+        code: `SITE-${String(index + 2).padStart(2, "0")}`,
+        address: `${index + 2} Esplanade, St Helier, Jersey`,
+        is_active: index % 4 !== 3,
+      }))]
+    : [baseAdminProject];
+  let adminHistory: Array<Record<string, unknown>> = options.denseData
+    ? Array.from({ length: 18 }, (_, index) => ({
+        id: `dense-history-${index + 1}`,
+        user_id: `worker-${(index % 8) + 1}`,
+        display_name: index === 0 ? "Worker Test" : `Worker ${String((index % 8) + 1).padStart(2, "0")} With Long Name`,
+        work_date: `2026-08-${String(24 - (index % 18)).padStart(2, "0")}`,
+        state: "complete",
+        clock_in_at: `2026-08-${String(24 - (index % 18)).padStart(2, "0")}T08:00:00.000Z`,
+        break_started_at: null,
+        break_ended_at: null,
+        clock_out_at: `2026-08-${String(24 - (index % 18)).padStart(2, "0")}T16:30:00.000Z`,
+        project_id: `project-${(index % 8) + 1}`,
+        project_name: `Jersey Operations Site ${(index % 8) + 1}`,
+        duration_minutes: 510,
+        break_minutes: 30,
+        net_minutes: 480,
+        events: [],
+        admin_adjustment: index % 5 === 0
+          ? { kind: "adjusted", reason: "Supervisor reconciled the signed site record.", adjusted_at: NOW }
+          : null,
+      }))
+    : [];
+  const denseGoogleRequests = Array.from({ length: 4 }, (_, index) => ({
+    id: `google-request-${index + 1}`,
+    organizationId: "org-1",
+    requestType: index % 2 === 0 ? "access" : "migration",
+    email: `pending-google-${index + 1}@field-hours.test`,
+    displayName: `Pending Google User ${index + 1}`,
+    existingUserId: index % 2 === 0 ? null : `worker-${index + 2}`,
+    requestedAt: `2026-08-2${index}T09:00:00.000Z`,
+  }));
+  const densePasswordRequests = Array.from({ length: 4 }, (_, index) => ({
+    id: `password-request-${index + 1}`,
+    userId: `worker-${index + 2}`,
+    organizationId: "org-1",
+    email: `password-reset-${index + 1}@field-hours.test`,
+    displayName: `Password Reset User ${index + 1}`,
+    requestedAt: `2026-08-2${index}T10:00:00.000Z`,
+  }));
+  const denseRequestHistory = Array.from({ length: 12 }, (_, index) => ({
+    id: `request-history-${index + 1}`,
+    category: index % 2 === 0 ? "google" : "password_reset",
+    requestType: index % 2 === 0 ? "access" : "reset",
+    email: `reviewed-${index + 1}@field-hours.test`,
+    displayName: `Reviewed Account ${index + 1}`,
+    status: index % 3 === 0 ? "approved" : index % 3 === 1 ? "rejected" : "completed",
+    reason: index % 3 === 1 ? "Identity could not be confirmed from the submitted request." : null,
+    requestedAt: `2026-08-${String(20 - (index % 12)).padStart(2, "0")}T09:00:00.000Z`,
+    reviewedAt: `2026-08-${String(20 - (index % 12)).padStart(2, "0")}T10:00:00.000Z`,
+    reviewerName: "Admin Test",
+  }));
   const profile = {
     userId: "worker-1",
     displayName: "Worker Test",
@@ -196,9 +286,9 @@ export async function installAdminApi(
     if (method === "GET" && path === "/api/admin/today") return json(route, adminPeople);
     if (method === "GET" && path === "/api/projects") return json(route, adminProjects);
     if (method === "GET" && path === "/api/admin/shifts/history") return json(route, adminHistory);
-    if (method === "GET" && path === "/api/admin/auth-requests") return json(route, []);
-    if (method === "GET" && path === "/api/admin/password-reset-requests") return json(route, []);
-    if (method === "GET" && path === "/api/admin/request-history") return json(route, []);
+    if (method === "GET" && path === "/api/admin/auth-requests") return json(route, options.denseData ? denseGoogleRequests : []);
+    if (method === "GET" && path === "/api/admin/password-reset-requests") return json(route, options.denseData ? densePasswordRequests : []);
+    if (method === "GET" && path === "/api/admin/request-history") return json(route, options.denseData ? denseRequestHistory : []);
     if (method === "GET" && path === "/api/admin/payroll-profiles") return json(route, [profile, secondProfile]);
     if (method === "GET" && path === "/api/admin/payroll-settings") return json(route, settings);
 
@@ -464,7 +554,7 @@ export async function installAdminApi(
     }
 
     return json(route, { error: `Unhandled test route: ${method} ${path}`, code: "TEST_ROUTE_MISSING" }, 501);
-  });
+  }, options.language);
 }
 
 export async function installWorkerApi(
@@ -472,11 +562,13 @@ export async function installWorkerApi(
   options: {
     adminCreatedHistory?: boolean;
     adjustedHistory?: boolean;
+    denseData?: boolean;
     failFirstClockOutNetwork?: boolean;
+    language?: MockLanguage;
     overnightOpenShift?: boolean;
   } = {},
 ): Promise<WorkerMockControl> {
-  let projects: Project[] = [{
+  const baseWorkerProject: Project = {
     id: "project-1",
     name: "Existing Site",
     description: "Existing test project",
@@ -487,7 +579,17 @@ export async function installWorkerApi(
     radius_m: 200,
     is_active: true,
     created_at: NOW,
-  }];
+  };
+  let projects: Project[] = options.denseData
+    ? [baseWorkerProject, ...Array.from({ length: 9 }, (_, index) => ({
+        ...baseWorkerProject,
+        id: `project-${index + 2}`,
+        name: `Worker Site ${index + 2} — Long Waterfront Assignment`,
+        description: `Dense worker project ${index + 2}`,
+        code: `WS-${String(index + 2).padStart(2, "0")}`,
+        address: `${index + 20} Commercial Buildings, St Helier`,
+      }))]
+    : [baseWorkerProject];
   let currentShift: ShiftSnapshot | null = options.overnightOpenShift
     ? {
       id: "overnight-shift-1",
@@ -507,8 +609,7 @@ export async function installWorkerApi(
     }
     : null;
   let activeWorkDate = options.overnightOpenShift ? "2026-08-24" : "2026-08-25";
-  const completed: Array<Record<string, unknown>> = options.adjustedHistory || options.adminCreatedHistory
-    ? [{
+  const seededNotice: Record<string, unknown> = {
       id: options.adminCreatedHistory ? "admin-created-shift-1" : "adjusted-shift-1",
       user_id: "worker-1",
       display_name: "Worker Test",
@@ -531,8 +632,31 @@ export async function installWorkerApi(
           : "Worker forgot to clock out at the end of the shift.",
         adjusted_at: "2026-08-25T09:00:00.000Z",
       },
-    }]
-    : [];
+    };
+  const completed: Array<Record<string, unknown>> = options.denseData
+    ? Array.from({ length: 20 }, (_, index) => ({
+        id: `worker-history-${index + 1}`,
+        user_id: "worker-1",
+        display_name: "Worker Test",
+        work_date: `2026-08-${String(24 - (index % 20)).padStart(2, "0")}`,
+        state: "complete",
+        clock_in_at: `2026-08-${String(24 - (index % 20)).padStart(2, "0")}T08:00:00.000Z`,
+        break_started_at: null,
+        break_ended_at: null,
+        clock_out_at: `2026-08-${String(24 - (index % 20)).padStart(2, "0")}T16:30:00.000Z`,
+        project_id: `project-${(index % 8) + 1}`,
+        project_name: `Worker Site ${(index % 8) + 1} — Long Waterfront Assignment`,
+        duration_minutes: 510,
+        break_minutes: index % 2 === 0 ? 30 : 45,
+        net_minutes: index % 2 === 0 ? 480 : 465,
+        events: [],
+        admin_adjustment: index === 0
+          ? { kind: "adjusted", reason: "Supervisor reconciled the signed site record.", adjusted_at: NOW }
+          : null,
+      }))
+    : options.adjustedHistory || options.adminCreatedHistory
+      ? [seededNotice]
+      : [];
   let shiftSequence = 0;
   let eventSequence = currentShift?.events.length ?? 0;
   let failedClockOutOnce = false;
@@ -691,7 +815,7 @@ export async function installWorkerApi(
     }
 
     return json(route, { error: `Unhandled test route: ${method} ${path}`, code: "TEST_ROUTE_MISSING" }, 501);
-  });
+  }, options.language);
 
   return { ...control, completedShiftCount: () => completed.length };
 }

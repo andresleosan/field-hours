@@ -1,10 +1,30 @@
-# Reporte de QA — Fase 7
+# Reporte de QA — Field Hours
+
+## Fase 9 — experiencia móvil workforce (31 de agosto de 2026; local, no desplegada)
+
+Resultado: **gate funcional y matriz móvil aprobados sin reintentos**.
+
+- Chromium: 43/43 E2E. Incluye CTA de fichaje completo en los cuatro viewports y sin solapamiento a 320×568, métricas y primer trabajador visibles a 390×844, secciones enlazables que vuelven arriba al cambiar o usar atrás/adelante y conservan `?section` al recargar, rutas clave ES/EN/PT a 360×800, targets de 44 px en los escenarios declarados, Salary Advice directo sin aprobación, PWA Android, CSRF, diálogos, listas densas de revelado progresivo, paneles de acceso compactos y ausencia de tablas/overflow horizontal en móvil.
+- Matriz crítica de legibilidad: WebKit 10/10 y Firefox 10/10 sobre 320×568, 360×800, 390×844 y 430×932; cubre reflow, contraste WCAG AA, nombres accesibles, foco visible y errores, sin sustituir la cobertura funcional/idiomática de Chromium.
+- Firefox: el sandbox de procesos de Windows falló antes de renderizar con `SpawnTarget/_page`, consistente con [Playwright #36594](https://github.com/microsoft/playwright/issues/36594). La suite ejecutó 10/10 con `MOZ_DISABLE_CONTENT_SANDBOX`, `MOZ_DISABLE_RDD_SANDBOX` y `MOZ_DISABLE_GMP_SANDBOX` solo en el proceso local; no se persistieron en configuración, CI o producto.
+- Gate no visual: frontend/Worker typecheck, lint, build, SheetJS, Worker 34/34, PDF 6/6, operaciones 4/4 y recuperación D1 sintética aprobados. `npm audit --audit-level=high`, repetido fuera del sandbox porque este bloqueó el registro, devolvió 0 vulnerabilidades.
+- Seguridad/contratos: no cambiaron endpoints, autorización, D1, cálculo ni PDF. Los mocks validan rutas/métodos/cuerpos y bloquean tráfico externo. No se usaron secretos, cuentas, producción, migraciones ni APIs de pago.
+- Capacidad: no corresponde carga de backend a este cambio visual; se ejercitaron 14 trabajadores, 18 jornadas, 12 proyectos, solicitudes pendientes y 12 eventos de auditoría para detectar reflow, crecimiento y overflow.
+- Inspección humana: capturas completas de trabajador, `En vivo`, historial, Salary Advice, proyectos y accesos. El CTA de fichaje queda íntegro sobre la navegación inferior a 320×568; el menú administrativo ya no trunca etiquetas; las solicitudes accionables permanecen abiertas y la invitación/auditoría secundaria se pliega en móvil.
+
+El reporte HTML local más reciente queda en `qa/reports/playwright/index.html`. Cada ejecución reemplaza el reporte anterior; las cifras canónicas están en este documento y en `tasks.md`.
+
+---
+
+## Archivo histórico — Fase 7
+
+> **Documento histórico, sustituido por las Fases 8 y 9.** Las menciones de revisión, aprobación, estados “listo para pago”, payroll runs o Salary Advice condicionado a aprobación describen una implementación retirada y no el producto vigente. El contrato actual selecciona un empleado y un periodo y descarga directamente el Salary Advice; no revisa, aprueba ni inicia pagos.
 
 Fecha: 28 de agosto de 2026
 Entorno: local, Chromium/Firefox/WebKit con Playwright 1.57, API completamente simulada
-Resultado actual: **16/16 pruebas E2E funcionales, 15/15 escenarios críticos multinavegador y 6/6 regresiones del Worker aprobadas**
+Resultado histórico: **16/16 pruebas E2E funcionales, 15/15 escenarios críticos multinavegador y 6/6 regresiones del Worker aprobadas**
 
-## Alcance validado
+### Alcance histórico validado en la Fase 7
 
 - Nómina: enviar snapshot, dejarlo pendiente, aprobarlo, bloquearlo como listo para pago sin iniciar transferencias y solicitar cambios con nota obligatoria.
 - Salary Advice final: la acción solo aparece para runs aprobados; prepara un trabajador desde el snapshot bloqueado, abre el documento imprimible con cifras exactas, todos los campos requeridos y contenido HTML escapado, sin rutas de pago.

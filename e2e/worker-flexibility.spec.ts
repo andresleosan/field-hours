@@ -34,12 +34,15 @@ test("worker creates a project, takes multiple breaks and completes two shifts w
   await page.getByRole("button", { name: "Finish shift" }).click();
   await page.getByRole("button", { name: "Confirm finish" }).click();
   await expect(page.getByRole("button", { name: "Clock in" })).toBeVisible();
+  await page.getByRole("button", { name: "History & Reports", exact: true }).filter({ visible: true }).click();
   await expect(page.getByText(/Break: 0h 35m/)).toBeVisible();
 
+  await page.getByRole("button", { name: "Live Today", exact: true }).filter({ visible: true }).click();
   await page.getByRole("button", { name: "Clock in" }).click();
   await page.getByRole("button", { name: "Finish shift" }).click();
   await page.getByRole("button", { name: "Confirm finish" }).click();
   await expect(page.getByRole("button", { name: "Clock in" })).toBeVisible();
+  await page.getByRole("button", { name: "Hours overview", exact: true }).filter({ visible: true }).click();
   await expect(page.getByText("1h 25m", { exact: true }).first()).toBeVisible();
 
   const shiftCalls = api.calls.filter((call) => call.path === "/api/shift/action");
@@ -126,8 +129,10 @@ test("worker sees an administrator adjustment notice and the updated payroll lab
   const api = await installWorkerApi(context, { adjustedHistory: true });
 
   await page.goto("/");
+  await page.getByRole("button", { name: "History & Reports", exact: true }).filter({ visible: true }).click();
   await expect(page.getByText("Hours modified by an administrator", { exact: true })).toBeVisible();
   await expect(page.getByText(/Worker forgot to clock out at the end of the shift\./)).toBeVisible();
+  await page.getByRole("button", { name: "Hours overview", exact: true }).filter({ visible: true }).click();
   await expect(page.getByLabel(/Tax Reference \(ITIS\)/)).toBeVisible();
   await expect(page.getByLabel(/Social Security Number/)).toHaveCount(1);
   await expect(page.getByLabel("Social Reference", { exact: true })).toHaveCount(0);
@@ -138,6 +143,7 @@ test("worker sees the mandatory description for an admin-created workday with re
   const api = await installWorkerApi(context, { adminCreatedHistory: true });
 
   await page.goto("/");
+  await page.getByRole("button", { name: "History & Reports", exact: true }).filter({ visible: true }).click();
   const heading = page.getByText("Workday added by an administrator", { exact: true });
   await expect(heading).toBeVisible();
   await expect(page.getByText(/Approved paper timesheet for site work\./)).toBeVisible();

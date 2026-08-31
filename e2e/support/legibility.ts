@@ -226,6 +226,15 @@ export async function expectKeyboardFocusVisible(page: Page, testInfo: TestInfo,
 }
 
 export async function expectLegiblePage(page: Page, testInfo: TestInfo, label: string): Promise<void> {
+  await page.evaluate(async () => {
+    if (!document.getElementById("e2e-legibility-motion-reset")) {
+      const style = document.createElement("style");
+      style.id = "e2e-legibility-motion-reset";
+      style.textContent = "*, *::before, *::after { animation-duration: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; }";
+      document.head.append(style);
+    }
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
   const audit = await auditLegibility(page);
   await testInfo.attach(`${label}-legibility.json`, {
     body: Buffer.from(JSON.stringify(audit, null, 2)),

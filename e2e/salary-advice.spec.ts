@@ -39,7 +39,7 @@ async function openAccountMenu(page: Page, displayName: string): Promise<void> {
 
 async function openSalaryAdvice(page: Page): Promise<void> {
   await page.goto("/clock");
-  await page.getByRole("button", { name: "Salary Advice", exact: true }).click();
+  await page.getByRole("button", { name: "Salary Advice", exact: true }).filter({ visible: true }).click();
   await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
 }
 
@@ -111,12 +111,15 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
   await expect(page.getByRole("status")).toContainText(`PDF downloaded: ${filename}`);
   await expect(page.getByRole("heading", { name: "Downloaded document summary" })).toBeVisible();
   await expect(page.getByText("Worker Test · 2026-08-24 – 2026-08-30", { exact: true })).toBeVisible();
-  await expect(page.getByText("£800.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("£36.00", { exact: true })).toBeVisible();
-  await expect(page.getByText("£644.00", { exact: true })).toBeVisible();
+  await expect(page.getByText("£800.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£156.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£644.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByText("View breakdown", { exact: true }).click();
+  await expect(page.getByText("£36.00", { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(/Estimate based on completed shifts/i)).toBeVisible();
   await expect(page.getByText(/running calendar-month record/i)).toBeVisible();
-  await page.getByRole("button", { name: "ES", exact: true }).click();
+  await openAccountMenu(page, "Admin Test");
+  await page.locator("#field-hours-account-panel").getByRole("button", { name: "ES", exact: true }).click();
   await expect(page.getByText(/Seguridad Social semanal fue confirmada por el administrador/i)).toBeVisible();
 
   const writes = api.calls.filter((call) => call.method === "POST");
@@ -284,6 +287,7 @@ test("employee identity dialog includes the PDF address and restores keyboard fo
 });
 
 test("admin account panel invokes the available Android PWA install prompt", async ({ context, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const api = await installAdminApi(context);
   await page.goto("/");
   await page.evaluate(() => {
@@ -330,9 +334,11 @@ test("account menu closes with Escape or outside click and restores trigger focu
 });
 
 test("worker account panel exposes Android install guidance and the current-month summary", async ({ context, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   const api = await installWorkerApi(context, { adminCreatedHistory: true });
   await page.goto("/");
 
+  await page.getByRole("button", { name: "Hours overview", exact: true }).filter({ visible: true }).click();
   await expect(page.getByRole("heading", { name: "Hours overview" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Calculate and download PDF" })).toHaveCount(0);
@@ -347,6 +353,7 @@ test("worker account panel exposes Android install guidance and the current-mont
 });
 
 test("Android install action handles dismissal, prompt failure and appinstalled without an unhandled rejection", async ({ context, page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await installAdminApi(context);
   await page.goto("/");
   await page.evaluate(() => {

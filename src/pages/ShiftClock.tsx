@@ -6,6 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import * as XLSX from "xlsx";
 import {
@@ -18,6 +19,7 @@ import {
   Camera,
   Check,
   CheckCircle2,
+  ChevronDown,
   Clock3,
   Copy,
   Crosshair,
@@ -45,6 +47,7 @@ import {
 } from "lucide-react";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import { useI18n } from "@/lib/useI18n";
+import type { Translations } from "@/lib/i18n.constants";
 import { PwaInstallAction } from "@/components/PwaInstallAction";
 import { SalaryAdviceWorkspace } from "@/components/payroll/SalaryAdviceWorkspace";
 import {
@@ -137,7 +140,9 @@ function invitationFromLocation(): string {
   return new URLSearchParams(fragment).get("invite") ?? "";
 }
 
-function stateCopy(state: ShiftState, t: (key: any) => string): { label: string; detail: string; tone: string } {
+type Translate = (key: keyof Translations) => string;
+
+function stateCopy(state: ShiftState, t: Translate): { label: string; detail: string; tone: string } {
   return {
     off_shift: {
       label: t("stateOffShift"),
@@ -162,7 +167,7 @@ function stateCopy(state: ShiftState, t: (key: any) => string): { label: string;
   }[state];
 }
 
-function getActionLabel(action: ShiftAction, t: (key: any) => string): string {
+function getActionLabel(action: ShiftAction, t: Translate): string {
   switch (action) {
     case "clock_in": return t("clockIn");
     case "start_break": return t("startBreak");
@@ -184,12 +189,12 @@ function LanguageSwitcher() {
   const { lang, setLang } = useI18n();
 
   return (
-    <div className="inline-flex items-center rounded-xl border border-border bg-muted/60 p-1 text-xs font-semibold">
+    <div className="inline-flex items-center rounded-xl border border-border bg-muted/60 p-1 text-xs font-semibold" aria-label="Language">
       <button
         type="button"
         onClick={() => setLang("es")}
         aria-pressed={lang === "es"}
-        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+        className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
           lang === "es"
             ? "bg-background text-foreground shadow-xs font-bold"
             : "text-muted-foreground hover:text-foreground"
@@ -202,7 +207,7 @@ function LanguageSwitcher() {
         type="button"
         onClick={() => setLang("en")}
         aria-pressed={lang === "en"}
-        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+        className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
           lang === "en"
             ? "bg-background text-foreground shadow-xs font-bold"
             : "text-muted-foreground hover:text-foreground"
@@ -215,7 +220,7 @@ function LanguageSwitcher() {
         type="button"
         onClick={() => setLang("pt")}
         aria-pressed={lang === "pt"}
-        className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+        className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2.5 text-xs font-semibold transition ${
           lang === "pt"
             ? "bg-background text-foreground shadow-xs font-bold"
             : "text-muted-foreground hover:text-foreground"
@@ -226,6 +231,187 @@ function LanguageSwitcher() {
       </button>
     </div>
   );
+}
+
+type WorkerSection = "today" | "history" | "pay";
+type AdminSection = "today" | "history" | "salary" | "projects" | "access";
+
+const WORKER_SECTIONS: readonly WorkerSection[] = ["today", "history", "pay"];
+const ADMIN_SECTIONS: readonly AdminSection[] = ["today", "history", "salary", "projects", "access"];
+const LIST_PAGE_SIZE = 8;
+
+function useSectionParam<T extends string>(allowed: readonly T[], fallback: T) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawSection = searchParams.get("section");
+  const section = allowed.includes(rawSection as T) ? rawSection as T : fallback;
+  const previousSectionRef = useRef(section);
+
+  useEffect(() => {
+    const previousScrollRestoration = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    return () => {
+      window.history.scrollRestoration = previousScrollRestoration;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (previousSectionRef.current === section) return;
+    previousSectionRef.current = section;
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [section]);
+
+  const selectSection = useCallback((nextSection: T) => {
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set("section", nextSection);
+    setSearchParams(nextParams);
+  }, [searchParams, setSearchParams]);
+
+  return [section, selectSection] as const;
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && window.matchMedia(query).matches);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const update = () => setMatches(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, [query]);
+
+  return matches;
+}
+
+function ShowMoreButton({ visible, total, onClick, label }: { visible: number; total: number; onClick: () => void; label: string }) {
+  if (visible >= total) return null;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-11 w-full items-center justify-center rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted"
+      aria-label={`${label} (${visible}/${total})`}
+    >
+      {label} ({visible}/{total})
+    </button>
+  );
+}
+
+function SectionNavigation<T extends string>({
+  label,
+  items,
+  value,
+  onChange,
+}: {
+  label: string;
+  items: Array<{ id: T; label: string; mobileLabel?: string; icon: React.ReactNode }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  const renderItem = (item: { id: T; label: string; mobileLabel?: string; icon: React.ReactNode }, mobile: boolean) => {
+    const selected = value === item.id;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => onChange(item.id)}
+        aria-label={item.label}
+        aria-current={selected ? "page" : undefined}
+        title={item.label}
+        className={mobile
+          ? `flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-semibold transition ${selected ? "bg-foreground text-background shadow-sm" : "text-foreground/75 hover:bg-muted hover:text-foreground"}`
+          : `flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition ${selected ? "bg-background text-foreground shadow-xs" : "text-muted-foreground hover:bg-background/70 hover:text-foreground"}`}
+      >
+        {item.icon}
+        <span className={mobile ? "w-full truncate text-center" : ""}>{mobile ? (item.mobileLabel ?? item.label) : item.label}</span>
+      </button>
+    );
+  };
+
+  return (
+    <>
+      <nav aria-label={label} className="hidden w-fit items-center gap-1 rounded-2xl border border-border bg-muted/60 p-1.5 shadow-xs md:flex">
+        {items.map((item) => renderItem(item, false))}
+      </nav>
+      <nav
+        aria-label={label}
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 px-2 pt-2 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur md:hidden"
+        style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
+      >
+        <div className="mx-auto flex max-w-lg gap-1">
+          {items.map((item) => renderItem(item, true))}
+        </div>
+      </nav>
+    </>
+  );
+}
+
+function useModalFocus(onClose: () => void, open = true) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const dialog = dialogRef.current;
+    if (!dialog) return undefined;
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const getFocusable = () => Array.from(dialog.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )).filter((element) => element.getClientRects().length > 0 && element.getAttribute("aria-hidden") !== "true");
+
+    const focusFrame = window.requestAnimationFrame(() => {
+      const initialFocus = dialog.querySelector<HTMLElement>("[data-dialog-initial-focus]") ?? getFocusable()[0] ?? dialog;
+      initialFocus.focus();
+    });
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const visibleDialogs = Array.from(document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]'))
+        .filter((candidate) => candidate.getClientRects().length > 0);
+      if (visibleDialogs.at(-1) !== dialog) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = getFocusable();
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      window.requestAnimationFrame(() => previousFocus?.focus());
+    };
+  }, [open]);
+
+  return dialogRef;
 }
 
 function PhotoEvidenceModal({
@@ -239,21 +425,25 @@ function PhotoEvidenceModal({
   subtitle: string;
   onClose: () => void;
 }) {
+  const dialogRef = useModalFocus(onClose);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 p-4 backdrop-blur-sm" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="photo-evidence-title"
-        className="w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl"
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-sm overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card shadow-2xl outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div>
-            <h3 id="photo-evidence-title" className="text-sm font-bold">{title}</h3>
+            <h3 id="photo-evidence-title" data-dialog-initial-focus tabIndex={-1} className="text-sm font-bold outline-none">{title}</h3>
             <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label="Close photo evidence">
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label="Close photo evidence">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -685,6 +875,8 @@ function PasswordResetScreen({ token, onDone }: { token: string; onDone: () => v
 
 function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const { t } = useI18n();
+  const [workerSection, setWorkerSectionParam] = useSectionParam(WORKER_SECTIONS, "today");
+  const shortMobileViewport = useMediaQuery("(max-width: 767px) and (max-height: 650px)");
   const [shift, setShift] = useState<ShiftSnapshot>(emptyShift);
   const [payrollSummary, setPayrollSummary] = useState<WorkerPayrollSummary | null>(null);
   const [payrollProfile, setPayrollProfile] = useState<WorkerPayrollProfile | null>(null);
@@ -693,6 +885,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [history, setHistory] = useState<ShiftHistoryRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [visibleWorkerHistory, setVisibleWorkerHistory] = useState(LIST_PAGE_SIZE);
   const [busy, setBusy] = useState<ShiftAction | null>(null);
   const [message, setMessage] = useState("");
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -703,6 +896,12 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
   const [workerProjectDialogOpen, setWorkerProjectDialogOpen] = useState(false);
   const [photoModal, setPhotoModal] = useState<{ photo: string; title: string; subtitle: string } | null>(null);
   const syncInFlight = useRef(false);
+
+  const selectWorkerSection = (nextSection: WorkerSection) => {
+    setMessage("");
+    if (nextSection === "history" && workerSection !== "history") setVisibleWorkerHistory(LIST_PAGE_SIZE);
+    setWorkerSectionParam(nextSection);
+  };
 
   const loadData = useCallback(async () => {
     try {
@@ -804,6 +1003,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         ? "end_break"
         : null;
   const duration = formatWorkedDuration(shift.events, shift.state, now);
+  const pinClockIn = shortMobileViewport && workerSection === "today" && action === "clock_in";
 
   const selectedProject = useMemo(() => {
     return projects.find((p) => p.id === (shift.projectId || selectedProjectId));
@@ -903,7 +1103,40 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
   return (
     <Shell title={t("workerHeaderTitle")} user={user} onSignOut={onSignOut}>
-      <div className="mx-auto max-w-3xl space-y-6">
+      <div className={`mx-auto max-w-3xl space-y-6 md:pb-0 ${(shift.state === "working" || shift.state === "on_break") && workerSection !== "today" ? "pb-32" : "pb-20"}`}>
+        <SectionNavigation
+          label={t("sections")}
+          value={workerSection}
+          onChange={selectWorkerSection}
+          items={[
+            { id: "today", label: t("todayTab"), icon: <Clock3 className="h-4 w-4" aria-hidden="true" /> },
+            { id: "history", label: t("historyTab"), icon: <History className="h-4 w-4" aria-hidden="true" /> },
+            { id: "pay", label: t("hoursSummaryTitle"), icon: <Briefcase className="h-4 w-4" aria-hidden="true" /> },
+          ]}
+        />
+
+        {(shift.state === "working" || shift.state === "on_break") && workerSection !== "today" && (
+          <div
+            className="fixed inset-x-0 z-30 px-3 md:hidden"
+            style={{ bottom: "calc(4.5rem + env(safe-area-inset-bottom))" }}
+          >
+            <button
+              type="button"
+              onClick={() => selectWorkerSection("today")}
+              className="mx-auto flex min-h-12 w-full max-w-md items-center justify-between gap-3 rounded-2xl border border-brand/40 bg-foreground px-4 text-background shadow-lg"
+            >
+              <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                <Clock3 className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="truncate">{copy.label}</span>
+              </span>
+              <span className="flex shrink-0 items-center gap-3">
+                <span className="font-mono text-sm font-bold">{duration}</span>
+                <span className="text-xs font-semibold">{t("todayTab")}</span>
+              </span>
+            </button>
+          </div>
+        )}
+
         {/* Offline & Queue Status Banner */}
         {(!online || pendingQueueCount > 0) && (
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 text-xs font-semibold text-foreground">
@@ -917,7 +1150,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               <button
                 type="button"
                 onClick={() => void triggerSync()}
-                className="rounded-lg bg-warning/20 px-3 py-1.5 hover:bg-warning/30"
+                className="min-h-11 rounded-xl bg-warning/20 px-3 py-2 hover:bg-warning/30"
               >
                 Sync Now
               </button>
@@ -925,8 +1158,17 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
           </div>
         )}
 
-        <WorkerPayrollSummaryCard summary={payrollSummary} timezone={user.timezone} />
+        {message && (
+          <div role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs">
+            <span>{message}</span>
+            <button type="button" onClick={() => setMessage("")} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
+        {workerSection === "today" && (
+          <>
         <section className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
           <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
             <div>
@@ -961,16 +1203,17 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             <div className="mt-6 rounded-2xl border border-border bg-muted/30 p-4">
               {shift.state === "off_shift" ? (
                 <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <div className={`mb-2 flex gap-2 ${shortMobileViewport ? "flex-row items-center justify-between" : "flex-col items-start sm:flex-row sm:items-center sm:justify-between"}`}>
                     <label className="flex items-center gap-1.5 text-xs font-semibold uppercase text-muted-foreground">
                       <Building2 className="h-3.5 w-3.5 text-brand" /> {t("assignedProject")}
                     </label>
                     <button
                       type="button"
                       onClick={() => setWorkerProjectDialogOpen(true)}
-                      className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-semibold text-foreground hover:bg-brand/10"
+                      aria-label={t("newProjectBtn")}
+                      className={`inline-flex min-h-11 items-center gap-1 rounded-xl text-xs font-semibold text-foreground hover:bg-brand/10 ${shortMobileViewport ? "min-w-11 justify-center px-0" : "px-3"}`}
                     >
-                      <Plus className="h-3 w-3" /> {t("newProjectBtn")}
+                      <Plus className="h-3 w-3" aria-hidden="true" /> <span className={shortMobileViewport ? "sr-only" : ""}>{t("newProjectBtn")}</span>
                     </button>
                   </div>
                   {projects.length === 0 ? (
@@ -980,19 +1223,22 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                       aria-label={t("assignedProject")}
                       value={selectedProjectId}
                       onChange={(e) => setSelectedProjectId(e.target.value)}
-                      className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       {projects.map((p) => (
                         <option key={p.id} value={p.id}>
-                          {p.name} {p.code ? `(${p.code})` : ""} {p.address ? `— ${p.address}` : ""}
+                          {p.name} {p.code ? `(${p.code})` : ""}
                         </option>
                       ))}
                     </select>
                   )}
-                  {selectedProject && selectedProject.latitude !== null && (
+                  {!pinClockIn && selectedProject && selectedProject.latitude !== null && (
                     <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1">
                       <Navigation className="h-3 w-3 text-info" /> {t("geofenceActive")} {selectedProject.radius_m}m.
                     </p>
+                  )}
+                  {!pinClockIn && selectedProject?.address && (
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">{selectedProject.address}</p>
                   )}
                 </div>
               ) : (
@@ -1008,10 +1254,9 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               )}
             </div>
 
-            <p className="mt-4 max-w-lg text-sm leading-6 text-muted-foreground">{copy.detail}</p>
-            {message && <p role="status" className="mt-5 rounded-xl border border-border bg-muted/50 px-3 py-3 text-sm">{message}</p>}
-            
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            {!pinClockIn && <p className="mt-4 max-w-lg text-sm leading-6 text-muted-foreground">{copy.detail}</p>}
+
+            <div className={`${pinClockIn ? "mt-2 min-h-14" : "mt-7"} flex flex-col gap-3 sm:flex-row`}>
               {finishRequested ? (
                 <div className="flex w-full flex-col gap-3 rounded-2xl border border-warning/40 bg-warning/10 p-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
@@ -1019,7 +1264,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                     <p className="mt-1 text-xs text-muted-foreground">{t("finishPromptDetail")}</p>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" onClick={() => setFinishRequested(false)} className="rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-background">{t("cancel")}</button>
+                    <button type="button" onClick={() => setFinishRequested(false)} className="min-h-12 rounded-xl border border-border px-4 py-3 text-sm font-semibold hover:bg-background">{t("cancel")}</button>
                     <button type="button" onClick={() => act("clock_out")} disabled={Boolean(busy)} className="flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-60">
                       {busy === "clock_out" && <Loader2 className="h-4 w-4 animate-spin" />}
                       {busy === "clock_out" ? t("saving") : t("confirmFinish")}
@@ -1033,14 +1278,15 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
                       type="button"
                       onClick={() => handleMainActionClick(action)}
                       disabled={Boolean(busy) || (action === "clock_in" && !selectedProjectId)}
-                      className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${
+                      className={`flex min-h-14 flex-1 items-center justify-center gap-3 rounded-2xl px-5 text-base font-semibold shadow-sm transition hover:brightness-95 disabled:opacity-60 ${pinClockIn ? "fixed inset-x-3 z-30 mx-auto max-w-3xl" : ""} ${
                         action === "start_break" ? "bg-warning text-warning-foreground" : "bg-brand text-brand-foreground"
                       }`}
+                      style={pinClockIn ? { bottom: "calc(4.5rem + env(safe-area-inset-bottom))" } : undefined}
                     >
                       {busy === action ? (
                         <Loader2 className="h-5 w-5 animate-spin" />
                       ) : action === "clock_in" ? (
-                        <Camera className="h-5 w-5" />
+                        <Navigation className="h-5 w-5" />
                       ) : action === "start_break" ? (
                         <Pause className="h-5 w-5" fill="currentColor" />
                       ) : (
@@ -1063,6 +1309,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
         <LocationEvidenceList
           events={shift.events}
           timezone={user.timezone}
+          collapsible
           onViewPhoto={(photo, ev) =>
             setPhotoModal({
               photo,
@@ -1071,22 +1318,30 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             })
           }
         />
+          </>
+        )}
 
-        <WorkerPayrollProfileForm
-          profile={payrollProfile}
-          loading={payrollProfileLoading}
-          onSaved={(saved) => {
-            setPayrollProfile(saved);
-            setMessage(t("profileSavedStatus"));
-          }}
-        />
+        {workerSection === "pay" && (
+          <>
+            <WorkerPayrollSummaryCard summary={payrollSummary} timezone={user.timezone} />
+            <WorkerPayrollProfileForm
+              profile={payrollProfile}
+              loading={payrollProfileLoading}
+              onSaved={(saved) => {
+                setPayrollProfile(saved);
+                setMessage(t("profileSavedStatus"));
+              }}
+            />
+          </>
+        )}
 
         {/* Worker Shift History Section */}
+        {workerSection === "history" && (
         <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
           <div className="flex items-center justify-between border-b border-border pb-4">
             <div>
               <p className="label-eyebrow">{t("historyTab")}</p>
-              <h2 className="mt-1 text-lg font-semibold">{t("myPastShifts")}</h2>
+              <h1 className="mt-1 text-lg font-semibold">{t("myPastShifts")}</h1>
             </div>
             <History className="h-5 w-5 text-muted-foreground" />
           </div>
@@ -1095,8 +1350,8 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
             {!historyLoading && history.length === 0 && (
               <p className="py-6 text-center text-xs text-muted-foreground">{t("noPastShiftsYet")}</p>
             )}
-            {history.map((record) => (
-              <div key={record.id} className="flex items-start justify-between gap-3 py-3">
+            {history.slice(0, visibleWorkerHistory).map((record) => (
+              <div key={record.id} data-testid="worker-history-record" className="flex items-start justify-between gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold">{record.work_date}</p>
@@ -1130,7 +1385,16 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               </div>
             ))}
           </div>
+          {visibleWorkerHistory < history.length && <div className="mt-4">
+            <ShowMoreButton
+              visible={Math.min(visibleWorkerHistory, history.length)}
+              total={history.length}
+              onClick={() => setVisibleWorkerHistory((current) => Math.min(current + LIST_PAGE_SIZE, history.length))}
+              label={t("showMore")}
+            />
+          </div>}
         </section>
+        )}
 
         {workerProjectDialogOpen && (
           <WorkerProjectModal
@@ -1167,7 +1431,7 @@ function WorkerPayrollSummaryCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="label-eyebrow">Field Hours · Jersey</p>
-          <h2 id="hours-pay-title" className="mt-1 text-lg font-semibold">{t("hoursSummaryTitle")}</h2>
+          <h1 id="hours-pay-title" className="mt-1 text-lg font-semibold">{t("hoursSummaryTitle")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{t("hoursSummaryHelp")}</p>
         </div>
         <Calendar className="h-5 w-5 text-muted-foreground" />
@@ -1208,7 +1472,7 @@ function WorkerPayrollProfileForm({
 
   useEffect(() => {
     setForm(payrollFormFromProfile(profile));
-  }, [profile?.userId, profile?.savedAt, profile?.isComplete]);
+  }, [profile]);
 
   if (loading) {
     return (
@@ -1370,75 +1634,90 @@ function LocationEvidenceList({
   events,
   timezone,
   onViewPhoto,
+  collapsible = false,
 }: {
   events: ShiftEvent[];
   timezone: string;
   onViewPhoto?: (photo: string, event: ShiftEvent) => void;
+  collapsible?: boolean;
 }) {
   const { t } = useI18n();
-  return (
-    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="label-eyebrow">{t("locationEvidenceTitle")}</p>
-          <h2 className="mt-1 text-lg font-semibold">{t("locationEvidenceSubtitle")}</h2>
-        </div>
-        <MapPin className="h-5 w-5 text-muted-foreground" />
+  const latestEvent = events.at(-1);
+  const header = (
+    <div className="flex min-w-0 items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="label-eyebrow">{t("locationEvidenceTitle")}</p>
+        <h2 id={collapsible ? "worker-evidence-title" : undefined} className="mt-1 text-lg font-semibold">{t("locationEvidenceSubtitle")}</h2>
+        {collapsible && latestEvent && (
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {getActionLabel(latestEvent.type, t)} · {formatRecordedTime(latestEvent.at, timezone)} · {events.length}
+          </p>
+        )}
       </div>
-      <div className="mt-5 space-y-3">
-        {events.length === 0 && <p className="rounded-2xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground">{t("noClockEventsToday")}</p>}
-        {events.slice().reverse().map((event) => (
-          <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3">
-            <div className="flex items-center gap-3">
-              {event.photo && (
-                <button
-                  type="button"
-                  onClick={() => onViewPhoto?.(event.photo!, event)}
-                  className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm"
-                  title={t("viewPhoto")}
-                >
-                  <img src={event.photo} alt="Selfie" className="h-full w-full object-cover transition group-hover:scale-110" />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 transition group-hover:opacity-100">
-                    <Camera className="h-3.5 w-3.5" />
-                  </div>
-                </button>
-              )}
-              <div>
-                <p className="text-sm font-semibold flex items-center gap-1.5">
-                  {getActionLabel(event.type, t)}
-                  {event.photo && (
-                    <span className="rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-foreground flex items-center gap-1">
-                      <Camera className="h-3 w-3 text-brand" /> {t("photoVerified")}
-                    </span>
-                  )}
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatRecordedTime(event.at, timezone)} · ±{event.location.accuracy}m
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {event.photo && (
-                <button
-                  type="button"
-                  onClick={() => onViewPhoto?.(event.photo!, event)}
-                  className="text-xs font-semibold text-info underline-offset-4 hover:underline flex items-center gap-1"
-                >
-                  <Camera className="h-3 w-3" /> {t("viewPhoto")}
-                </button>
-              )}
-              <a href={locationLink(event.location)} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-info underline-offset-4 hover:underline">
-                {t("openMap")}
-              </a>
+      <MapPin className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+    </div>
+  );
+  const content = (
+    <div className="mt-5 space-y-3">
+      {events.length === 0 && <p className="rounded-2xl bg-muted/60 px-4 py-4 text-sm text-muted-foreground">{t("noClockEventsToday")}</p>}
+      {events.slice().reverse().map((event) => (
+        <div key={event.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/60 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            {event.photo && (
+              <button
+                type="button"
+                onClick={() => onViewPhoto?.(event.photo!, event)}
+                className="group relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-border bg-black shadow-sm"
+                aria-label={t("viewPhoto")}
+              >
+                <img src={event.photo} alt="" className="h-full w-full object-cover transition group-hover:scale-110" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white opacity-0 transition group-hover:opacity-100">
+                  <Camera className="h-3.5 w-3.5" aria-hidden="true" />
+                </div>
+              </button>
+            )}
+            <div className="min-w-0">
+              <p className="flex flex-wrap items-center gap-1.5 text-sm font-semibold">
+                {getActionLabel(event.type, t)}
+                {event.photo && (
+                  <span className="flex items-center gap-1 rounded-md bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                    <Camera className="h-3 w-3 text-brand" aria-hidden="true" /> {t("photoVerified")}
+                  </span>
+                )}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {formatRecordedTime(event.at, timezone)} · ±{event.location.accuracy}m
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+          <a href={locationLink(event.location)} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-info underline-offset-4 hover:bg-background hover:underline">
+            {t("openMap")}
+          </a>
+        </div>
+      ))}
+    </div>
+  );
+
+  if (collapsible) {
+    return (
+      <details className="group rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="worker-evidence-title">
+        <summary className="min-h-11 cursor-pointer list-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+          {header}
+        </summary>
+        {content}
+      </details>
+    );
+  }
+
+  return (
+    <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+      {header}
+      {content}
     </section>
   );
 }
 
-function toPerson(row: AdminSnapshot, t: (key: any) => string, timezone: string): Person {
+function toPerson(row: AdminSnapshot, t: Translate, timezone: string): Person {
   const latest = row.events.at(-1);
   return {
     id: row.user_id,
@@ -1468,6 +1747,7 @@ function WorkerProjectModal({
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useModalFocus(onClose);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -1495,10 +1775,12 @@ function WorkerProjectModal({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="worker-project-title"
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-2xl outline-none sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
@@ -1506,7 +1788,7 @@ function WorkerProjectModal({
             <p className="label-eyebrow text-muted-foreground font-semibold">{t("assignedProject")}</p>
             <h2 id="worker-project-title" className="mt-1 text-xl font-bold">{t("newProject")}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1516,12 +1798,12 @@ function WorkerProjectModal({
             <label className="block text-xs font-semibold uppercase text-muted-foreground">{t("projectName")}</label>
             <input
               aria-label={t("projectName")}
+              data-dialog-initial-focus
               type="text"
               value={name}
               onChange={(event) => setName(event.target.value)}
               maxLength={120}
               className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              autoFocus
               required
             />
           </div>
@@ -1538,10 +1820,10 @@ function WorkerProjectModal({
             />
           </div>
           <p className="rounded-xl bg-muted/50 px-3 py-2.5 text-xs text-muted-foreground">{t("workerProjectGpsHint")}</p>
-          {error && <p className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
-            <button type="submit" disabled={busy} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+            <button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
+            <button type="submit" disabled={busy} className="min-h-11 flex-1 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               {busy ? t("saving") : t("save")}
             </button>
           </div>
@@ -1571,6 +1853,7 @@ function ProjectEditModal({
   const [busy, setBusy] = useState(false);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useModalFocus(onClose);
 
   const handleCaptureCurrentGPS = async () => {
     setGpsBusy(true);
@@ -1617,10 +1900,12 @@ function ProjectEditModal({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="admin-project-title"
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-2xl outline-none sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
@@ -1628,7 +1913,7 @@ function ProjectEditModal({
             <p className="label-eyebrow text-muted-foreground font-semibold">{t("projectsSubtitle")}</p>
             <h2 id="admin-project-title" className="mt-1 text-xl font-bold">{project ? t("editProject") : t("newProject")}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1638,6 +1923,7 @@ function ProjectEditModal({
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("projectName")}</label>
             <input
               aria-label={t("projectName")}
+              data-dialog-initial-focus
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
@@ -1696,7 +1982,7 @@ function ProjectEditModal({
                 type="button"
                 onClick={handleCaptureCurrentGPS}
                 disabled={gpsBusy}
-                className="flex items-center gap-1 text-[11px] font-semibold text-info hover:underline"
+                className="flex min-h-11 items-center gap-1 rounded-lg px-2 text-[11px] font-semibold text-info hover:bg-background hover:underline"
               >
                 {gpsBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Crosshair className="h-3 w-3" />}
                 {t("useMyLocation")}
@@ -1710,7 +1996,7 @@ function ProjectEditModal({
                 placeholder="Latitude"
                 value={latitude}
                 onChange={(e) => setLatitude(e.target.value)}
-                className="h-9 rounded-lg border border-input bg-background px-2"
+                className="h-11 rounded-lg border border-input bg-background px-2"
               />
               <input
                 aria-label="Longitude"
@@ -1719,7 +2005,7 @@ function ProjectEditModal({
                 placeholder="Longitude"
                 value={longitude}
                 onChange={(e) => setLongitude(e.target.value)}
-                className="h-9 rounded-lg border border-input bg-background px-2"
+                className="h-11 rounded-lg border border-input bg-background px-2"
               />
             </div>
           </div>
@@ -1737,20 +2023,20 @@ function ProjectEditModal({
             </label>
           </div>
 
-          {error && <p className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
+          {error && <p role="alert" className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
+              className="min-h-11 flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("saveProject")}
@@ -1787,6 +2073,7 @@ function CreateAdminShiftModal({
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useModalFocus(onClose);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -1827,10 +2114,12 @@ function CreateAdminShiftModal({
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/40 p-4 sm:items-center" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="create-workday-title"
-        className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-2xl outline-none sm:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
@@ -1838,7 +2127,7 @@ function CreateAdminShiftModal({
             <p className="label-eyebrow text-muted-foreground font-semibold">{t("auditAdjustment")}</p>
             <h2 id="create-workday-title" className="mt-1 text-xl font-bold">{t("createWorkdayTitle")}</h2>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1846,7 +2135,7 @@ function CreateAdminShiftModal({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <label className="block text-xs font-semibold uppercase text-muted-foreground">
             {t("selectWorker")}
-            <select value={workerId} onChange={(event) => setWorkerId(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <select data-dialog-initial-focus value={workerId} onChange={(event) => setWorkerId(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring">
               <option value="" disabled>{t("selectWorker")}</option>
               {workers.map((worker) => <option key={worker.id} value={worker.id}>{worker.name}</option>)}
             </select>
@@ -1875,11 +2164,11 @@ function CreateAdminShiftModal({
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t("workDescriptionPlaceholder")} minLength={3} maxLength={300} rows={3} required className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </label>
 
-          {error && <p className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-xl bg-destructive/10 p-2.5 text-xs text-destructive">{error}</p>}
 
           <div className="flex gap-2 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
-            <button type="submit" disabled={busy || workers.length === 0} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+            <button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted">{t("cancel")}</button>
+            <button type="submit" disabled={busy || workers.length === 0} className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("saveWorkday")}
             </button>
@@ -1909,6 +2198,7 @@ function AdjustShiftModal({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const dialogRef = useModalFocus(onClose);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -1937,10 +2227,12 @@ function AdjustShiftModal({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
       <section
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="adjust-shift-title"
-        className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl"
+        tabIndex={-1}
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-2xl outline-none sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
@@ -1949,7 +2241,7 @@ function AdjustShiftModal({
             <h2 id="adjust-shift-title" className="mt-1 text-xl font-bold">{t("adjustShiftTimes")}</h2>
             <p className="text-xs text-muted-foreground mt-0.5">{shift.display_name} · {shift.work_date}</p>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1959,6 +2251,7 @@ function AdjustShiftModal({
             <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockInTime")}</label>
             <input
               aria-label={t("clockInTime")}
+              data-dialog-initial-focus
               type="datetime-local"
               value={clockIn}
               onChange={(e) => setClockIn(e.target.value)}
@@ -1992,20 +2285,20 @@ function AdjustShiftModal({
             />
           </div>
 
-          {error && <p className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
+          {error && <p role="alert" className="text-xs text-destructive rounded-xl bg-destructive/10 p-2.5">{error}</p>}
 
           <div className="flex gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
+              className="min-h-11 flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold hover:bg-muted"
             >
               {t("cancel")}
             </button>
             <button
               type="submit"
               disabled={busy}
-              className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
             >
               {busy && <Loader2 className="h-4 w-4 animate-spin" />}
               {t("saveAdjustment")}
@@ -2019,17 +2312,24 @@ function AdjustShiftModal({
 
 function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => void }) {
   const { t } = useI18n();
-  const [viewMode, setViewMode] = useState<"today" | "history" | "salary" | "projects">("today");
+  const [viewMode, setViewModeParam] = useSectionParam(ADMIN_SECTIONS, "today");
+  const desktopLayout = useMediaQuery("(min-width: 768px)");
   const [people, setPeople] = useState<Person[]>([]);
+  const [visiblePeople, setVisiblePeople] = useState(LIST_PAGE_SIZE);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [visibleProjects, setVisibleProjects] = useState(LIST_PAGE_SIZE);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null | "new">(null);
   
   const [historyRecords, setHistoryRecords] = useState<ShiftHistoryRecord[]>([]);
+  const [visibleHistoryRecords, setVisibleHistoryRecords] = useState(LIST_PAGE_SIZE);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFilterPeriod, setHistoryFilterPeriod] = useState<"all" | "today" | "this_week" | "last_week" | "this_month">("this_month");
   const [historyFilterWorker, setHistoryFilterWorker] = useState<string>("all");
   const [historyFilterProject, setHistoryFilterProject] = useState<string>("all");
+  const [historyFiltersOpen, setHistoryFiltersOpen] = useState(false);
+  const [invitePanelOpen, setInvitePanelOpen] = useState(false);
+  const [auditPanelOpen, setAuditPanelOpen] = useState(false);
   
   const [invite, setInvite] = useState<{ token: string; expiresAt: string } | null>(null);
   const [inviteBusy, setInviteBusy] = useState(false);
@@ -2051,6 +2351,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [passwordResetLink, setPasswordResetLink] = useState("");
   const [requestHistory, setRequestHistory] = useState<RequestHistoryItem[]>([]);
   const [requestHistoryLoading, setRequestHistoryLoading] = useState(false);
+  const closeWorkerDetails = useCallback(() => setSelectedPerson(null), []);
+  const workerDetailsDialogRef = useModalFocus(closeWorkerDetails, Boolean(selectedPerson));
+  const setViewMode = (nextSection: AdminSection) => {
+    setMessage("");
+    if (nextSection === "today" && viewMode !== "today") setVisiblePeople(LIST_PAGE_SIZE);
+    if (nextSection === "history" && viewMode !== "history") setVisibleHistoryRecords(LIST_PAGE_SIZE);
+    if (nextSection === "projects" && viewMode !== "projects") setVisibleProjects(LIST_PAGE_SIZE);
+    setViewModeParam(nextSection);
+  };
+
+  useEffect(() => {
+    setVisibleHistoryRecords(LIST_PAGE_SIZE);
+  }, [historyFilterPeriod, historyFilterWorker, historyFilterProject]);
   const refreshToday = useCallback(async () => {
     setLoading(true);
     try {
@@ -2069,7 +2382,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     } catch {
       // Non-fatal if projects endpoint is still deploying
     }
-  }, [t]);
+  }, [t, user.timezone]);
 
   const refreshGoogleRequests = useCallback(async () => {
     try {
@@ -2183,6 +2496,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     complete: people.filter((person) => person.state === "complete").length,
     total: people.length,
   }), [people]);
+  const pendingAccessCount = googleRequests.length + passwordResetRequests.length;
+  const activeHistoryFilterCount = Number(historyFilterPeriod !== "this_month") + Number(historyFilterWorker !== "all") + Number(historyFilterProject !== "all");
 
   const historyTotals = useMemo(() => {
     const totalNetMinutes = historyRecords.reduce((acc, r) => acc + (r.net_minutes || 0), 0);
@@ -2306,75 +2621,93 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   };
 
   return (
-    <Shell title={viewMode === "today" ? t("todayTab") : viewMode === "history" ? t("historyTab") : viewMode === "salary" ? t("salaryAdviceTab") : t("projectsTab")} user={user} onSignOut={onSignOut}>
-      <div className="space-y-6">
-        {/* Navigation Mode Switcher */}
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <div className="flex max-w-full shrink-0 overflow-x-auto rounded-2xl border border-border bg-muted/60 p-1.5 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setViewMode("today")}
-              aria-pressed={viewMode === "today"}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition sm:px-4 ${
-                viewMode === "today"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Activity className="h-4 w-4 text-brand" />
-              {t("todayTab")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("history")}
-              aria-pressed={viewMode === "history"}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition sm:px-4 ${
-                viewMode === "history"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Calendar className="h-4 w-4 text-info" />
-              {t("historyTab")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("salary")}
-              aria-pressed={viewMode === "salary"}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition sm:px-4 ${
-                viewMode === "salary"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <FileText className="h-4 w-4 text-brand" />
-              {t("salaryAdviceTab")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode("projects")}
-              aria-pressed={viewMode === "projects"}
-              className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition sm:px-4 ${
-                viewMode === "projects"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Building2 className="h-4 w-4 text-primary" />
-              {t("projectsTab")}
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+    <Shell title={viewMode === "today" ? t("todayTab") : viewMode === "history" ? t("historyTab") : viewMode === "salary" ? t("salaryAdviceTab") : viewMode === "projects" ? t("projectsTab") : t("teamAccessTitle")} user={user} onSignOut={onSignOut}>
+      <div className="space-y-6 pb-20 md:pb-0">
+        <div className="flex items-center justify-between gap-4">
+          <SectionNavigation
+            label={t("sections")}
+            value={viewMode}
+            onChange={setViewMode}
+            items={[
+              { id: "today", label: t("todayTab"), mobileLabel: t("todayTabShort"), icon: <Activity className="h-4 w-4" aria-hidden="true" /> },
+              { id: "history", label: t("historyTab"), mobileLabel: t("historyTabShort"), icon: <Calendar className="h-4 w-4" aria-hidden="true" /> },
+              { id: "salary", label: t("salaryAdviceTab"), mobileLabel: t("salaryAdviceTabShort"), icon: <FileText className="h-4 w-4" aria-hidden="true" /> },
+              { id: "projects", label: t("projectsTab"), mobileLabel: t("projectsTabShort"), icon: <Building2 className="h-4 w-4" aria-hidden="true" /> },
+              { id: "access", label: t("moreTab"), mobileLabel: t("moreTabShort"), icon: <Menu className="h-4 w-4" aria-hidden="true" /> },
+            ]}
+          />
+          <div className="hidden items-center gap-2 text-xs text-muted-foreground sm:flex">
             <span className="h-2 w-2 rounded-full bg-success" />
             {updatedAt ? `${t("liveStatus")} ${updatedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : t("saving")}
           </div>
         </div>
 
-        {message && <p role="status" className="rounded-2xl border border-border bg-card px-4 py-3 text-sm">{message}</p>}
+        {message && (
+          <div role="status" className="flex items-start justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs">
+            <span>{message}</span>
+            <button type="button" onClick={() => setMessage("")} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
 
-        {viewMode === "today" && (
+        {viewMode === "access" && (
           <>
+        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
+          <p className="label-eyebrow">Field Hours · Accounts</p>
+          <h1 className="mt-1 text-2xl font-semibold">{t("teamAccessTitle")}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t("teamAccessHelp")}</p>
+        </section>
+
+        <details
+          open={desktopLayout || invitePanelOpen}
+          onToggle={(event) => {
+            if (!desktopLayout) setInvitePanelOpen(event.currentTarget.open);
+          }}
+          className="group rounded-3xl border border-border bg-card shadow-sm"
+        >
+          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none md:hidden">
+            <span>
+              <span className="label-eyebrow block">{t("inviteWorkerTitle")}</span>
+              <span className="mt-1 block text-base font-semibold">{t("inviteWorkerSubtitle")}</span>
+            </span>
+            <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-border p-5 md:border-0 md:p-7">
+          <div className="hidden items-start justify-between gap-4 md:flex">
+            <div>
+              <p className="label-eyebrow">{t("inviteWorkerTitle")}</p>
+              <h2 id="invite-worker-title" className="mt-1 text-lg font-semibold">{t("inviteWorkerSubtitle")}</h2>
+              <p className="mt-2 text-sm leading-5 text-muted-foreground">{t("oneTimeNotice")}</p>
+            </div>
+            <QrCode className="h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+          </div>
+          {invite ? (
+            <div className="mt-6">
+              <div className="flex justify-center rounded-2xl bg-white p-5">
+                <QRCodeSVG value={inviteLink} size={210} level="M" includeMargin />
+              </div>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                Expires {new Date(invite.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </p>
+              <button type="button" aria-label={t("copyLink")} onClick={() => void copyInvite()} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-muted">
+                <Copy className="h-4 w-4" aria-hidden="true" /> {t("copyLink")}
+              </button>
+              <button type="button" aria-label={t("close")} onClick={() => setInvite(null)} className="mt-2 min-h-11 w-full text-xs font-semibold text-muted-foreground hover:text-foreground">{t("close")}</button>
+            </div>
+          ) : (
+            <button type="button" aria-label={t("createInvitation")} disabled={inviteBusy} onClick={() => void generateInvite()} className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
+              {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <QrCode className="h-4 w-4" aria-hidden="true" />}
+              {inviteBusy ? t("creatingInvitation") : t("createInvitation")}
+            </button>
+          )}
+          <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
+            <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
+            {t("qrInstruction")}
+          </div>
+          </div>
+        </details>
+
         {googleRequests.length > 0 && (
           <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="google-requests-title">
             <div className="flex items-start justify-between gap-4">
@@ -2396,12 +2729,12 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       {request.requestedAt ? ` · ${new Date(request.requestedAt).toLocaleString()}` : ""}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-2">
+                  <div className="flex w-full shrink-0 gap-2 sm:w-auto">
                     <button
                       type="button"
                       disabled={reviewingGoogleRequest === request.id}
                       onClick={() => void reviewGoogleRequest(request, "reject")}
-                      className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
+                      className="min-h-11 flex-1 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
                     >
                       Reject
                     </button>
@@ -2409,7 +2742,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       type="button"
                       disabled={reviewingGoogleRequest === request.id}
                       onClick={() => void reviewGoogleRequest(request, "approve")}
-                      className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                      className="min-h-11 flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                     >
                       {reviewingGoogleRequest === request.id ? "Saving…" : "Approve"}
                     </button>
@@ -2439,12 +2772,12 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <p className="truncate text-xs text-muted-foreground">{request.email}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{request.requestedAt ? new Date(request.requestedAt).toLocaleString() : ""}</p>
                     </div>
-                    <div className="flex shrink-0 gap-2">
+                    <div className="flex w-full shrink-0 gap-2 sm:w-auto">
                       <button
                         type="button"
                         disabled={issuingPasswordReset === request.id || rejectingPasswordReset === request.id}
                         onClick={() => void rejectPasswordResetRequest(request)}
-                        className="rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
+                        className="min-h-11 flex-1 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted disabled:opacity-60"
                       >
                         {rejectingPasswordReset === request.id ? "Rejecting…" : "Reject"}
                       </button>
@@ -2452,7 +2785,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                         type="button"
                         disabled={issuingPasswordReset === request.id || rejectingPasswordReset === request.id}
                         onClick={() => void generatePasswordResetLink(request)}
-                        className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                        className="min-h-11 flex-1 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                       >
                         {issuingPasswordReset === request.id ? "Generating…" : "Generate link"}
                       </button>
@@ -2465,16 +2798,30 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               <div className="mt-5 rounded-2xl border border-brand/30 bg-brand/10 p-4">
                 <p className="text-xs font-semibold text-foreground">One-time reset link</p>
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <input readOnly value={passwordResetLink} className="min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs" />
-                  <button type="button" onClick={() => void copyPasswordResetLink()} className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"><Copy className="h-3.5 w-3.5" /> Copy link</button>
+                  <input readOnly value={passwordResetLink} className="min-h-11 min-w-0 flex-1 rounded-xl border border-input bg-background px-3 py-2 text-xs" />
+                  <button type="button" onClick={() => void copyPasswordResetLink()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold hover:bg-muted"><Copy className="h-3.5 w-3.5" aria-hidden="true" /> Copy link</button>
                 </div>
               </div>
             )}
           </section>
         )}
 
-        <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="request-history-title">
-          <div className="flex items-start justify-between gap-4">
+        <details
+          open={desktopLayout || auditPanelOpen}
+          onToggle={(event) => {
+            if (!desktopLayout) setAuditPanelOpen(event.currentTarget.open);
+          }}
+          className="group rounded-3xl border border-border bg-card shadow-sm"
+        >
+          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:content-none md:hidden">
+            <span>
+              <span className="label-eyebrow block">Audit trail</span>
+              <span className="mt-1 block text-base font-semibold">Request history · {requestHistory.length}</span>
+            </span>
+            <ChevronDown className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="border-t border-border p-5 md:border-0 md:p-7">
+          <div className="hidden items-start justify-between gap-4 md:flex">
             <div>
               <p className="label-eyebrow">Audit trail</p>
               <h2 id="request-history-title" className="mt-1 text-lg font-semibold">Request history</h2>
@@ -2482,14 +2829,56 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
             </div>
             <button
               type="button"
+              aria-label="Refresh request history"
               onClick={() => void refreshRequestHistory()}
-              className="rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted"
+              className="min-h-11 rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted"
             >
               Refresh
             </button>
           </div>
-          <p className="mb-2 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para ver todas las columnas.</p>
-          <div className="overflow-x-auto rounded-2xl border border-border">
+          <div className="flex justify-end md:hidden">
+            <button
+              type="button"
+              aria-label="Refresh request history"
+              onClick={() => void refreshRequestHistory()}
+              className="min-h-11 rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted"
+            >
+              Refresh
+            </button>
+          </div>
+          <div className="mt-5 space-y-3 md:hidden">
+            {requestHistory.map((item) => (
+              <article key={`${item.category}-${item.id}`} className="rounded-2xl border border-border bg-background p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold">{item.category === "google" ? `Google · ${item.requestType}` : "Password reset"}</p>
+                    <p className="mt-2 truncate text-sm font-semibold">{item.displayName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{item.email}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-muted px-2 py-1 text-xs font-semibold capitalize">{item.status}</span>
+                </div>
+                <dl className="mt-4 grid gap-3 border-t border-border pt-4 text-xs">
+                  <div>
+                    <dt className="text-muted-foreground">Requested</dt>
+                    <dd className="mt-1 font-medium">{new Date(item.requestedAt).toLocaleString()}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Reviewed by</dt>
+                    <dd className="mt-1 font-medium">{item.reviewerName ?? "—"}{item.reviewedAt ? ` · ${new Date(item.reviewedAt).toLocaleString()}` : ""}</dd>
+                  </div>
+                  {item.reason && (
+                    <div>
+                      <dt className="text-muted-foreground">Reason</dt>
+                      <dd className="mt-1 font-medium">{item.reason}</dd>
+                    </div>
+                  )}
+                </dl>
+              </article>
+            ))}
+            {!requestHistoryLoading && requestHistory.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">No reviewed requests yet.</p>}
+            {requestHistoryLoading && <p className="py-6 text-center text-sm text-muted-foreground">Loading history…</p>}
+          </div>
+          <div className="mt-5 hidden overflow-x-auto rounded-2xl border border-border md:block">
             <table className="w-full min-w-[720px] text-left text-xs">
               <thead className="border-b border-border bg-muted/40 text-muted-foreground">
                 <tr>
@@ -2521,7 +2910,8 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               </tbody>
             </table>
           </div>
-        </section>
+          </div>
+        </details>
           </>
         )}
 
@@ -2530,22 +2920,33 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         ) : viewMode === "today" ? (
           <>
             {/* Today's Metrics Banner */}
-            <section className="flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:p-7">
-              <div>
+            <section className="relative flex flex-col justify-between gap-5 rounded-3xl border border-border bg-card p-5 shadow-sm sm:flex-row sm:items-end sm:p-7">
+              <div className={pendingAccessCount > 0 ? "pr-14 sm:pr-0" : undefined}>
                 <p className="label-eyebrow">Field Hours · Live</p>
-                <h1 className="mt-1 text-3xl font-semibold tracking-tight">{t("adminGreeting")}, {user.displayName.split(" ")[0]}.</h1>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{t("adminGreeting")}, {user.displayName.split(" ")[0]}.</h1>
                 <p className="mt-2 text-sm text-muted-foreground">{t("adminSubtitle")}</p>
               </div>
+              {pendingAccessCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setViewMode("access")}
+                  className="absolute right-4 top-4 flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-xl border border-brand/35 bg-brand/10 px-2 text-sm font-bold text-foreground hover:bg-brand/20 sm:static"
+                  aria-label={`${pendingAccessCount} · ${t("teamAccessTitle")}`}
+                >
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                  {pendingAccessCount}
+                </button>
+              )}
             </section>
 
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric label={t("workingMetric")} value={counts.working} detail={t("activeShifts")} tone="live" icon={<Activity className="h-4 w-4" />} />
               <Metric label={t("onBreakMetric")} value={counts.onBreak} detail={t("pausedNow")} tone="break" icon={<Pause className="h-4 w-4" />} />
               <Metric label={t("finishedMetric")} value={counts.complete} detail={t("completedToday")} tone="neutral" icon={<Check className="h-4 w-4" />} />
               <Metric label={t("teamMetric")} value={counts.total} detail={t("staffMembers")} tone="neutral" icon={<Users className="h-4 w-4" />} />
             </section>
 
-            <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+            <div>
               {/* Today's Team List */}
               <section className="rounded-3xl border border-border bg-card shadow-sm">
                 <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-7">
@@ -2553,14 +2954,14 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <p className="label-eyebrow">{t("todayTab")}</p>
                     <h2 className="mt-1 text-lg font-semibold">{t("todaysTeam")}</h2>
                   </div>
-                  <button type="button" onClick={() => void refreshToday()} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Refresh team">
+                  <button type="button" onClick={() => void refreshToday()} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label="Refresh team">
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />}
                   </button>
                 </div>
                 <div className="divide-y divide-border">
                   {!loading && people.length === 0 && <p className="px-5 py-8 text-sm text-muted-foreground sm:px-7">{t("noMembersYet")}</p>}
-                  {people.map((person) => (
-                    <div key={person.id} className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
+                  {people.slice(0, visiblePeople).map((person) => (
+                    <div key={person.id} data-testid="admin-team-member" className="flex flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-7">
                       <div className="flex min-w-0 items-center gap-3">
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-primary text-sm font-semibold text-primary-foreground">
                           {person.name.split(" ").map((part) => part[0]).join("").slice(0, 2)}
@@ -2584,49 +2985,25 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                             {stateCopy(person.state, t).label}
                           </p>
                         </div>
-                        <button type="button" onClick={() => void handleOpenPersonDetails(person)} className="rounded-lg border border-border px-3 py-2 text-xs font-semibold hover:bg-muted" aria-label={`View details for ${person.name}`}>
+                        <button type="button" onClick={() => void handleOpenPersonDetails(person)} className="min-h-11 rounded-xl border border-border px-3 py-2 text-xs font-semibold hover:bg-muted" aria-label={`View details for ${person.name}`}>
                           {t("details")}
                         </button>
                       </div>
                     </div>
                   ))}
+                  {visiblePeople < people.length && (
+                    <div className="p-4 sm:px-7">
+                      <ShowMoreButton
+                        visible={visiblePeople}
+                        total={people.length}
+                        onClick={() => setVisiblePeople((current) => Math.min(current + LIST_PAGE_SIZE, people.length))}
+                        label={t("showMore")}
+                      />
+                    </div>
+                  )}
                 </div>
               </section>
 
-              {/* Invite Card */}
-              <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="label-eyebrow">{t("inviteWorkerTitle")}</p>
-                    <h2 className="mt-1 text-lg font-semibold">{t("inviteWorkerSubtitle")}</h2>
-                    <p className="mt-2 text-sm leading-5 text-muted-foreground">{t("oneTimeNotice")}</p>
-                  </div>
-                  <QrCode className="h-5 w-5 text-brand" />
-                </div>
-                {invite ? (
-                  <div className="mt-6">
-                    <div className="flex justify-center rounded-2xl bg-white p-5">
-                      <QRCodeSVG value={inviteLink} size={210} level="M" includeMargin />
-                    </div>
-                    <p className="mt-3 text-center text-xs text-muted-foreground">
-                      Expires {new Date(invite.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                    <button type="button" onClick={() => void copyInvite()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-semibold hover:bg-muted">
-                      <Copy className="h-4 w-4" /> {t("copyLink")}
-                    </button>
-                    <button type="button" onClick={() => setInvite(null)} className="mt-2 w-full py-2 text-xs font-semibold text-muted-foreground hover:text-foreground">{t("close")}</button>
-                  </div>
-                ) : (
-                  <button type="button" disabled={inviteBusy} onClick={() => void generateInvite()} className="mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60">
-                    {inviteBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                    {inviteBusy ? t("creatingInvitation") : t("createInvitation")}
-                  </button>
-                )}
-                <div className="mt-6 flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-success" />
-                  {t("qrInstruction")}
-                </div>
-              </section>
             </div>
           </>
         ) : viewMode === "history" ? (
@@ -2634,76 +3011,77 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <div className="space-y-6">
             {/* Filters Bar */}
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
                 <div>
                   <p className="label-eyebrow">{t("historyTab")}</p>
-                  <h2 className="mt-1 text-2xl font-bold">{t("reportsTitle")}</h2>
+                  <h1 className="mt-1 text-2xl font-bold">{t("reportsTitle")}</h1>
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="grid w-full grid-cols-2 gap-3 md:flex md:w-auto md:items-center">
                   <button
                     type="button"
                     onClick={() => setCreateShiftOpen(true)}
                     disabled={people.length === 0}
-                    className="flex items-center gap-2 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" />
                     {t("createWorkday")}
                   </button>
-                  {/* Period Filter */}
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-muted-foreground" />
-                    <select
-                      aria-label={t("periodFilter")}
-                      value={historyFilterPeriod}
-                      onChange={(e: any) => setHistoryFilterPeriod(e.target.value)}
-                      className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    >
-                      <option value="today">{t("periodToday")}</option>
-                      <option value="this_week">{t("periodThisWeek")}</option>
-                      <option value="last_week">{t("periodLastWeek")}</option>
-                      <option value="this_month">{t("periodThisMonth")}</option>
-                      <option value="all">{t("periodAll")}</option>
-                    </select>
-                  </div>
-
-                  {/* Worker Filter */}
-                  <select
-                    aria-label={t("workerFilter")}
-                    value={historyFilterWorker}
-                    onChange={(e) => setHistoryFilterWorker(e.target.value)}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="all">{t("allStaff")}</option>
-                    {people.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </select>
-
-                  {/* Project Filter */}
-                  <select
-                    aria-label={t("projectFilter")}
-                    value={historyFilterProject}
-                    onChange={(e) => setHistoryFilterProject(e.target.value)}
-                    className="rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="all">{t("allProjects")}</option>
-                    {projects.map((pr) => (
-                      <option key={pr.id} value={pr.id}>{pr.name}</option>
-                    ))}
-                  </select>
-
-                  {/* Export Button */}
                   <button
                     type="button"
                     onClick={exportExcel}
                     disabled={historyRecords.length === 0}
-                    className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                   >
                     <Download className="h-4 w-4" />
                     {t("exportExcel")}
                   </button>
                 </div>
               </div>
+
+              <details
+                open={desktopLayout || historyFiltersOpen}
+                onToggle={(event) => {
+                  if (!desktopLayout) setHistoryFiltersOpen(event.currentTarget.open);
+                }}
+                className="mt-5"
+              >
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between rounded-xl border border-border bg-muted/40 px-4 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden [&::-webkit-details-marker]:hidden">
+                  <span className="flex items-center gap-2"><Filter className="h-4 w-4" aria-hidden="true" /> {t("filters")}</span>
+                  {activeHistoryFilterCount > 0 && <span className="rounded-full bg-foreground px-2 py-0.5 text-xs text-background">{activeHistoryFilterCount}</span>}
+                </summary>
+                <div className="grid gap-3 pt-3 sm:grid-cols-3 md:flex md:flex-wrap md:items-center md:pt-0">
+                  <select
+                    aria-label={t("periodFilter")}
+                    value={historyFilterPeriod}
+                    onChange={(event) => setHistoryFilterPeriod(event.target.value as typeof historyFilterPeriod)}
+                    className="min-h-11 min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="today">{t("periodToday")}</option>
+                    <option value="this_week">{t("periodThisWeek")}</option>
+                    <option value="last_week">{t("periodLastWeek")}</option>
+                    <option value="this_month">{t("periodThisMonth")}</option>
+                    <option value="all">{t("periodAll")}</option>
+                  </select>
+                  <select
+                    aria-label={t("workerFilter")}
+                    value={historyFilterWorker}
+                    onChange={(event) => setHistoryFilterWorker(event.target.value)}
+                    className="min-h-11 min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="all">{t("allStaff")}</option>
+                    {people.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}
+                  </select>
+                  <select
+                    aria-label={t("projectFilter")}
+                    value={historyFilterProject}
+                    onChange={(event) => setHistoryFilterProject(event.target.value)}
+                    className="min-h-11 min-w-0 rounded-xl border border-border bg-background px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="all">{t("allProjects")}</option>
+                    {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                  </select>
+                </div>
+              </details>
 
               {/* Summary Stats Band */}
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-2xl bg-muted/40 p-4">
@@ -2729,8 +3107,108 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
             {/* Table of Shifts */}
             <section className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden">
-              <p className="px-5 pb-2 text-[11px] text-muted-foreground sm:hidden">Desliza horizontalmente para ver todas las columnas.</p>
-              <div className="overflow-x-auto">
+              <div className="divide-y divide-border md:hidden">
+                {historyLoading && (
+                  <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                    <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-brand" aria-hidden="true" />
+                    {t("saving")}
+                  </div>
+                )}
+                {!historyLoading && historyRecords.length === 0 && (
+                  <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+                    <Info className="mx-auto mb-2 h-6 w-6" aria-hidden="true" />
+                    {t("noShiftsFound")}
+                  </div>
+                )}
+                {historyRecords.slice(0, visibleHistoryRecords).map((record) => (
+                  <article key={record.id} data-testid="admin-history-record" className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold">{record.display_name}</p>
+                        <p className="mt-1 truncate text-xs text-muted-foreground">{record.project_name || t("generalWork")}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-mono text-sm font-bold">{formatMinutes(record.net_minutes)}</p>
+                        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          record.state === "complete"
+                            ? "bg-success/15 text-success"
+                            : record.state === "working"
+                              ? "bg-brand/15 text-foreground"
+                              : record.state === "on_break"
+                                ? "bg-warning/15 text-foreground"
+                                : "bg-muted text-muted-foreground"
+                        }`}>{record.state}</span>
+                      </div>
+                    </div>
+                    <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-xs">
+                      <div>
+                        <dt className="text-muted-foreground">{t("colDate")}</dt>
+                        <dd className="mt-1 font-medium">{record.work_date}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("colBreak")}</dt>
+                        <dd className="mt-1 font-mono font-medium">{record.break_minutes > 0 ? formatMinutes(record.break_minutes) : "—"}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("colClockIn")}</dt>
+                        <dd className="mt-1 font-mono font-medium">{formatRecordedTime(record.clock_in_at, user.timezone)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-muted-foreground">{t("colClockOut")}</dt>
+                        <dd className="mt-1 font-mono font-medium">{record.clock_out_at ? formatRecordedTime(record.clock_out_at, user.timezone) : t("inProgress")}</dd>
+                      </div>
+                    </dl>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      {record.events.some((event) => event.photo) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const event = record.events.find((candidate) => candidate.photo);
+                            if (event?.photo) {
+                              setPhotoModal({
+                                photo: event.photo,
+                                title: `${record.display_name} — ${t("takeSelfieTitle")}`,
+                                subtitle: `${record.work_date} ${formatRecordedTime(record.clock_in_at, user.timezone)}`,
+                              });
+                            }
+                          }}
+                          className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-brand/40 bg-brand/10 px-3 text-xs font-semibold text-foreground hover:bg-brand/20"
+                        >
+                          <Camera className="h-3.5 w-3.5" aria-hidden="true" /> {t("viewPhoto")}
+                        </button>
+                      )}
+                      {record.events.length > 0 && (
+                        <a
+                          href={locationLink(record.events[0].location)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-border px-3 text-xs font-semibold text-info hover:bg-muted"
+                        >
+                          <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> {t("mapWithCount")} ({record.events.length})
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setShiftToAdjust(record)}
+                        className="col-span-2 flex min-h-11 items-center justify-center gap-1 rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Edit3 className="h-3.5 w-3.5" aria-hidden="true" /> {t("adjustShift")}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+                {visibleHistoryRecords < historyRecords.length && (
+                  <div className="p-4">
+                    <ShowMoreButton
+                      visible={visibleHistoryRecords}
+                      total={historyRecords.length}
+                      onClick={() => setVisibleHistoryRecords((current) => Math.min(current + LIST_PAGE_SIZE, historyRecords.length))}
+                      label={t("showMore")}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="hidden overflow-x-auto md:block">
                 <table className="w-full text-left text-sm">
                   <thead className="border-b border-border bg-muted/50 text-xs text-muted-foreground uppercase">
                     <tr>
@@ -2843,20 +3321,20 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
               </div>
             </section>
           </div>
-        ) : (
+        ) : viewMode === "projects" ? (
           /* Projects & Geofences Subview */
           <div className="space-y-6">
             <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="label-eyebrow">{t("projectsTab")}</p>
-                  <h2 className="mt-1 text-2xl font-bold">{t("projectsTitle")}</h2>
+                  <h1 className="mt-1 text-2xl font-bold">{t("projectsTitle")}</h1>
                   <p className="text-xs text-muted-foreground mt-1">{t("projectsSubtitle")}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setEditingProject("new")}
-                  className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+                  className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
                 >
                   <Plus className="h-4 w-4" /> {t("newProjectBtn")}
                 </button>
@@ -2876,15 +3354,15 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <p className="text-xs mt-1">{t("noProjectsPrompt")}</p>
                   </div>
                 )}
-                {projects.map((proj) => (
-                  <div key={proj.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
-                    <div className="flex items-start gap-3">
+                {projects.slice(0, visibleProjects).map((proj) => (
+                  <div key={proj.id} data-testid="admin-project-record" className="flex flex-col gap-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex min-w-0 items-start gap-3">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand/15 text-brand mt-0.5">
                         <Building2 className="h-5 w-5" />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-base text-foreground">{proj.name}</h3>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="min-w-0 break-words font-bold text-base text-foreground">{proj.name}</h3>
                           {proj.code && (
                             <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-mono font-semibold">
                               {proj.code}
@@ -2897,7 +3375,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                           </span>
                         </div>
                         {proj.address && <p className="text-xs text-muted-foreground mt-1">{proj.address}</p>}
-                        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground font-mono">
+                        <div className="mt-1.5 flex flex-wrap items-center gap-3 font-mono text-xs text-muted-foreground">
                           {proj.latitude !== null && proj.longitude !== null ? (
                             <>
                               <span className="flex items-center gap-1">
@@ -2912,13 +3390,13 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center">
                       {proj.latitude !== null && proj.longitude !== null && (
                         <a
                           href={`https://www.openstreetmap.org/?mlat=${proj.latitude}&mlon=${proj.longitude}#map=17/${proj.latitude}/${proj.longitude}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-info hover:bg-muted"
+                          className="flex min-h-11 items-center justify-center rounded-xl border border-border px-3 py-2 text-xs font-semibold text-info hover:bg-muted"
                         >
                           {t("viewMap")}
                         </a>
@@ -2926,31 +3404,41 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       <button
                         type="button"
                         onClick={() => setEditingProject(proj)}
-                        className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+                        className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
                         <Edit3 className="h-3.5 w-3.5" /> {t("edit")}
                       </button>
                     </div>
                   </div>
                 ))}
+                {visibleProjects < projects.length && (
+                  <div className="py-4">
+                    <ShowMoreButton
+                      visible={visibleProjects}
+                      total={projects.length}
+                      onClick={() => setVisibleProjects((current) => Math.min(current + LIST_PAGE_SIZE, projects.length))}
+                      label={t("showMore")}
+                    />
+                  </div>
+                )}
               </div>
             </section>
           </div>
-        )}
+        ) : null}
 
         {/* Worker Details Modal with Shift History */}
         {selectedPerson && (
-          <div className="fixed inset-0 z-30 flex items-end justify-center bg-foreground/30 p-4 sm:items-center" role="presentation" onClick={() => setSelectedPerson(null)}>
-            <section role="dialog" aria-modal="true" aria-labelledby="worker-details-title" className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-border bg-card p-5 shadow-xl sm:p-7" onClick={(event) => event.stopPropagation()}>
+          <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/30 p-4 sm:items-center" role="presentation" onClick={closeWorkerDetails}>
+            <section ref={workerDetailsDialogRef} role="dialog" aria-modal="true" aria-labelledby="worker-details-title" tabIndex={-1} className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-xl outline-none sm:p-7" onClick={(event) => event.stopPropagation()}>
               <div className="flex items-start justify-between gap-4 border-b border-border pb-4">
                 <div>
                   <p className="label-eyebrow">{t("workerProfileHistory")}</p>
-                  <h2 id="worker-details-title" className="mt-1 text-2xl font-bold">{selectedPerson.name}</h2>
+                  <h2 id="worker-details-title" data-dialog-initial-focus tabIndex={-1} className="mt-1 text-2xl font-bold outline-none">{selectedPerson.name}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
                     {t("todayTab")}: {stateCopy(selectedPerson.state, t).label} · {formatWorkedDuration(selectedPerson.events, selectedPerson.state, now)}
                   </p>
                 </div>
-                <button type="button" onClick={() => setSelectedPerson(null)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted" aria-label="Close worker details">
+                <button type="button" onClick={closeWorkerDetails} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label="Close worker details">
                   <X className="h-5 w-5" />
                 </button>
               </div>
@@ -2980,7 +3468,37 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                   </span>
                 </div>
 
-                <div className="rounded-2xl border border-border overflow-hidden">
+                <div className="overflow-hidden rounded-2xl border border-border">
+                  <div className="divide-y divide-border md:hidden">
+                    {selectedPersonLoading && <p className="p-5 text-center text-xs text-muted-foreground">{t("saving")}</p>}
+                    {!selectedPersonLoading && selectedPersonHistory.length === 0 && <p className="p-5 text-center text-xs text-muted-foreground">{t("noPastShiftsYet")}</p>}
+                    {selectedPersonHistory.map((shift) => (
+                      <article key={shift.id} className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold">{shift.work_date}</p>
+                            <p className="mt-1 truncate text-xs text-muted-foreground">{shift.project_name || t("generalWork")}</p>
+                          </div>
+                          <p className="shrink-0 font-mono text-sm font-bold">{formatMinutes(shift.net_minutes)}</p>
+                        </div>
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          {formatRecordedTime(shift.clock_in_at, user.timezone)} – {shift.clock_out_at ? formatRecordedTime(shift.clock_out_at, user.timezone) : t("inProgress")}
+                          {shift.break_minutes > 0 ? ` · ${t("colBreak")}: ${formatMinutes(shift.break_minutes)}` : ""}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            closeWorkerDetails();
+                            setShiftToAdjust(shift);
+                          }}
+                          className="mt-4 flex min-h-11 w-full items-center justify-center rounded-xl border border-border px-3 text-xs font-semibold text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          {t("adjustShift")}
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="hidden overflow-x-auto md:block">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-muted/60 text-muted-foreground">
                       <tr>
@@ -3040,6 +3558,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             </section>
@@ -3114,13 +3633,13 @@ function Metric({
   icon: React.ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+    <div className="rounded-2xl border border-border bg-card p-3 shadow-sm sm:rounded-3xl sm:p-5">
       <div className="flex items-center justify-between">
-        <span className={`rounded-xl p-2 ${tone === "live" ? "bg-success/15 text-success" : tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`}>{icon}</span>
-        <span className="font-mono text-3xl font-semibold">{value}</span>
+        <span className={`rounded-xl p-2 ${tone === "live" ? "bg-success/15 text-success" : tone === "break" ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground"}`} aria-hidden="true">{icon}</span>
+        <span className="font-mono text-2xl font-semibold sm:text-3xl">{value}</span>
       </div>
-      <p className="mt-5 text-sm font-semibold">{label}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
+      <p className="mt-3 text-xs font-semibold sm:mt-5 sm:text-sm">{label}</p>
+      <p className="mt-1 hidden text-xs text-muted-foreground min-[380px]:block">{detail}</p>
     </div>
   );
 }
@@ -3141,14 +3660,21 @@ function Shell({
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuPanelRef = useRef<HTMLDivElement>(null);
   const [googleNotice] = useState(() => {
-    const status = new URLSearchParams(window.location.search).get("google");
-    if (status) window.history.replaceState({}, "", window.location.pathname);
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("google");
+    if (status) {
+      params.delete("google");
+      const remainingSearch = params.toString();
+      window.history.replaceState({}, "", `${window.location.pathname}${remainingSearch ? `?${remainingSearch}` : ""}${window.location.hash}`);
+    }
     return status === "pending" || status === "success" || status === "error" ? status : "";
   });
   useEffect(() => {
     if (!menuOpen) return undefined;
     const focusFrame = window.requestAnimationFrame(() => {
-      menuPanelRef.current?.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus();
+      Array.from(menuPanelRef.current?.querySelectorAll<HTMLButtonElement>("button:not([disabled])") ?? [])
+        .find((button) => button.getClientRects().length > 0)
+        ?.focus();
     });
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
@@ -3187,17 +3713,22 @@ function Shell({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
-            <LanguageSwitcher />
+            <div className="hidden sm:block">
+              <LanguageSwitcher />
+            </div>
             <div className="relative">
-              <button ref={menuButtonRef} type="button" onClick={() => setMenuOpen((open) => !open)} className="flex items-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen} aria-controls="field-hours-account-panel" aria-label={`${user.displayName} · ${t("accountMenu")}`}>
+              <button ref={menuButtonRef} type="button" onClick={() => setMenuOpen((open) => !open)} className="flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted" aria-expanded={menuOpen} aria-controls="field-hours-account-panel" aria-label={`${user.displayName} · ${t("accountMenu")}`}>
                 <span className="hidden sm:inline">{user.displayName}</span><Menu className="h-4 w-4" />
               </button>
               {menuOpen && (
-                <div ref={menuPanelRef} id="field-hours-account-panel" className="absolute right-0 mt-2 w-56 rounded-2xl border border-border bg-card p-2 shadow-lg">
+                <div ref={menuPanelRef} id="field-hours-account-panel" role="dialog" aria-label={t("accountMenu")} className="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-border bg-card p-2 shadow-lg">
+                  <div className="mb-2 border-b border-border p-1 pb-3 sm:hidden">
+                    <LanguageSwitcher />
+                  </div>
                   <PwaInstallAction />
-                  <button type="button" onClick={() => startGoogleSignIn("link")} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><ShieldCheck className="h-4 w-4" /> {t("setupGoogleSignIn")}</button>
-                  <button type="button" onClick={onSignOut} className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> {t("signOut")}</button>
-                  <button type="button" onClick={closeMenu} className="mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> {t("close")}</button>
+                  <button type="button" onClick={() => startGoogleSignIn("link")} className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><ShieldCheck className="h-4 w-4" /> {t("setupGoogleSignIn")}</button>
+                  <button type="button" onClick={onSignOut} className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted"><LogOut className="h-4 w-4" /> {t("signOut")}</button>
+                  <button type="button" onClick={closeMenu} className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"><X className="h-4 w-4" /> {t("close")}</button>
                 </div>
               )}
             </div>

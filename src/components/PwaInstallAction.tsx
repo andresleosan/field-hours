@@ -38,9 +38,9 @@ export function PwaInstallAction() {
         type="button"
         onClick={() => void handleInstall()}
         disabled={busy}
-        className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-60"
+        className="flex min-h-11 w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-60"
       >
-        {install.canPrompt ? <Download className="h-4 w-4" /> : <Smartphone className="h-4 w-4" />}
+        {install.canPrompt ? <Download className="h-4 w-4" aria-hidden="true" /> : <Smartphone className="h-4 w-4" aria-hidden="true" />}
         {t("installApp")}
       </button>
       {guidance && (

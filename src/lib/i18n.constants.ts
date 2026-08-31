@@ -4,8 +4,16 @@ export interface Translations {
   // Navigation & Shell
   appTitle: string;
   todayTab: string;
+  todayTabShort: string;
   historyTab: string;
+  historyTabShort: string;
   projectsTab: string;
+  projectsTabShort: string;
+  moreTab: string;
+  moreTabShort: string;
+  showMore: string;
+  teamAccessTitle: string;
+  teamAccessHelp: string;
   signOut: string;
   home: string;
   sections: string;
@@ -29,6 +37,7 @@ export interface Translations {
   installAppDismissed: string;
   installAppError: string;
   salaryAdviceTab: string;
+  salaryAdviceTabShort: string;
   address: string;
   salaryAdviceLoading: string;
   salaryAdviceLoadError: string;
@@ -62,6 +71,13 @@ export interface Translations {
   loadingSecureSession: string;
   salaryAdviceTitle: string;
   salaryAdviceSubtitle: string;
+  salaryCreateSection: string;
+  salaryBusinessSection: string;
+  salaryEmployeesSection: string;
+  salaryEmployeePeriodGroup: string;
+  salaryConfirmedAmountsGroup: string;
+  salaryTotalsDownloadGroup: string;
+  viewBreakdown: string;
   businessDetails: string;
   businessDetailsHelp: string;
   businessName: string;
@@ -226,6 +242,7 @@ export interface Translations {
   periodFilter: string;
   workerFilter: string;
   projectFilter: string;
+  filters: string;
   allStaff: string;
   allProjects: string;
   periodToday: string;
@@ -303,8 +320,16 @@ export const translations: Record<Language, Translations> = {
   es: {
     appTitle: "Field Hours",
     todayTab: "Hoy en Vivo",
+    todayTabShort: "En vivo",
     historyTab: "Historial y Reportes",
+    historyTabShort: "Jornadas",
     projectsTab: "Proyectos y Obras",
+    projectsTabShort: "Proyectos",
+    moreTab: "Más",
+    moreTabShort: "Más",
+    showMore: "Mostrar más",
+    teamAccessTitle: "Equipo y accesos",
+    teamAccessHelp: "Solicitudes, recuperación, invitaciones y auditoría de cuentas.",
     signOut: "Cerrar sesión",
     home: "Inicio",
     sections: "Secciones",
@@ -328,6 +353,7 @@ export const translations: Record<Language, Translations> = {
     installAppDismissed: "La instalación no se completó. Puedes usar el menú de Chrome para intentarlo de nuevo.",
     installAppError: "Chrome no pudo abrir la instalación. Usa su menú y toca “Instalar aplicación” o “Añadir a pantalla principal”.",
     salaryAdviceTab: "Salary Advice",
+    salaryAdviceTabShort: "Salary",
     address: "Dirección",
     salaryAdviceLoading: "Cargando herramientas de Salary Advice…",
     salaryAdviceLoadError: "No se pudieron cargar los datos de Salary Advice.",
@@ -361,6 +387,13 @@ export const translations: Record<Language, Translations> = {
     loadingSecureSession: "Cargando sesión segura…",
     salaryAdviceTitle: "Calcular y descargar Salary Advice",
     salaryAdviceSubtitle: "Elige un empleado y un periodo. La descarga crea únicamente el documento y no inicia pagos.",
+    salaryCreateSection: "Crear",
+    salaryBusinessSection: "Negocio",
+    salaryEmployeesSection: "Empleados",
+    salaryEmployeePeriodGroup: "Empleado y periodo",
+    salaryConfirmedAmountsGroup: "Importes confirmados",
+    salaryTotalsDownloadGroup: "Acumulados y descarga",
+    viewBreakdown: "Ver desglose",
     businessDetails: "Datos del negocio para el documento",
     businessDetailsHelp: "Estos son los únicos datos del negocio que utiliza el documento.",
     businessName: "Nombre del negocio",
@@ -521,6 +554,7 @@ export const translations: Record<Language, Translations> = {
     periodFilter: "Período",
     workerFilter: "Trabajador",
     projectFilter: "Proyecto / Obra",
+    filters: "Filtros",
     allStaff: "Todos los trabajadores",
     allProjects: "Todos los proyectos / obras",
     periodToday: "Hoy",
@@ -595,8 +629,16 @@ export const translations: Record<Language, Translations> = {
   en: {
     appTitle: "Field Hours",
     todayTab: "Live Today",
+    todayTabShort: "Live",
     historyTab: "History & Reports",
+    historyTabShort: "Shifts",
     projectsTab: "Projects & Sites",
+    projectsTabShort: "Projects",
+    moreTab: "More",
+    moreTabShort: "More",
+    showMore: "Show more",
+    teamAccessTitle: "Team & access",
+    teamAccessHelp: "Account requests, recovery, invitations and audit history.",
     signOut: "Sign out",
     home: "Home",
     sections: "Sections",
@@ -620,6 +662,7 @@ export const translations: Record<Language, Translations> = {
     installAppDismissed: "Installation was not completed. You can retry from Chrome’s menu.",
     installAppError: "Chrome could not open the installer. Use its menu and tap “Install app” or “Add to Home screen”.",
     salaryAdviceTab: "Salary Advice",
+    salaryAdviceTabShort: "Salary",
     address: "Address",
     salaryAdviceLoading: "Loading Salary Advice tools…",
     salaryAdviceLoadError: "Salary Advice data could not be loaded.",
@@ -653,6 +696,13 @@ export const translations: Record<Language, Translations> = {
     loadingSecureSession: "Loading secure session…",
     salaryAdviceTitle: "Calculate and download Salary Advice",
     salaryAdviceSubtitle: "Choose one employee and period. The download creates only the document and does not initiate payment.",
+    salaryCreateSection: "Create",
+    salaryBusinessSection: "Business",
+    salaryEmployeesSection: "Employees",
+    salaryEmployeePeriodGroup: "Employee and period",
+    salaryConfirmedAmountsGroup: "Confirmed amounts",
+    salaryTotalsDownloadGroup: "Totals and download",
+    viewBreakdown: "View breakdown",
     businessDetails: "Business details for the document",
     businessDetailsHelp: "These are the only business details used by the document.",
     businessName: "Business name",
@@ -813,6 +863,7 @@ export const translations: Record<Language, Translations> = {
     periodFilter: "Period",
     workerFilter: "Worker",
     projectFilter: "Project / Site",
+    filters: "Filters",
     allStaff: "All Staff Members",
     allProjects: "All Projects / Sites",
     periodToday: "Today",
@@ -887,8 +938,16 @@ export const translations: Record<Language, Translations> = {
   pt: {
     appTitle: "Field Hours",
     todayTab: "Hoje ao Vivo",
+    todayTabShort: "Ao vivo",
     historyTab: "Histórico e Relatórios",
+    historyTabShort: "Jornadas",
     projectsTab: "Projetos e Obras",
+    projectsTabShort: "Projetos",
+    moreTab: "Mais",
+    moreTabShort: "Mais",
+    showMore: "Mostrar mais",
+    teamAccessTitle: "Equipe e acessos",
+    teamAccessHelp: "Solicitações, recuperação, convites e auditoria de contas.",
     signOut: "Sair",
     home: "Início",
     sections: "Seções",
@@ -912,6 +971,7 @@ export const translations: Record<Language, Translations> = {
     installAppDismissed: "A instalação não foi concluída. Você pode tentar novamente pelo menu do Chrome.",
     installAppError: "O Chrome não conseguiu abrir a instalação. Use o menu e toque em “Instalar app” ou “Adicionar à tela inicial”.",
     salaryAdviceTab: "Salary Advice",
+    salaryAdviceTabShort: "Salary",
     address: "Endereço",
     salaryAdviceLoading: "Carregando ferramentas de Salary Advice…",
     salaryAdviceLoadError: "Não foi possível carregar os dados de Salary Advice.",
@@ -945,6 +1005,13 @@ export const translations: Record<Language, Translations> = {
     loadingSecureSession: "Carregando sessão segura…",
     salaryAdviceTitle: "Calcular e baixar Salary Advice",
     salaryAdviceSubtitle: "Escolha um funcionário e um período. O download cria somente o documento e não inicia pagamentos.",
+    salaryCreateSection: "Criar",
+    salaryBusinessSection: "Empresa",
+    salaryEmployeesSection: "Funcionários",
+    salaryEmployeePeriodGroup: "Funcionário e período",
+    salaryConfirmedAmountsGroup: "Valores confirmados",
+    salaryTotalsDownloadGroup: "Acumulados e download",
+    viewBreakdown: "Ver detalhamento",
     businessDetails: "Dados da empresa para o documento",
     businessDetailsHelp: "Estes são os únicos dados da empresa usados pelo documento.",
     businessName: "Nome da empresa",
@@ -1105,6 +1172,7 @@ export const translations: Record<Language, Translations> = {
     periodFilter: "Período",
     workerFilter: "Funcionário",
     projectFilter: "Projeto / Obra",
+    filters: "Filtros",
     allStaff: "Todos os funcionários",
     allProjects: "Todas as obras / projetos",
     periodToday: "Hoje",

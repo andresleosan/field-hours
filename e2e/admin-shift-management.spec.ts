@@ -7,7 +7,7 @@ test("admin creates a complete workday with a required employee-visible descript
   const api = await installAdminApi(context);
 
   await page.goto("/");
-  await page.getByRole("button", { name: "History & Reports", exact: true }).click();
+  await page.getByRole("button", { name: "History & Reports", exact: true }).filter({ visible: true }).click();
 
   const addButton = page.getByRole("button", { name: "Add workday", exact: true });
   await expect(addButton).toBeEnabled();
@@ -23,7 +23,7 @@ test("admin creates a complete workday with a required employee-visible descript
   await dialog.getByRole("button", { name: "Save Workday" }).click();
 
   await expect(page.getByRole("status")).toContainText("Workday created successfully");
-  await expect(page.getByText("Worker Test", { exact: true }).last()).toBeVisible();
+  await expect(page.getByText("Worker Test", { exact: true }).filter({ visible: true }).last()).toBeVisible();
 
   const createCall = api.calls.find((call) => call.method === "POST" && call.path === "/api/admin/shifts/create");
   expect(createCall?.body).toMatchObject({
