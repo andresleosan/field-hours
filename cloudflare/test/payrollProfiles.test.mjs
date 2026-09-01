@@ -47,6 +47,57 @@ const validBody = {
   socialReference: "SB002",
 };
 
+test("worker saves the ITIS percentage in the active employee profile", async () => {
+  let profileRow = null;
+  let insertQuery = "";
+  let insertBindings = [];
+  const env = {
+    PAYROLL_ENCRYPTION_KEY: "11".repeat(32),
+    DB: {
+      prepare(query) {
+        let bindings = [];
+        return {
+          bind(...values) {
+            bindings = values;
+            return this;
+          },
+          async first() {
+            if (query.includes("FROM workforce_memberships")) return profileRow;
+            if (query.includes("employee_number =")) return null;
+            throw new Error(`Unexpected first query: ${query}`);
+          },
+          async run() {
+            if (query.includes("INSERT INTO workforce_salary_advice_profiles")) {
+              insertQuery = query;
+              insertBindings = bindings;
+              profileRow = {
+                userId: "shared-user",
+                organizationId: "org-b",
+                displayName: "Worker B",
+                legalName: bindings[2],
+                address: bindings[3],
+                employeeNumber: bindings[4],
+                taxReferenceCiphertext: bindings[5],
+                socialReferenceCiphertext: bindings[6],
+                itisRateBps: bindings[7],
+                hourlyRatePence: null,
+                savedAt: bindings[8],
+              };
+            }
+            return { success: true, meta: { changes: 1 } };
+          },
+        };
+      },
+    },
+  };
+
+  const saved = await saveWorkerPayrollProfile(env, workerAuth, { ...validBody, itisRate: 7 });
+
+  assert.match(insertQuery, /itis_rate_bps/);
+  assert.equal(insertBindings[7], 700);
+  assert.equal(saved.itisRate, 7);
+});
+
 test("password, session and Google authentication fail closed for ambiguous memberships", async () => {
   const [authSource, googleAuthSource] = await Promise.all([
     readFile(new URL("../src/auth.ts", import.meta.url), "utf8"),
@@ -58,10 +109,10 @@ test("password, session and Google authentication fail closed for ambiguous memb
   assert.equal(googleGuards.length, 3);
 });
 
-test("profile save rejects retired fields before reading or writing D1", async () => {
+test("profile save rejects unsupported fields and invalid ITIS before reading or writing D1", async () => {
   const env = { DB: { prepare() { throw new Error("D1 must not be accessed"); } } };
   await assert.rejects(
-    saveWorkerPayrollProfile(env, workerAuth, { ...validBody, itisRate: 0 }),
+    saveWorkerPayrollProfile(env, workerAuth, { ...validBody, itisRate: 101 }),
     { status: 400, code: "INVALID_INPUT" },
   );
   await assert.rejects(
@@ -185,6 +236,7 @@ test("clean composite UPSERT cannot mutate a Salary Advice profile in another te
                 employeeNumber: savedRow?.employeeNumber ?? null,
                 taxReferenceCiphertext: savedRow?.taxReferenceCiphertext ?? null,
                 socialReferenceCiphertext: savedRow?.socialReferenceCiphertext ?? null,
+                itisRateBps: savedRow?.itisRateBps ?? null,
                 savedAt: savedRow?.savedAt ?? null,
               };
             }
@@ -202,7 +254,8 @@ test("clean composite UPSERT cannot mutate a Salary Advice profile in another te
                 employeeNumber: bindings[4],
                 taxReferenceCiphertext: bindings[5],
                 socialReferenceCiphertext: bindings[6],
-                savedAt: bindings[7],
+                itisRateBps: bindings[7],
+                savedAt: bindings[8],
               };
               return { success: true, meta: { changes: 1 } };
             }
@@ -216,10 +269,11 @@ test("clean composite UPSERT cannot mutate a Salary Advice profile in another te
     },
   };
 
-  const saved = await saveWorkerPayrollProfile(env, workerAuth, { ...validBody, employeeNumber: "b-002" });
+  const saved = await saveWorkerPayrollProfile(env, workerAuth, { ...validBody, employeeNumber: "b-002", itisRate: 7 });
   assert.equal(saved.employeeNumber, "B-002");
   assert.match(cleanInsert, /ON CONFLICT\(organization_id, user_id\) DO UPDATE/);
-  assert.doesNotMatch(cleanInsert, /pending_review|itis_rate_bps|reviewed_by/);
+  assert.match(cleanInsert, /itis_rate_bps/);
+  assert.doesNotMatch(cleanInsert, /pending_review|reviewed_by/);
   assert.deepEqual(foreignRow, before);
 });
 
@@ -252,6 +306,7 @@ test("database uniqueness closes the concurrent employee-number race with a safe
                 employeeNumber: null,
                 taxReferenceCiphertext: null,
                 socialReferenceCiphertext: null,
+                itisRateBps: null,
                 savedAt: null,
               };
             }
@@ -269,7 +324,7 @@ test("database uniqueness closes the concurrent employee-number race with a safe
     },
   };
   await assert.rejects(
-    saveWorkerPayrollProfile(env, workerAuth, validBody),
+    saveWorkerPayrollProfile(env, workerAuth, { ...validBody, itisRate: 7 }),
     { status: 409, code: "EMPLOYEE_NUMBER_EXISTS" },
   );
   assert.equal(profileLoads, 1);

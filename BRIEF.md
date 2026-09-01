@@ -43,7 +43,7 @@ La siguiente prioridad preventiva es preparar las reglas Jersey 2027 sin modific
 
 - No ejecutar transferencias bancarias automáticamente.
 - El Salary Advice es un documento informativo: generarlo o descargarlo no revisa, aprueba, bloquea ni marca un pago como listo y nunca inicia una transferencia.
-- Cada cálculo exige seleccionar un único trabajador y un periodo. La tarifa usada por un documento por horas pertenece a ese cálculo; no existe una tarifa estándar global del negocio.
+- Cada cálculo exige seleccionar un único trabajador y un periodo. La tarifa horaria pertenece al perfil del empleado y la asigna el administrador; el porcentaje ITIS lo informa el trabajador desde su aviso y queda guardado en ese perfil. No existe una tarifa estándar global del negocio.
 - La configuración visible del negocio no incluye tarifa estándar, frecuencia/día de pago, cotización patronal ni referencias fiscal/social del negocio.
 - El Salary Advice no muestra cotización patronal, referencias fiscal/social del negocio, datos bancarios ni estados de aprobación.
 - Los datos fiscales, bancarios y de nómina se consideran sensibles: cifrado, enmascarado, autorización y auditoría son obligatorios.
@@ -75,7 +75,7 @@ La siguiente prioridad preventiva es preparar las reglas Jersey 2027 sin modific
 
 ## Adenda vigente — Salary Advice automatico (31 de agosto de 2026)
 
-El administrador asigna la tarifa horaria y el porcentaje ITIS confirmado en el aviso de cada empleado, y puede actualizarlos. El sistema calcula el Salary Advice consultando las horas completadas guardadas en D1, incluyendo cambios administrativos, aplica siempre Social Security del 6% y muestra bruto, ITIS, Seguridad Social, deducciones y neto. El boton `Consultar horas guardadas` aparece debajo de la fecha de pago y usa el mismo calculo que la descarga PDF.
+El trabajador informa el porcentaje ITIS confirmado en su aviso y queda guardado en su perfil; el administrador asigna la tarifa horaria y puede corregir ambos valores si hace falta. El sistema calcula el Salary Advice consultando las horas completadas guardadas en D1, incluyendo cambios administrativos, aplica siempre Social Security del 6% y muestra bruto, ITIS, Seguridad Social, deducciones y neto. El boton `Consultar horas guardadas` aparece debajo de la fecha de pago y usa el mismo calculo que la descarga PDF.
 
 Los importes manuales de tarifa, ITIS, Seguridad Social y acumulados ya no forman parte del contrato activo. El documento sigue siendo informativo y no inicia pagos.
 

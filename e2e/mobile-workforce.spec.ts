@@ -161,6 +161,21 @@ test("worker section URL supports back, forward and reload", async ({ context, p
   await expect(page.getByRole("heading", { name: "Hours overview" })).toBeVisible();
 });
 
+test("worker saves the ITIS percentage with the payroll profile", async ({ context, page }) => {
+  await installWorkerApi(context);
+  await page.goto("/clock?section=pay");
+
+  await page.getByRole("textbox", { name: "Legal name" }).fill("Worker Test");
+  await page.getByRole("textbox", { name: "Employee number" }).fill("EMP-001");
+  await page.getByRole("textbox", { name: "Home address" }).fill("1 Worker Road");
+  await page.getByRole("textbox", { name: /Tax Reference \(ITIS\)/ }).fill("TAX-123");
+  await page.getByRole("textbox", { name: "Social Security Number" }).fill("SOC-9012");
+  await page.getByRole("spinbutton", { name: "Employee ITIS (%)" }).fill("7");
+  await page.getByRole("button", { name: "Save profile", exact: true }).click();
+
+  await expect(page.getByText("Details saved and available", { exact: true }).first()).toBeVisible();
+});
+
 test("admin section URL supports back, forward and reload", async ({ context, page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installAdminApi(context, { denseData: true });

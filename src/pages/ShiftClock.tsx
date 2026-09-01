@@ -1493,6 +1493,7 @@ function WorkerPayrollProfileForm({
         employeeNumber: form.employeeNumber,
         taxReference: form.taxReference || undefined,
         socialReference: form.socialReference || undefined,
+        itisRate: Number(form.itisRate),
       });
       setForm((previous) => ({
         ...previous,
@@ -1539,8 +1540,21 @@ function WorkerPayrollProfileForm({
         </div>
         <PayrollInput label={t("homeAddress")} value={form.address} onChange={(value) => setForm({ ...form, address: value })} required autoComplete="street-address" />
         <div className="grid gap-4 sm:grid-cols-2">
-          <PayrollInput label={`${t("taxReference")} (ITIS)`} type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? t("storedKeepPlaceholder") : t("requiredLabel")} />
+          <PayrollInput label={t("taxReference")} type="password" value={form.taxReference} onChange={(value) => setForm({ ...form, taxReference: value })} required={!profile?.hasTaxReference} autoComplete="off" placeholder={profile?.hasTaxReference ? t("storedKeepPlaceholder") : t("requiredLabel")} />
           <PayrollInput label={t("socialSecurityNumber")} type="password" value={form.socialReference} onChange={(value) => setForm({ ...form, socialReference: value })} required={!profile?.hasSocialReference} autoComplete="off" placeholder={profile?.hasSocialReference ? t("storedKeepPlaceholder") : t("requiredLabel")} />
+          <PayrollInput
+            label={t("employeeItisRate")}
+            type="number"
+            value={form.itisRate}
+            onChange={(value) => setForm({ ...form, itisRate: value })}
+            required
+            min="0"
+            max="100"
+            step="1"
+            suffix="%"
+            help={t("itisRateHelp")}
+            inputMode="numeric"
+          />
         </div>
         <p className="text-xs text-muted-foreground">{t("sensitiveEncrypted")}</p>
         {error && <p role="alert" className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-3 text-sm text-destructive">{error}</p>}
@@ -1559,6 +1573,7 @@ type PayrollFormState = {
   employeeNumber: string;
   taxReference: string;
   socialReference: string;
+  itisRate: string;
 };
 
 function payrollFormFromProfile(profile: WorkerPayrollProfile | null): PayrollFormState {
@@ -1568,6 +1583,7 @@ function payrollFormFromProfile(profile: WorkerPayrollProfile | null): PayrollFo
     employeeNumber: profile?.employeeNumber ?? "",
     taxReference: "",
     socialReference: "",
+    itisRate: profile?.itisRate == null ? "" : String(profile.itisRate),
   };
 }
 
@@ -1587,6 +1603,7 @@ function PayrollInput({
   maxLength,
   help,
   autoCapitalize,
+  inputMode,
 }: {
   label: string;
   value: string;
@@ -1603,6 +1620,7 @@ function PayrollInput({
   maxLength?: number;
   help?: string;
   autoCapitalize?: "none" | "off" | "sentences" | "words" | "characters";
+  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search";
 }) {
   return (
     <label className="block text-sm font-medium">
@@ -1621,6 +1639,7 @@ function PayrollInput({
           pattern={pattern}
           maxLength={maxLength}
           autoCapitalize={autoCapitalize}
+          inputMode={inputMode}
           className={`h-11 w-full rounded-xl border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground placeholder:opacity-100 outline-none focus-visible:ring-2 focus-visible:ring-ring ${suffix ? "pr-9" : ""}`}
         />
         {suffix && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">{suffix}</span>}

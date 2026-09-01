@@ -10,11 +10,13 @@ Salary Advice. Guardarla no crea una nómina y no existe revisión, aprobación 
 - número de empleado normalizado a mayúsculas, único por organización y limitado a 1–40 caracteres
   ASCII: letras, números, punto, guion bajo, barra y guion; el primer carácter debe ser alfanumérico;
 - Tax Reference (ITIS);
+- porcentaje ITIS entero confirmado en el aviso vigente;
 - Social Security Number, usado como `Social Ref` en el documento.
 
-El administrador asigna al perfil del empleado la tarifa horaria y el porcentaje ITIS confirmado en su
-aviso vigente. El contrato activo no solicita cuenta bancaria, sort code ni una segunda referencia de
-Social Security.
+El trabajador informa en este perfil el porcentaje ITIS entero confirmado en su aviso vigente; se guarda
+en el perfil activo y el cálculo lo reutiliza. El administrador asigna la tarifa horaria y puede corregir
+ambos valores con autorización administrativa. El contrato activo no solicita cuenta bancaria, sort code
+ni una segunda referencia de Social Security.
 
 ## Protección
 

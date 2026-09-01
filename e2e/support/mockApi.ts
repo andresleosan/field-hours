@@ -622,6 +622,7 @@ export async function installWorkerApi(
   let shiftSequence = 0;
   let eventSequence = currentShift?.events.length ?? 0;
   let failedClockOutOnce = false;
+  let workerPayrollProfile: Record<string, unknown> | null = null;
   const eventOffsetsInMinutes = [0, 15, 25, 40, 65, 90, 120, 150];
 
   const control = await prepareContext(context, async (route, path, method, body) => {
@@ -629,7 +630,7 @@ export async function installWorkerApi(
     if (method === "GET" && path === "/api/worker/today") return json(route, currentShift ?? emptyShift());
     if (method === "GET" && path === "/api/projects") return json(route, projects);
     if (method === "GET" && path === "/api/worker/shifts/history") return json(route, completed);
-    if (method === "GET" && path === "/api/worker/payroll-profile") return json(route, { profile: null });
+    if (method === "GET" && path === "/api/worker/payroll-profile") return json(route, { profile: workerPayrollProfile });
     if (method === "GET" && path === "/api/worker/payroll-summary") {
       const completedMinutes = completed.reduce((total, shift) => total + Number(shift.net_minutes ?? 0), 0);
       return json(route, {
@@ -641,6 +642,36 @@ export async function installWorkerApi(
         totalCompletedMinutes: completedMinutes,
         totalCompletedShifts: completed.length,
       });
+    }
+
+    if (method === "POST" && path === "/api/worker/payroll-profile") {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as Record<string, unknown>;
+      if (
+        typeof input?.legalName !== "string"
+        || typeof input.address !== "string"
+        || typeof input.employeeNumber !== "string"
+        || typeof input.itisRate !== "number"
+        || !Number.isInteger(input.itisRate)
+        || input.itisRate < 0
+        || input.itisRate > 100
+      ) {
+        return json(route, { error: "Payroll profile is invalid", code: "INVALID_INPUT" }, 400);
+      }
+      workerPayrollProfile = {
+        userId: "worker-1",
+        displayName: "Worker Test",
+        employeeNumber: input.employeeNumber,
+        hourlyRate: null,
+        itisRate: input.itisRate,
+        isComplete: true,
+        savedAt: NOW,
+        legalName: input.legalName,
+        address: input.address,
+        hasTaxReference: typeof input.taxReference === "string" || false,
+        hasSocialReference: typeof input.socialReference === "string" || false,
+      };
+      return json(route, { profile: workerPayrollProfile });
     }
 
     if (method === "POST" && path === "/api/worker/projects") {

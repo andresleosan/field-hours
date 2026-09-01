@@ -182,6 +182,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         employeeNumber?: unknown;
         taxReference?: unknown;
         socialReference?: unknown;
+        itisRate?: unknown;
         [key: string]: unknown;
       }>(request),
     ) });

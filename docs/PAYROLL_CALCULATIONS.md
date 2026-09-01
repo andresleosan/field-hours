@@ -17,10 +17,10 @@ El cuerpo solo selecciona al empleado y el periodo:
 }
 ```
 
-La tarifa horaria y el `itisRate` se guardan en el perfil del empleado seleccionado. ITIS debe proceder
-del aviso vigente de ese empleado; nunca se lee desde la configuración del negocio ni desde una tasa
-global. El contrato rechaza los antiguos importes manuales, acumulados, estados y decisiones de
-aprobación.
+La tarifa horaria y el `itisRate` se guardan en el perfil del empleado seleccionado. El trabajador
+informa el porcentaje ITIS desde su aviso vigente y el administrador puede corregirlo; nunca se lee desde
+la configuración del negocio ni desde una tasa global. El contrato rechaza los antiguos importes
+manuales, acumulados, estados y decisiones de aprobación.
 
 ## Selección de empleado y periodo
 
@@ -118,8 +118,9 @@ ledger y no deriva `Totals to Date`. `yearToDateGrossTaxablePay` y `yearToDateTa
 confirmadas por el operador que ya incluyen el documento actual; la aplicación no rellena ni inventa
 acumulados anteriores ni persiste esos importes. Volver a calcular consulta los turnos y datos vigentes.
 
-No existe paso de revisión, aprobación, marcado como listo para pago ni transferencia bancaria. ITIS
-ya no se define en el perfil del trabajador y el flujo activo no requiere datos bancarios.
+No existe paso de revisión, aprobación, marcado como listo para pago ni transferencia bancaria. El
+trabajador informa el porcentaje ITIS en su perfil activo y el administrador puede corregirlo; el flujo
+activo no requiere datos bancarios.
 
 Perfiles e identidad del negocio se leen de `workforce_salary_advice_profiles` y
 `workforce_salary_advice_settings`, creadas por la migración aditiva `0010`. Las tablas históricas de

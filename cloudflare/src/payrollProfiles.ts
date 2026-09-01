@@ -147,11 +147,12 @@ export async function saveWorkerPayrollProfile(
     employeeNumber?: unknown;
     taxReference?: unknown;
     socialReference?: unknown;
+    itisRate?: unknown;
     [key: string]: unknown;
   },
 ): Promise<WorkerPayrollProfile> {
   if (auth.user.role !== "worker") throw new ApiError(403, "FORBIDDEN", "Only workers can submit payroll details.");
-  const supportedFields = new Set(["legalName", "address", "employeeNumber", "taxReference", "socialReference"]);
+  const supportedFields = new Set(["legalName", "address", "employeeNumber", "taxReference", "socialReference", "itisRate"]);
   const unsupportedFields = Object.keys(body).filter((key) => !supportedFields.has(key));
   if (unsupportedFields.length > 0) {
     throw new ApiError(400, "INVALID_INPUT", `Unsupported employee detail: ${unsupportedFields.join(", ")}.`);
@@ -159,14 +160,16 @@ export async function saveWorkerPayrollProfile(
   const legalName = requireString(body.legalName, "Legal name", 2, 160);
   const address = requireString(body.address, "Address", 2, 250);
   const employeeNumber = requireEmployeeNumber(body.employeeNumber);
+  const submittedItisRateBps = body.itisRate === undefined ? null : parseItisRateBps(body.itisRate);
   const existing = await loadProfile(env, auth.user.organizationId, auth.user.id);
 
   const existingComplete = existing && profileExists(existing);
   const taxReference = optionalString(body.taxReference, "Tax Reference (ITIS)", 1, 80);
   const socialReference = optionalString(body.socialReference, "Social Security Number", 1, 80);
+  const itisRateBps = submittedItisRateBps ?? existing?.itisRateBps ?? null;
 
-  if (!existingComplete && (!taxReference || !socialReference)) {
-    throw new ApiError(400, "PROFILE_INCOMPLETE", "Tax Reference (ITIS) and Social Security Number are required.");
+  if (!existingComplete && (!taxReference || !socialReference || itisRateBps === null)) {
+    throw new ApiError(400, "PROFILE_INCOMPLETE", "Tax Reference (ITIS), ITIS rate and Social Security Number are required.");
   }
 
   const [taxReferenceCiphertext, socialReferenceCiphertext] = await Promise.all([
@@ -190,13 +193,14 @@ export async function saveWorkerPayrollProfile(
     write = await env.DB.prepare(
       `INSERT INTO workforce_salary_advice_profiles
        (organization_id, user_id, legal_name, address, employee_number,
-        tax_reference_ciphertext, social_reference_ciphertext, saved_at)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+        tax_reference_ciphertext, social_reference_ciphertext, itis_rate_bps, saved_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
      ON CONFLICT(organization_id, user_id) DO UPDATE SET
        legal_name = excluded.legal_name, address = excluded.address,
        employee_number = excluded.employee_number,
        tax_reference_ciphertext = excluded.tax_reference_ciphertext,
        social_reference_ciphertext = excluded.social_reference_ciphertext,
+       itis_rate_bps = excluded.itis_rate_bps,
        saved_at = excluded.saved_at`,
     ).bind(
       auth.user.organizationId,
@@ -206,6 +210,7 @@ export async function saveWorkerPayrollProfile(
       employeeNumber,
       taxReferenceCiphertext,
       socialReferenceCiphertext,
+      itisRateBps,
       now,
     ).run();
   } catch (error) {

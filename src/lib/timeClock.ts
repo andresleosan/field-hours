@@ -290,6 +290,7 @@ export async function saveWorkerPayrollProfile(input: {
   employeeNumber: string;
   taxReference?: string;
   socialReference?: string;
+  itisRate: number;
 }): Promise<WorkerPayrollProfile> {
   const result = await backend.post<{ profile: WorkerPayrollProfile }>("/api/worker/payroll-profile", input, true);
   return result.profile;

@@ -15,12 +15,13 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 ## Fase 11: Salary Advice automático desde perfil y horas guardadas (EN IMPLEMENTACIÓN)
 
-> Alcance corregido por el operador el 1 de septiembre de 2026. El admin asigna la tarifa y el ITIS por empleado; el negocio solo conserva su identidad. El sistema consulta D1 al calcular, aplica Social Security fija del 6% y obtiene los acumulados desde las horas guardadas, incluidas las modificadas. No inicia transferencias ni despliega automáticamente.
+> Alcance corregido por el operador el 1 de septiembre de 2026. El trabajador informa el ITIS desde su aviso vigente; el admin asigna la tarifa y puede corregir ambos valores por empleado; el negocio solo conserva su identidad. El sistema consulta D1 al calcular, aplica Social Security fija del 6% y obtiene los acumulados desde las horas guardadas, incluidas las modificadas. No inicia transferencias ni despliega automáticamente.
 
 - [x] **AUTO-SALARY-01 (Modelo de datos)**: Añadida la tarifa horaria y el ITIS al perfil activo de cada empleado en la migración aditiva `0011_automatic_salary_advice.sql`, con rollback manual documentado. No se aplicó en producción.
 - [x] **AUTO-SALARY-02 (Backend)**: Protegida la edición administrativa con rol y CSRF; el cálculo obtiene tarifa/ITIS/Social Security/acumulados desde D1, incluye turnos completados modificados y rechaza datos manuales obsoletos.
-- [x] **AUTO-SALARY-03 (Frontend)**: Añadida la edición admin de tarifa e ITIS por empleado; eliminado el ITIS de la identidad del negocio y conservado el botón bajo fecha de pago para consultar horas guardadas.
+- [x] **AUTO-SALARY-03 (Frontend)**: Añadida la edición admin de tarifa y corrección de ITIS por empleado; el trabajador captura el ITIS en su perfil, eliminado el ITIS de la identidad del negocio y conservado el botón bajo fecha de pago para consultar horas guardadas.
 - [x] **AUTO-SALARY-04 (QA)**: Typecheck frontend/Worker, lint, 38 pruebas Worker, 12 E2E de Salary Advice, 6 pruebas PDF y build pasan. La descarga PDF y la consulta previa comparten el contrato automático; no hubo despliegue ni escrituras productivas.
+- [ ] **AUTO-SALARY-05 (Corrección de regresión)**: El trabajador puede guardar el porcentaje ITIS en su perfil activo; Salary Advice solo muestra empleados con tarifa e ITIS guardados y muestra esos valores al seleccionar empleado. El endpoint administrativo de compensación y la migración `0011` deben desplegarse juntos con autorización explícita.
 
 ---
 

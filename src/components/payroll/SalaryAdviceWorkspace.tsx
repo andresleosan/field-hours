@@ -219,7 +219,7 @@ export function SalaryAdviceWorkspace() {
       </nav>
       <div id="salary-create-section" className={activeSection === "create" ? "block" : "hidden md:block"}>
         <SalaryAdviceCalculator
-          profiles={profiles.filter((profile) => profile.isComplete && profile.hourlyRate !== null)}
+          profiles={profiles.filter((profile) => profile.isComplete && profile.hourlyRate !== null && profile.itisRate !== null)}
           settingsReady={Boolean(settings) && !settingsDirty && !settingsSaving}
           settingsNeedSave={Boolean(settings) && (settingsDirty || settingsSaving)}
           onOpenBusiness={() => {
@@ -476,6 +476,7 @@ function SalaryAdviceCalculator({
   const [advice, setAdvice] = useState<SalaryAdvice | null>(null);
   const documentRevision = useRef(0);
   const values = useMemo(() => periodType === "weekly" ? weekOptions() : monthOptions(), [periodType]);
+  const selectedProfile = profiles.find((profile) => profile.userId === userId);
   const locale = lang === "es" ? "es-ES" : lang === "pt" ? "pt-PT" : "en-GB";
   const sectionCopy = {
     business: t("salaryBusinessSection"),
@@ -589,6 +590,18 @@ function SalaryAdviceCalculator({
             <select value={userId} onChange={(event) => { setUserId(event.target.value); clearDocumentInputs(); }} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3">
               {profiles.map((profile) => <option key={profile.userId} value={profile.userId}>{profile.displayName}{profile.employeeNumber ? ` · ${profile.employeeNumber}` : ""}</option>)}
             </select>
+            {selectedProfile && (
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border border-border bg-muted/25 p-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">{t("editHourlyRate")}</p>
+                  <p className="mt-1 font-mono font-semibold">{money(selectedProfile.hourlyRate ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">{t("employeeItisRate")}</p>
+                  <p className="mt-1 font-mono font-semibold">{selectedProfile.itisRate ?? 0}%</p>
+                </div>
+              </div>
+            )}
           </label>
           <fieldset>
             <legend className="text-sm font-medium">{t("periodType")}</legend>
