@@ -89,7 +89,7 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
     "ESTIMATE",
     "informational document",
     "Basic Hourly Pay",
-    "Income Tax / ITIS 15.00%",
+    "Income Tax / ITIS 17.00%",
     "Employee Social Security 6.00%",
     "EMP-001",
     "Worker Test",
@@ -100,9 +100,9 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
     "Net Pay",
     "£800.00",
     "£48.00",
-    "£632.00",
+    "£616.00",
     "£800.00",
-    "£120.00",
+    "£136.00",
   ]) {
     expect(pdfText).toContain(requiredText);
   }
@@ -112,8 +112,8 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
   await expect(page.getByRole("heading", { name: "Downloaded document summary" })).toBeVisible();
   await expect(page.getByText("Worker Test · 2026-08-24 – 2026-08-30", { exact: true })).toBeVisible();
   await expect(page.getByText("£800.00", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("£168.00", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("£632.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£184.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£616.00", { exact: true }).filter({ visible: true })).toBeVisible();
   await page.getByText("View breakdown", { exact: true }).click();
   await expect(page.getByText("£48.00", { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(/Estimate based on completed shifts/i)).toBeVisible();
@@ -155,21 +155,22 @@ test("unsaved business identity blocks Salary Advice until the settings write su
   expect(settingsWrite?.body).toEqual({
     businessName: "Field Hours Updated",
     businessAddress: "1 Test Street",
-    itisRate: 15,
   });
   expectCsrfOnWrites(api.calls);
 });
 
-test("only the administrator can update the employee profile hourly rate from Salary Advice", async ({ context, page }) => {
+test("only the administrator can update the employee profile hourly rate and ITIS from Salary Advice", async ({ context, page }) => {
   const api = await installAdminApi(context);
   await openSalaryAdvice(page);
   const profile = page.getByRole("article").filter({ hasText: "Worker Test" });
   const rate = profile.getByRole("spinbutton", { name: /Employee hourly rate/ });
   await rate.fill("21.25");
+  const itisRate = profile.getByRole("spinbutton", { name: /Employee ITIS/ });
+  await itisRate.fill("19");
   await profile.getByRole("button", { name: "Save profile" }).click();
-  await expect(profile.getByRole("status")).toContainText("Employee rate saved");
+  await expect(profile.getByRole("status")).toContainText("Employee payroll details saved");
   const write = api.calls.find((call) => call.method === "POST" && call.path === "/api/admin/payroll-profiles/worker-1/compensation");
-  expect(write?.body).toEqual({ hourlyRate: 21.25 });
+  expect(write?.body).toEqual({ hourlyRate: 21.25, itisRate: 19 });
   expectCsrfOnWrites(api.calls);
   expectNoExternalRequests(api);
 });
@@ -191,7 +192,7 @@ test("business identity stays locked while saving and a failed save keeps PDF ge
   await expect(calculate).toBeDisabled();
 });
 
-test("monthly Salary Advice calculates from the saved profile and annual settings", async ({ context, page }) => {
+test("monthly Salary Advice calculates from the saved employee profile", async ({ context, page }) => {
   const api = await installAdminApi(context);
 
   await openSalaryAdvice(page);

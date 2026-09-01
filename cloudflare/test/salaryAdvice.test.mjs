@@ -89,7 +89,7 @@ async function salaryAdviceEnvironment() {
             return {
               businessName: "Libertys - Quayside Kitchen",
               businessAddress: "Libertys, Jersey",
-              itisRateBps: 1500,
+              itisRateBps: 2200,
               updatedAt: "2026-08-01T00:00:00.000Z",
             };
           }
@@ -103,6 +103,7 @@ async function salaryAdviceEnvironment() {
               address: "St Helier, Jersey",
               employeeNumber: "D013",
               hourlyRatePence: 1100,
+              itisRateBps: 1500,
               taxReferenceCiphertext,
               socialReferenceCiphertext,
               savedAt: "2026-01-01T00:00:00.000Z",
@@ -131,7 +132,7 @@ async function salaryAdviceEnvironment() {
   return { env, queries };
 }
 
-test("automatic Salary Advice uses the saved profile rate, annual ITIS, fixed 6% and all saved hours", async () => {
+test("automatic Salary Advice uses the selected employee ITIS rate, fixed 6% and all saved hours", async () => {
   const { env, queries } = await salaryAdviceEnvironment();
   const advice = await calculateAdminSalaryAdvice(env, adminAuth, {
     userId: "worker-1",

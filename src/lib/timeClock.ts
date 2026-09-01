@@ -5,6 +5,7 @@ export interface PayrollProfile {
   displayName: string;
   employeeNumber: string | null;
   hourlyRate: number | null;
+  itisRate: number | null;
   isComplete: boolean;
   savedAt: string | null;
 }
@@ -26,8 +27,6 @@ export interface PayrollProfileDetails extends PayrollProfile {
 export interface PayrollSettings {
   businessName: string;
   businessAddress: string;
-  itisRate: number | null;
-  itisRateYear: number;
   updatedAt: string;
 }
 
@@ -307,7 +306,6 @@ export async function loadAdminPayrollSettings(): Promise<PayrollSettings | null
 export async function saveAdminPayrollSettings(input: {
   businessName: string;
   businessAddress: string;
-  itisRate: number;
 }): Promise<PayrollSettings> {
   return backend.post<PayrollSettings>("/api/admin/payroll-settings", input, true);
 }
@@ -321,10 +319,10 @@ export async function calculateAdminSalaryAdvice(input: {
   return backend.post<SalaryAdvice>("/api/admin/salary-advice", input, true);
 }
 
-export async function saveAdminPayrollProfileCompensation(userId: string, hourlyRate: number): Promise<PayrollProfile> {
+export async function saveAdminPayrollProfileCompensation(userId: string, hourlyRate: number, itisRate: number): Promise<PayrollProfile> {
   return backend.post<PayrollProfile>(
     `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/compensation`,
-    { hourlyRate },
+    { hourlyRate, itisRate },
     true,
   );
 }

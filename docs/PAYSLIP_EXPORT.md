@@ -100,7 +100,8 @@ como un documento sensible y no compartirse fuera de los destinatarios autorizad
 - En semanal falta `weeklyWorkerSocialSecurity` → el cálculo se rechaza; si está presente, el PDF usa
   exactamente ese importe sin calcularlo desde una semana aislada.
 - En mensual no se solicita el importe semanal y se aplican 6% estándar o 0% exento, redondeo y SEL mensuales.
-- ITIS usa `itisRate`, confirmado para el advice, y no un valor guardado por el trabajador.
+- ITIS usa el `itisRate` del perfil del empleado seleccionado, confirmado contra su aviso vigente; nunca
+  usa una tasa guardada en la configuración del negocio.
 - `yearToDateGrossTaxablePay` y `yearToDateTaxPaid` aparecen exactamente como entradas confirmadas e
   inclusivas del documento; no se derivan.
 - Importes exactos a dos decimales y `gross - deductions = net`.

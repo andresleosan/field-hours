@@ -167,7 +167,10 @@ export async function calculateAdminSalaryAdvice(
     throw new ApiError(409, "PAYROLL_PROFILE_INCOMPLETE", "Assign an hourly rate to this worker before calculating a Salary Advice.");
   }
   const hourlyRatePence = identity.hourlyRatePence;
-  const itisRateBps = Math.round(settings.itisRate * 100);
+  if (identity.itisRate === null) {
+    throw new ApiError(409, "PAYROLL_PROFILE_INCOMPLETE", "Assign the employee's ITIS rate from the current notice before calculating a Salary Advice.");
+  }
+  const itisRateBps = Math.round(identity.itisRate * 100);
 
   const grossPence = Math.max(0, Math.round(metrics.minutes * hourlyRatePence / 60));
   const yearToDateGrossPence = Math.max(0, Math.round(yearToDateMetrics.minutes * hourlyRatePence / 60));
@@ -200,7 +203,7 @@ export async function calculateAdminSalaryAdvice(
       yearToDateShiftCount: yearToDateMetrics.shifts,
       calculationSource: "saved_profile_and_completed_shifts",
       socialSecurityRate: 6,
-      itisRateYear: settings.itisRateYear,
+      itisRateSource: "selected_employee_profile",
     }),
   ).run();
 

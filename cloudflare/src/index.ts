@@ -206,7 +206,6 @@ async function route(request: Request, env: Env): Promise<Response> {
       await readJson<{
         businessName?: unknown;
         businessAddress?: unknown;
-        itisRate?: unknown;
         [key: string]: unknown;
       }>(request),
     ));
@@ -247,7 +246,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       env,
       auth,
       userId,
-      await readJson<{ hourlyRate?: unknown; [key: string]: unknown }>(request),
+      await readJson<{ hourlyRate?: unknown; itisRate?: unknown; [key: string]: unknown }>(request),
     ));
   }
 

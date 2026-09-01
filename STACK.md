@@ -50,7 +50,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 ## Base de datos
 
 - Cloudflare D1/SQLite: fuente de datos del módulo workforce/payroll y sus migraciones versionadas en `cloudflare/migrations/`.
-- Salary Advice automático: `0011_automatic_salary_advice.sql` añade la tarifa horaria al perfil activo del empleado y una tasa ITIS versionada por organización/año. El endpoint protegido por admin+CSRF calcula desde turnos `complete` y sus horas actuales en D1, por lo que incluye ajustes; Social Security del trabajador es fija al 6% y los campos manuales están retirados.
+- Salary Advice automático: `0011_automatic_salary_advice.sql` añade la tarifa horaria y el ITIS confirmado al perfil activo de cada empleado. El endpoint protegido por admin+CSRF calcula desde turnos `complete` y sus horas actuales en D1, por lo que incluye ajustes; Social Security del trabajador es fija al 6% y los campos manuales están retirados.
 - Supabase/PostgreSQL: fuente de datos de los módulos BuildTrack; migraciones en `supabase/migrations/`.
 - Estado: `0008_payroll_runs.sql` y `0009_worker_flexibility.sql` permanecen como historial del producto; el flujo de payroll runs está retirado del contrato activo. `0010_salary_advice_contract.sql` fue aplicada y verificada en D1 productiva el 30 de agosto de 2026: crea almacenamiento limpio `workforce_salary_advice_*`, copió únicamente identidades completas de workers activos, exige una membership válida organización+usuario, normaliza el identificador del empleado a ASCII mayúsculo y deja intactas las tablas históricas.
 - Regla: toda migración lleva rollback; las destructivas requieren además backup verificado y autorización explícita.

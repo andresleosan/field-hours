@@ -147,9 +147,8 @@ export interface Translations {
   profileRateMissing: string;
   employeeRateSaved: string;
   employeeRateSaveError: string;
-  annualItisRate: string;
-  annualItisRateHelp: string;
   editHourlyRate: string;
+  employeeItisRate: string;
 
   // Auth & Onboarding
   secureAccess: string;
@@ -468,14 +467,13 @@ export const translations: Record<Language, Translations> = {
     updateProfile: "Actualizar perfil",
     checkSavedHours: "Consultar horas guardadas",
     checkingSavedHours: "Consultando horas guardadas…",
-    automaticCalculationHelp: "La tarifa del perfil, ITIS anual y Social Security del 6% se calculan con los datos guardados y las horas completadas, incluidos los ajustes del administrador.",
-    salaryConfigurationMissing: "Configura la tarifa del empleado y el ITIS anual antes de calcular.",
-    profileRateMissing: "Falta asignar la tarifa horaria",
-    employeeRateSaved: "Tarifa del empleado guardada.",
-    employeeRateSaveError: "No se pudo guardar la tarifa del empleado.",
-    annualItisRate: "ITIS anual (%)",
-    annualItisRateHelp: "Porcentaje fijo para el año de reglas; solo el administrador puede modificarlo.",
+    automaticCalculationHelp: "La tarifa y el ITIS del empleado seleccionado se calculan con los datos guardados y las horas completadas, incluidos los ajustes del administrador.",
+    salaryConfigurationMissing: "Configura el nombre y la dirección del negocio antes de calcular.",
+    profileRateMissing: "Falta asignar la tarifa horaria o el ITIS del empleado",
+    employeeRateSaved: "Datos salariales del empleado guardados.",
+    employeeRateSaveError: "No se pudieron guardar los datos salariales del empleado.",
     editHourlyRate: "Tarifa horaria del empleado (£)",
+    employeeItisRate: "ITIS del empleado (%)",
 
     secureAccess: "Acceso seguro",
     welcomeBack: "Bienvenido de nuevo",
@@ -787,14 +785,13 @@ export const translations: Record<Language, Translations> = {
     updateProfile: "Update profile",
     checkSavedHours: "Check saved hours",
     checkingSavedHours: "Checking saved hours…",
-    automaticCalculationHelp: "The profile rate, annual ITIS and fixed 6% Social Security are calculated from saved data and completed shifts, including administrator adjustments.",
-    salaryConfigurationMissing: "Set the employee rate and annual ITIS before calculating.",
-    profileRateMissing: "Hourly rate still needs to be assigned",
-    employeeRateSaved: "Employee rate saved.",
-    employeeRateSaveError: "The employee rate could not be saved.",
-    annualItisRate: "Annual ITIS (%)",
-    annualItisRateHelp: "Fixed percentage for the rules year; only an administrator can change it.",
+    automaticCalculationHelp: "The selected employee's rate and ITIS are calculated from saved data and completed shifts, including administrator adjustments.",
+    salaryConfigurationMissing: "Set the business name and address before calculating.",
+    profileRateMissing: "The employee hourly rate or ITIS still needs to be assigned",
+    employeeRateSaved: "Employee payroll details saved.",
+    employeeRateSaveError: "The employee payroll details could not be saved.",
     editHourlyRate: "Employee hourly rate (£)",
+    employeeItisRate: "Employee ITIS (%)",
 
     secureAccess: "Secure access",
     welcomeBack: "Welcome back",
@@ -1106,14 +1103,13 @@ export const translations: Record<Language, Translations> = {
     updateProfile: "Atualizar perfil",
     checkSavedHours: "Consultar horas guardadas",
     checkingSavedHours: "A consultar horas guardadas…",
-    automaticCalculationHelp: "A tarifa do perfil, o ITIS anual e a Segurança Social fixa de 6% são calculados com os dados guardados e os turnos concluídos, incluindo ajustes do administrador.",
-    salaryConfigurationMissing: "Configure a tarifa do funcionário e o ITIS anual antes de calcular.",
-    profileRateMissing: "Falta atribuir a tarifa horária",
-    employeeRateSaved: "Tarifa do funcionário guardada.",
-    employeeRateSaveError: "Não foi possível guardar a tarifa do funcionário.",
-    annualItisRate: "ITIS anual (%)",
-    annualItisRateHelp: "Percentagem fixa para o ano das regras; só o administrador pode alterá-la.",
+    automaticCalculationHelp: "A tarifa e o ITIS do funcionário selecionado são calculados com os dados guardados e os turnos concluídos, incluindo ajustes do administrador.",
+    salaryConfigurationMissing: "Configure o nome e a morada da empresa antes de calcular.",
+    profileRateMissing: "Falta atribuir a tarifa horária ou o ITIS do funcionário",
+    employeeRateSaved: "Dados salariais do funcionário guardados.",
+    employeeRateSaveError: "Não foi possível guardar os dados salariais do funcionário.",
     editHourlyRate: "Tarifa horária do funcionário (£)",
+    employeeItisRate: "ITIS do funcionário (%)",
 
     secureAccess: "Acesso seguro",
     welcomeBack: "Bem-vindo de volta",

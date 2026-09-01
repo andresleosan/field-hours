@@ -75,7 +75,7 @@ La siguiente prioridad preventiva es preparar las reglas Jersey 2027 sin modific
 
 ## Adenda vigente — Salary Advice automatico (31 de agosto de 2026)
 
-El administrador asigna la tarifa horaria en el perfil de cada empleado y puede actualizarla. La tasa ITIS se guarda como configuracion anual de la organizacion y tambien puede actualizarla el administrador. El sistema calcula el Salary Advice consultando las horas completadas guardadas en D1, incluyendo cambios administrativos, aplica siempre Social Security del 6% y muestra bruto, ITIS, Seguridad Social, deducciones y neto. El boton `Consultar horas guardadas` aparece debajo de la fecha de pago y usa el mismo calculo que la descarga PDF.
+El administrador asigna la tarifa horaria y el porcentaje ITIS confirmado en el aviso de cada empleado, y puede actualizarlos. El sistema calcula el Salary Advice consultando las horas completadas guardadas en D1, incluyendo cambios administrativos, aplica siempre Social Security del 6% y muestra bruto, ITIS, Seguridad Social, deducciones y neto. El boton `Consultar horas guardadas` aparece debajo de la fecha de pago y usa el mismo calculo que la descarga PDF.
 
 Los importes manuales de tarifa, ITIS, Seguridad Social y acumulados ya no forman parte del contrato activo. El documento sigue siendo informativo y no inicia pagos.
 

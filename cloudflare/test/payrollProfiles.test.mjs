@@ -78,6 +78,64 @@ test("only an administrator can assign an employee hourly rate", async () => {
   );
 });
 
+test("administrator assigns hourly rate and ITIS to the selected employee profile", async () => {
+  let updateQuery = "";
+  let updateBindings = [];
+  const profileRow = {
+    userId: "worker-1",
+    organizationId: "org-a",
+    displayName: "Worker A",
+    legalName: "Worker A",
+    address: "1 Worker Street",
+    employeeNumber: "A-001",
+    hourlyRatePence: 2000,
+    itisRateBps: 1500,
+    taxReferenceCiphertext: "tax-a",
+    socialReferenceCiphertext: "social-a",
+    savedAt: "2026-01-01T00:00:00.000Z",
+  };
+  const adminAuth = {
+    ...workerAuth,
+    user: { ...workerAuth.user, id: "admin-1", role: "admin", organizationId: "org-a" },
+  };
+  const env = {
+    DB: {
+      prepare(query) {
+        let bindings = [];
+        return {
+          bind(...values) {
+            bindings = values;
+            return this;
+          },
+          async first() {
+            if (query.includes("FROM workforce_memberships")) return profileRow;
+            throw new Error(`Unexpected first query: ${query}`);
+          },
+          async run() {
+            if (query.includes("UPDATE workforce_salary_advice_profiles")) {
+              updateQuery = query;
+              updateBindings = bindings;
+            }
+            return { success: true, meta: { changes: 1 } };
+          },
+        };
+      },
+    },
+  };
+
+  const saved = await saveAdminPayrollProfileCompensation(env, adminAuth, "worker-1", {
+    hourlyRate: 21.25,
+    itisRate: 17,
+  });
+
+  assert.match(updateQuery, /hourly_rate_pence/);
+  assert.match(updateQuery, /itis_rate_bps/);
+  assert.equal(updateBindings[0], 2125);
+  assert.equal(updateBindings[1], 1700);
+  assert.equal(saved.hourlyRate, 20);
+  assert.equal(saved.itisRate, 15);
+});
+
 test("employee numbers are normalized to uppercase ASCII and unsupported identifiers fail before D1", async () => {
   const noDb = { DB: { prepare() { throw new Error("D1 must not be accessed"); } } };
   await assert.rejects(
@@ -165,12 +223,12 @@ test("clean composite UPSERT cannot mutate a Salary Advice profile in another te
   assert.deepEqual(foreignRow, before);
 });
 
-test("automatic Salary Advice migration stores admin rate and yearly ITIS configuration separately", async () => {
+test("automatic Salary Advice migration stores employee rate and ITIS on the active profile", async () => {
   const migration = await readFile(new URL("../migrations/0011_automatic_salary_advice.sql", import.meta.url), "utf8");
   assert.match(migration, /ADD COLUMN hourly_rate_pence/);
-  assert.match(migration, /CREATE TABLE workforce_salary_advice_itis_rates/);
-  assert.match(migration, /PRIMARY KEY \(organization_id, rules_year\)/);
-  assert.match(migration, /rate_bps INTEGER NOT NULL CHECK \(rate_bps BETWEEN 0 AND 10000\)/);
+  assert.match(migration, /ADD COLUMN itis_rate_bps INTEGER/);
+  assert.match(migration, /UPDATE workforce_salary_advice_profiles/);
+  assert.doesNotMatch(migration, /CREATE TABLE workforce_salary_advice_itis_rates/);
   assert.match(migration, /Rollback/);
 });
 

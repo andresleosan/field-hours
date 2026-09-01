@@ -7,22 +7,22 @@ ALTER TABLE workforce_salary_advice_profiles
   ADD COLUMN hourly_rate_pence INTEGER
   CHECK (hourly_rate_pence BETWEEN 1 AND 1000000);
 
--- ITIS is versioned by organization and rules year so an admin can update the
--- current year's percentage without overwriting a previous year's setup.
-CREATE TABLE workforce_salary_advice_itis_rates (
-  organization_id TEXT NOT NULL REFERENCES workforce_organizations(id) ON DELETE CASCADE,
-  rules_year INTEGER NOT NULL CHECK (rules_year BETWEEN 2000 AND 2100),
-  rate_bps INTEGER NOT NULL CHECK (rate_bps BETWEEN 0 AND 10000),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
-  updated_by TEXT NOT NULL REFERENCES workforce_users(id) ON DELETE RESTRICT,
-  PRIMARY KEY (organization_id, rules_year)
+-- ITIS belongs to the employee and is copied from the employee's current notice.
+ALTER TABLE workforce_salary_advice_profiles
+  ADD COLUMN itis_rate_bps INTEGER
+  CHECK (itis_rate_bps BETWEEN 0 AND 10000);
+
+-- Preserve the employee-level value from the retired profile table when present.
+UPDATE workforce_salary_advice_profiles
+SET itis_rate_bps = (
+  SELECT legacy.itis_rate_bps
+  FROM workforce_payroll_profiles legacy
+  WHERE legacy.organization_id = workforce_salary_advice_profiles.organization_id
+    AND legacy.user_id = workforce_salary_advice_profiles.user_id
 );
 
-CREATE INDEX workforce_salary_advice_itis_rates_updated_idx
-  ON workforce_salary_advice_itis_rates (organization_id, updated_at DESC);
-
 -- Rollback (manual, only after a verified backup and explicit approval):
--- DROP INDEX IF EXISTS workforce_salary_advice_itis_rates_updated_idx;
--- DROP TABLE workforce_salary_advice_itis_rates;
 -- SQLite does not provide a portable DROP COLUMN for this additive nullable
--- field; leave hourly_rate_pence in place when rolling back application code.
+-- fields; leave hourly_rate_pence and itis_rate_bps in place when rolling back
+-- application code. Revert the Worker/frontend first; no destructive rollback is
+-- required for this additive migration.

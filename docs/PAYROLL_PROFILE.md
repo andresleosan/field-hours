@@ -12,9 +12,9 @@ Salary Advice. Guardarla no crea una nómina y no existe revisión, aprobación 
 - Tax Reference (ITIS);
 - Social Security Number, usado como `Social Ref` en el documento.
 
-El contrato activo no solicita tasa ITIS, cuenta bancaria, sort code, tarifa horaria ni una segunda
-referencia de Social Security. ITIS, tarifa y deducción semanal/mensual se confirman para cada
-documento desde el panel administrativo.
+El administrador asigna al perfil del empleado la tarifa horaria y el porcentaje ITIS confirmado en su
+aviso vigente. El contrato activo no solicita cuenta bancaria, sort code ni una segunda referencia de
+Social Security.
 
 ## Protección
 

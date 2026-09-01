@@ -265,6 +265,7 @@ export async function installAdminApi(
     email: "worker@field-hours.test",
     employeeNumber: "EMP-001",
     hourlyRate: 20,
+    itisRate: 17,
     isComplete: true,
     savedAt: NOW,
   };
@@ -274,13 +275,13 @@ export async function installAdminApi(
     email: "second@field-hours.test",
     employeeNumber: "EMP-002",
     hourlyRate: 15,
+    itisRate: 22,
     isComplete: true,
     savedAt: NOW,
   };
   let settings = {
     businessName: "Field Hours Test",
     businessAddress: "1 Test Street",
-    itisRate: 15,
     updatedAt: NOW,
   };
 
@@ -300,13 +301,9 @@ export async function installAdminApi(
       const input = body as Record<string, unknown> | undefined;
       const keys = Object.keys(input ?? {}).sort();
       if (
-        JSON.stringify(keys) !== JSON.stringify(["businessAddress", "businessName", "itisRate"])
+        JSON.stringify(keys) !== JSON.stringify(["businessAddress", "businessName"])
         || typeof input?.businessName !== "string"
         || typeof input.businessAddress !== "string"
-        || typeof input.itisRate !== "number"
-        || !Number.isInteger(input.itisRate)
-        || input.itisRate < 0
-        || input.itisRate > 100
       ) {
         return json(route, { error: "Unexpected Salary Advice settings contract", code: "INVALID_INPUT" }, 400);
       }
@@ -319,7 +316,6 @@ export async function installAdminApi(
       settings = {
         businessName: input.businessName,
         businessAddress: input.businessAddress,
-        itisRate: input.itisRate,
         updatedAt: NOW,
       };
       return json(route, settings);
@@ -329,10 +325,19 @@ export async function installAdminApi(
     if (method === "POST" && compensationMatch) {
       if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
       const input = body as Record<string, unknown> | undefined;
-      if (JSON.stringify(Object.keys(input ?? {}).sort()) !== JSON.stringify(["hourlyRate"]) || typeof input?.hourlyRate !== "number") {
+      if (
+        JSON.stringify(Object.keys(input ?? {}).sort()) !== JSON.stringify(["hourlyRate", "itisRate"])
+        || typeof input?.hourlyRate !== "number"
+        || typeof input.itisRate !== "number"
+        || !Number.isInteger(input.itisRate)
+        || input.itisRate < 0
+        || input.itisRate > 100
+      ) {
         return json(route, { error: "Unexpected compensation contract", code: "INVALID_INPUT" }, 400);
       }
-      const updated = compensationMatch[1] === "worker-2" ? { ...secondProfile, hourlyRate: input.hourlyRate } : { ...profile, hourlyRate: input.hourlyRate };
+      const updated = compensationMatch[1] === "worker-2"
+        ? { ...secondProfile, hourlyRate: input.hourlyRate, itisRate: input.itisRate }
+        : { ...profile, hourlyRate: input.hourlyRate, itisRate: input.itisRate };
       if (compensationMatch[1] === "worker-2") secondProfile = updated;
       else profile = updated;
       return json(route, updated);
@@ -401,7 +406,7 @@ export async function installAdminApi(
       const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
       const selectedProfile = input?.userId === "worker-2" ? secondProfile : profile;
       const hourlyRate = selectedProfile.hourlyRate as number;
-      const itisRate = settings.itisRate;
+      const itisRate = selectedProfile.itisRate as number;
       const grossTaxablePay = roundMoney(hours * hourlyRate);
       const incomeTax = roundMoney(grossTaxablePay * (itisRate / 100));
       const workerSocialSecurity = roundMoney(grossTaxablePay * 0.06);

@@ -220,8 +220,8 @@ export function SalaryAdviceWorkspace() {
       <div id="salary-create-section" className={activeSection === "create" ? "block" : "hidden md:block"}>
         <SalaryAdviceCalculator
           profiles={profiles.filter((profile) => profile.isComplete && profile.hourlyRate !== null)}
-          settingsReady={Boolean(settings?.itisRate !== null && settings?.itisRate !== undefined) && !settingsDirty && !settingsSaving}
-          settingsNeedSave={Boolean(settings) && (settings.itisRate === null || settingsDirty || settingsSaving)}
+          settingsReady={Boolean(settings) && !settingsDirty && !settingsSaving}
+          settingsNeedSave={Boolean(settings) && (settingsDirty || settingsSaving)}
           onOpenBusiness={() => {
             setActiveSection("business");
             window.requestAnimationFrame(() => document.getElementById("salary-business-section")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -264,7 +264,6 @@ function BusinessDetailsCard({
   const { t } = useI18n();
   const [businessName, setBusinessName] = useState(settings?.businessName ?? "");
   const [businessAddress, setBusinessAddress] = useState(settings?.businessAddress ?? "");
-  const [itisRate, setItisRate] = useState(settings?.itisRate == null ? "" : String(settings.itisRate));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeError, setNoticeError] = useState(false);
@@ -272,19 +271,15 @@ function BusinessDetailsCard({
   useEffect(() => {
     setBusinessName(settings?.businessName ?? "");
     setBusinessAddress(settings?.businessAddress ?? "");
-    setItisRate(settings?.itisRate == null ? "" : String(settings.itisRate));
     onDirtyChange(false);
   }, [settings, onDirtyChange]);
 
-  function updateDraft(nextName: string, nextAddress: string, nextItisRate: string) {
+  function updateDraft(nextName: string, nextAddress: string) {
     setBusinessName(nextName);
     setBusinessAddress(nextAddress);
-    setItisRate(nextItisRate);
-    const parsedItisRate = nextItisRate === "" ? null : Number(nextItisRate);
     onDirtyChange(
       nextName.trim() !== (settings?.businessName ?? "")
       || nextAddress.trim() !== (settings?.businessAddress ?? "")
-      || parsedItisRate !== (settings?.itisRate ?? null),
     );
   }
 
@@ -295,20 +290,12 @@ function BusinessDetailsCard({
     setNotice("");
     setNoticeError(false);
     try {
-      const parsedItisRate = Number(itisRate);
-      if (!Number.isInteger(parsedItisRate) || parsedItisRate < 0 || parsedItisRate > 100) {
-        setNotice(t("itisRateHelp"));
-        setNoticeError(true);
-        return;
-      }
       const saved = await saveAdminPayrollSettings({
         businessName,
         businessAddress,
-        itisRate: parsedItisRate,
       });
       setBusinessName(saved.businessName);
       setBusinessAddress(saved.businessAddress);
-      setItisRate(saved.itisRate == null ? "" : String(saved.itisRate));
       onSaved(saved);
       onDirtyChange(false);
       setNotice(t("businessDetailsSaved"));
@@ -335,16 +322,11 @@ function BusinessDetailsCard({
         <fieldset disabled={busy} className="contents">
         <label className="text-sm font-medium">
           {t("businessName")}
-          <input value={businessName} onChange={(event) => updateDraft(event.target.value, businessAddress, itisRate)} required maxLength={160} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
+          <input value={businessName} onChange={(event) => updateDraft(event.target.value, businessAddress)} required maxLength={160} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
         </label>
         <label className="text-sm font-medium">
           {t("businessAddress")}
-          <input value={businessAddress} onChange={(event) => updateDraft(businessName, event.target.value, itisRate)} required maxLength={250} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
-        </label>
-        <label className="text-sm font-medium">
-          {t("annualItisRate")}
-          <input type="number" min="0" max="100" step="1" value={itisRate} onChange={(event) => updateDraft(businessName, businessAddress, event.target.value)} required inputMode="numeric" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-          <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("annualItisRateHelp")}</span>
+          <input value={businessAddress} onChange={(event) => updateDraft(businessName, event.target.value)} required maxLength={250} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
         </label>
         <div className="flex items-end">
           <button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 md:w-auto">
@@ -375,6 +357,7 @@ function EmployeeProfilesCard({
 }) {
   const { t } = useI18n();
   const [draftRates, setDraftRates] = useState<Record<string, string>>({});
+  const [draftItisRates, setDraftItisRates] = useState<Record<string, string>>({});
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ userId: string; message: string; error: boolean } | null>(null);
 
@@ -385,12 +368,19 @@ function EmployeeProfilesCard({
       setNotice({ userId: profile.userId, message: t("hourlyRateValidation"), error: true });
       return;
     }
+    const rawItisRate = draftItisRates[profile.userId] ?? (profile.itisRate == null ? "" : String(profile.itisRate));
+    const itisRate = Number(rawItisRate);
+    if (!Number.isInteger(itisRate) || itisRate < 0 || itisRate > 100) {
+      setNotice({ userId: profile.userId, message: t("itisRateHelp"), error: true });
+      return;
+    }
     setSavingUserId(profile.userId);
     setNotice(null);
     try {
-      const updated = await saveAdminPayrollProfileCompensation(profile.userId, rate);
+      const updated = await saveAdminPayrollProfileCompensation(profile.userId, rate, itisRate);
       onUpdated(updated);
       setDraftRates((current) => ({ ...current, [profile.userId]: String(updated.hourlyRate ?? rate) }));
+      setDraftItisRates((current) => ({ ...current, [profile.userId]: String(updated.itisRate ?? itisRate) }));
       setNotice({ userId: profile.userId, message: t("employeeRateSaved"), error: false });
     } catch (error) {
       setNotice({ userId: profile.userId, message: errorMessage(error, t("employeeRateSaveError")), error: true });
@@ -413,9 +403,9 @@ function EmployeeProfilesCard({
         {profiles.map((profile) => (
           <article key={profile.userId} className="rounded-2xl border border-border bg-muted/25 p-4">
             <p className="font-semibold">{profile.displayName}</p>
-            <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${profile.isComplete && profile.hourlyRate !== null ? "text-success" : "text-muted-foreground"}`}>
-              {profile.isComplete && profile.hourlyRate !== null ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-              {!profile.isComplete ? t("profileMissing") : profile.hourlyRate === null ? t("profileRateMissing") : t("profileReady")}
+            <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${profile.isComplete && profile.hourlyRate !== null && profile.itisRate !== null ? "text-success" : "text-muted-foreground"}`}>
+              {profile.isComplete && profile.hourlyRate !== null && profile.itisRate !== null ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              {!profile.isComplete ? t("profileMissing") : profile.hourlyRate === null || profile.itisRate === null ? t("profileRateMissing") : t("profileReady")}
             </p>
             <label className="mt-3 block text-sm font-medium">
               {t("editHourlyRate")}
@@ -430,6 +420,21 @@ function EmployeeProfilesCard({
                 className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background px-3 font-mono"
                 inputMode="decimal"
               />
+            </label>
+            <label className="mt-3 block text-sm font-medium">
+              {t("employeeItisRate")}
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="1"
+                value={draftItisRates[profile.userId] ?? (profile.itisRate == null ? "" : String(profile.itisRate))}
+                onChange={(event) => setDraftItisRates((current) => ({ ...current, [profile.userId]: event.target.value }))}
+                disabled={!profile.isComplete || savingUserId !== null}
+                className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background px-3 font-mono"
+                inputMode="numeric"
+              />
+              <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("itisRateHelp")}</span>
             </label>
             {profile.isComplete && (
               <button type="button" onClick={() => void saveRate(profile)} disabled={savingUserId !== null} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">
@@ -726,6 +731,7 @@ function EmployeeDetailsDialog({ details, onClose }: { details: PayrollProfileDe
             [t("employee"), details.legalName],
             [t("employeeNumber"), details.employeeNumber],
             [t("editHourlyRate"), details.hourlyRate == null ? "—" : money(details.hourlyRate)],
+            [t("employeeItisRate"), details.itisRate == null ? "—" : `${details.itisRate}%`],
             [t("taxReference"), details.taxReference],
             [t("socialReference"), details.socialReference],
           ].map(([label, value]) => <div key={label} className="rounded-2xl border border-border bg-muted/25 p-3"><dt className="text-xs font-semibold text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-mono text-sm">{value ?? "—"}</dd></div>)}

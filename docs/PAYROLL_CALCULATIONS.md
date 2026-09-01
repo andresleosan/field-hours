@@ -6,51 +6,21 @@
 por el administrador. Requiere sesión administrativa, organización válida, origen permitido, CSRF y
 el límite de tasa de generación de documentos.
 
-Ejemplo semanal:
+El cuerpo solo selecciona al empleado y el periodo:
 
 ```json
 {
   "userId": "worker-user-id",
   "periodType": "weekly",
   "periodStart": "2026-08-24",
-  "payDate": "2026-08-30",
-  "hourlyRate": 15,
-  "itisRate": 15,
-  "weeklyWorkerSocialSecurity": 48.48,
-  "yearToDateGrossTaxablePay": 17928.5,
-  "yearToDateTaxPaid": 2554.08
+  "payDate": "2026-08-30"
 }
 ```
 
-Ejemplo mensual:
-
-```json
-{
-  "userId": "worker-user-id",
-  "periodType": "monthly",
-  "periodStart": "2026-08-01",
-  "payDate": "2026-08-31",
-  "hourlyRate": 15,
-  "itisRate": 15,
-  "workerSocialSecurityRate": 6,
-  "yearToDateGrossTaxablePay": 17928.5,
-  "yearToDateTaxPaid": 2554.08
-}
-```
-
-Además de identificar empleado, periodo, fecha de pago y tarifa, la solicitud incluye valores
-confirmados para el documento:
-
-- `itisRate`, tomada del aviso aplicable y no del perfil del trabajador;
-- `weeklyWorkerSocialSecurity`, importe GBP obligatorio solo para `weekly`, confirmado usando el
-  acumulado del mes calendario o el aviso oficial;
-- `workerSocialSecurityRate`, obligatorio solo para `monthly` y limitado a 6 (estándar) o 0 (exento);
-- `yearToDateGrossTaxablePay` y `yearToDateTaxPaid`, confirmados e inclusivos del documento actual.
-
-`itisRate` es un porcentaje entero de 0 a 100. Los importes confirmados son no negativos, admiten
-hasta dos decimales y un máximo de £10,000,000. El contrato rechaza enviar
-`weeklyWorkerSocialSecurity` en mensual o `workerSocialSecurityRate` en semanal. También rechaza
-campos adicionales, incluidos estados o decisiones de aprobación.
+La tarifa horaria y el `itisRate` se guardan en el perfil del empleado seleccionado. ITIS debe proceder
+del aviso vigente de ese empleado; nunca se lee desde la configuración del negocio ni desde una tasa
+global. El contrato rechaza los antiguos importes manuales, acumulados, estados y decisiones de
+aprobación.
 
 ## Selección de empleado y periodo
 
@@ -65,11 +35,11 @@ inclusivo. Las pausas registradas se descuentan para obtener los minutos netos.
 
 ## Tarifa y fórmulas
 
-La tarifa horaria se recibe para este documento, admite de £0.01 a £10,000 con hasta dos decimales y
-no se persiste como configuración del negocio. Los cálculos monetarios se realizan en peniques:
+La tarifa horaria se guarda en el perfil del empleado, admite de £0.01 a £10,000 con hasta dos
+decimales. Los cálculos monetarios se realizan en peniques:
 
 1. `gross = round(netMinutes × hourlyRatePence / 60)`.
-2. `ITIS = round(gross × itisRateBps / 10,000)` usando `itisRate`, confirmado para este advice.
+2. `ITIS = round(gross × itisRateBps / 10,000)` usando el `itisRate` del empleado seleccionado.
 3. En `monthly`, `workerSocialSecurity` se calcula al 6% o al 0% según la selección confirmada y las reglas mensuales indicadas abajo.
 4. En `weekly`, `workerSocialSecurity` es exactamente el importe `weeklyWorkerSocialSecurity` confirmado por el operador; no se deriva del bruto semanal aislado.
 5. `totalDeductions = ITIS + workerSocialSecurity`.

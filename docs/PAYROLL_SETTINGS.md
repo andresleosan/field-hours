@@ -1,6 +1,6 @@
 # Datos base de Salary Advice
 
-La configuración pertenece a una organización y contiene únicamente los datos reutilizables que sí
+La configuración pertenece a una organización y contiene únicamente la identidad del empleador que
 necesita el Salary Advice. Se guarda en `workforce_salary_advice_settings`.
 
 ## Contrato administrativo
@@ -26,23 +26,22 @@ Business Tax Reference ni Business Social Reference.
 
 ## Datos elegidos para cada documento
 
-La tarifa horaria no es configuración del negocio. El administrador la introduce al preparar cada
-Salary Advice y se usa únicamente en ese cálculo; no se guarda como tarifa estándar.
+La tarifa horaria y el ITIS no son configuración del negocio. El administrador los asigna al perfil del
+empleado y el cálculo usa los valores del trabajador seleccionado.
 
 La frecuencia tampoco se guarda aquí. En cada documento el administrador elige:
 
 - un empleado;
 - `weekly`, con una semana completa de lunes a domingo; o
 - `monthly`, con un mes calendario completo;
-- el periodo concreto, la fecha de pago y la tarifa horaria del documento;
-- `itisRate`, la tasa ITIS confirmada para ese advice desde el aviso aplicable;
+- el periodo concreto y la fecha de pago;
 - para `monthly`, `workerSocialSecurityRate` con el único valor 6 (estándar) o 0 (exento), según la tarjeta/aviso confirmado;
 - para `weekly`, el importe `weeklyWorkerSocialSecurity` confirmado por el operador según el
   acumulado mensual del empleado o el aviso oficial;
 - `yearToDateGrossTaxablePay` y `yearToDateTaxPaid`, acumulados confirmados e inclusivos del documento actual.
 
-ITIS y Social Security no se toman del perfil del trabajador ni de una configuración global. La
-aplicación tampoco tiene un ledger que permita derivar automáticamente Social Security semanal o
+Social Security no se toma del perfil del trabajador ni de una configuración global. La aplicación
+tampoco tiene un ledger que permita derivar automáticamente Social Security semanal o
 `Totals to Date`: son valores confirmados por el operador para el documento.
 
 El cálculo solo se habilita cuando existen los datos base del negocio. Los detalles de periodo y
