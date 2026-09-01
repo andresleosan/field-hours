@@ -13,15 +13,15 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [ ] **JER-2027-03 (QA y documentación)**: Cubrir límites de año, semanas lunes-domingo, meses calendario, fechas de pago, Social Security semanal confirmado/mensual calculado, aritmética en enteros, PDF y exclusiones de coste patronal/referencias/aprobación. Actualizar `BRIEF.md`, `STACK.md`, esta guía y el reporte QA con evidencia real.
 - [ ] **JER-2027-04 (Corte productivo autorizado)**: Ejecutar autocrítica de seguridad y QA, preparar rollback, obtener autorización explícita y verificar Worker/frontend/monitor después del despliegue. No usar PII ni cálculos autenticados con datos reales como smoke sintético.
 
-## Fase 11: Salary Advice automático desde perfil y horas guardadas (EN IMPLEMENTACIÓN)
+## Fase 11: Salary Advice automático desde perfil y horas guardadas (DESPLEGADA Y VERIFICADA)
 
-> Alcance corregido por el operador el 1 de septiembre de 2026. El trabajador informa el ITIS desde su aviso vigente; el admin asigna la tarifa y puede corregir ambos valores por empleado; el negocio solo conserva su identidad. El sistema consulta D1 al calcular, aplica Social Security fija del 6% y obtiene los acumulados desde las horas guardadas, incluidas las modificadas. No inicia transferencias ni despliega automáticamente.
+> Alcance corregido por el operador el 1 de septiembre de 2026. El trabajador informa el ITIS desde su aviso vigente; el admin asigna la tarifa y puede corregir ambos valores por empleado; el negocio solo conserva su identidad. El sistema consulta D1 al calcular, aplica Social Security fija del 6% y obtiene los acumulados desde las horas guardadas, incluidas las modificadas. No inicia transferencias; todo despliegue requiere autorización explícita.
 
-- [x] **AUTO-SALARY-01 (Modelo de datos)**: Añadida la tarifa horaria y el ITIS al perfil activo de cada empleado en la migración aditiva `0011_automatic_salary_advice.sql`, con rollback manual documentado. No se aplicó en producción.
+- [x] **AUTO-SALARY-01 (Modelo de datos)**: Añadida la tarifa horaria y el ITIS al perfil activo de cada empleado en la migración aditiva `0011_automatic_salary_advice.sql`, con rollback manual documentado y aplicada en producción el 1 de septiembre de 2026.
 - [x] **AUTO-SALARY-02 (Backend)**: Protegida la edición administrativa con rol y CSRF; el cálculo obtiene tarifa/ITIS/Social Security/acumulados desde D1, incluye turnos completados modificados y rechaza datos manuales obsoletos.
 - [x] **AUTO-SALARY-03 (Frontend)**: Añadida la edición admin de tarifa y corrección de ITIS por empleado; el trabajador captura el ITIS en su perfil, eliminado el ITIS de la identidad del negocio y conservado el botón bajo fecha de pago para consultar horas guardadas.
-- [x] **AUTO-SALARY-04 (QA)**: Typecheck frontend/Worker, lint, 38 pruebas Worker, 12 E2E de Salary Advice, 6 pruebas PDF y build pasan. La descarga PDF y la consulta previa comparten el contrato automático; no hubo despliegue ni escrituras productivas.
-- [ ] **AUTO-SALARY-05 (Corrección de regresión)**: El trabajador puede guardar el porcentaje ITIS en su perfil activo; Salary Advice solo muestra empleados con tarifa e ITIS guardados y muestra esos valores al seleccionar empleado. El endpoint administrativo de compensación y la migración `0011` deben desplegarse juntos con autorización explícita.
+- [x] **AUTO-SALARY-04 (QA)**: Typecheck frontend/Worker, lint, build, 39 pruebas Worker, 6 pruebas PDF, 45 E2E y 16 E2E móviles pasan; `npm audit` devuelve 0 vulnerabilidades. La descarga PDF y la consulta previa comparten el contrato automático.
+- [x] **AUTO-SALARY-05 (Corrección de regresión)**: El trabajador puede guardar el porcentaje ITIS en su perfil activo; Salary Advice solo muestra empleados con tarifa e ITIS guardados y muestra esos valores al seleccionar empleado. Migración `0011`, Worker y frontend desplegados y verificados; release/rollback en `docs/RELEASE-2026-09-01-salary-advice-itis.md`.
 
 ---
 
