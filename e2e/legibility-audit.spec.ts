@@ -106,11 +106,7 @@ test("admin Salary Advice error state remains legible", async ({ context, page }
   await expect(page.getByRole("heading", { name: "Calculate and download Salary Advice" })).toBeVisible();
   await page.getByRole("button", { name: "Monthly", exact: true }).click();
   await page.getByRole("combobox", { name: "Calendar month" }).selectOption("2026-08-01");
-  await page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" }).fill("5");
-  await page.getByRole("spinbutton", { name: "Confirmed ITIS for this document (%)" }).fill("15");
-  await page.getByRole("button", { name: /Standard.*6%/i }).click();
-  await page.getByRole("spinbutton", { name: "Gross taxable pay to date (£)" }).fill("17928.50");
-  await page.getByRole("spinbutton", { name: "ITIS paid to date (£)" }).fill("2554.08");
+  await page.getByRole("button", { name: "Check saved hours" }).click();
   await page.getByRole("button", { name: "Calculate and download PDF" }).click();
   await expect(page.getByRole("alert")).toContainText("Salary Advice could not be calculated for the selected period.");
   await expectLegiblePage(page, testInfo, "admin-salary-advice-error-mobile-390x844");

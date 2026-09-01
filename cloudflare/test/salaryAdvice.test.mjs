@@ -64,11 +64,11 @@ test("periods are derived by the server as Monday-Sunday or a calendar month", (
   assert.throws(() => parseSalaryAdvicePeriod("monthly", "2026-12-01", "2027-01-01"), { code: "RULES_NOT_AVAILABLE" });
 });
 
-test("monthly worker Social Security uses the official pound rounding, MET and SEL", () => {
-  assert.equal(calculateMonthlyWorkerSocialSecurity(61_799, 600), 0);
-  assert.equal(calculateMonthlyWorkerSocialSecurity(61_899, 600), 3_708);
-  assert.equal(calculateMonthlyWorkerSocialSecurity(700_000, 600), 36_372);
-  assert.equal(calculateMonthlyWorkerSocialSecurity(700_000, 0), 0);
+test("worker Social Security always uses the fixed 6 percent rate", () => {
+  assert.equal(calculateMonthlyWorkerSocialSecurity(61_799), 3_708);
+  assert.equal(calculateMonthlyWorkerSocialSecurity(61_899), 3_714);
+  assert.equal(calculateMonthlyWorkerSocialSecurity(700_000), 42_000);
+  assert.equal(calculateMonthlyWorkerSocialSecurity(0), 0);
 });
 
 async function salaryAdviceEnvironment() {
@@ -89,6 +89,7 @@ async function salaryAdviceEnvironment() {
             return {
               businessName: "Libertys - Quayside Kitchen",
               businessAddress: "Libertys, Jersey",
+              itisRateBps: 1500,
               updatedAt: "2026-08-01T00:00:00.000Z",
             };
           }
@@ -101,6 +102,7 @@ async function salaryAdviceEnvironment() {
               legalName: "Mr Federico De Freitas",
               address: "St Helier, Jersey",
               employeeNumber: "D013",
+              hourlyRatePence: 1100,
               taxReferenceCiphertext,
               socialReferenceCiphertext,
               savedAt: "2026-01-01T00:00:00.000Z",
@@ -129,6 +131,29 @@ async function salaryAdviceEnvironment() {
   return { env, queries };
 }
 
+test("automatic Salary Advice uses the saved profile rate, annual ITIS, fixed 6% and all saved hours", async () => {
+  const { env, queries } = await salaryAdviceEnvironment();
+  const advice = await calculateAdminSalaryAdvice(env, adminAuth, {
+    userId: "worker-1",
+    periodType: "monthly",
+    periodStart: "2026-08-01",
+    payDate: "2026-08-31",
+  });
+
+  assert.equal(advice.allowance.hourlyRate, 11);
+  assert.equal(advice.grossTaxablePay, 808.5);
+  assert.equal(advice.deductions.itisRate, 15);
+  assert.equal(advice.deductions.incomeTax, 121.28);
+  assert.equal(advice.deductions.workerSocialSecurityRate, 6);
+  assert.equal(advice.deductions.workerSocialSecurity, 48.51);
+  assert.equal(advice.deductions.workerSocialSecuritySource, "calculated_from_saved_hours");
+  assert.equal(advice.totalsToDate.grossTaxablePay, 808.5);
+  assert.equal(advice.totalsToDate.taxPaid, 121.28);
+  assert.equal(advice.totalsToDate.source, "calculated_from_saved_hours");
+  assert.equal(advice.netPay, 638.71);
+  assert.ok(queries.filter((query) => query.includes("FROM workforce_shifts")).length >= 2);
+});
+
 test("a monthly Salary Advice calculates one selected worker and excludes invented employer fields", async () => {
   const { env, queries } = await salaryAdviceEnvironment();
   const advice = await calculateAdminSalaryAdvice(env, adminAuth, {
@@ -136,25 +161,20 @@ test("a monthly Salary Advice calculates one selected worker and excludes invent
     periodType: "monthly",
     periodStart: "2026-08-01",
     payDate: "2026-08-31",
-    hourlyRate: 11,
-    itisRate: 15,
-    workerSocialSecurityRate: 6,
-    yearToDateGrossTaxablePay: 17_928.5,
-    yearToDateTaxPaid: 2_554.08,
   });
 
   assert.equal(advice.worker.userId, "worker-1");
   assert.equal(advice.allowance.hours, 73.5);
   assert.equal(advice.allowance.amount, 808.5);
   assert.equal(advice.deductions.incomeTax, 121.28);
-  assert.equal(advice.deductions.workerSocialSecurity, 48.48);
-  assert.equal(advice.deductions.workerSocialSecuritySource, "calculated_monthly");
-  assert.equal(advice.deductions.total, 169.76);
-  assert.equal(advice.netPay, 638.74);
+  assert.equal(advice.deductions.workerSocialSecurity, 48.51);
+  assert.equal(advice.deductions.workerSocialSecuritySource, "calculated_from_saved_hours");
+  assert.equal(advice.deductions.total, 169.79);
+  assert.equal(advice.netPay, 638.71);
   assert.deepEqual(advice.totalsToDate, {
-    grossTaxablePay: 17_928.5,
-    taxPaid: 2_554.08,
-    source: "operator_confirmed",
+    grossTaxablePay: 808.5,
+    taxPaid: 121.28,
+    source: "calculated_from_saved_hours",
   });
   assert.deepEqual(advice.warnings, []);
   const serialized = JSON.stringify(advice);
@@ -163,87 +183,48 @@ test("a monthly Salary Advice calculates one selected worker and excludes invent
   assert.ok(queries.some((query) => query.includes("salary_advice.calculated")));
 });
 
-test("a weekly advice uses only the operator-confirmed calendar-month reconciliation", async () => {
+test("a weekly advice also calculates Social Security from saved hours", async () => {
   const { env } = await salaryAdviceEnvironment();
   const advice = await calculateAdminSalaryAdvice(env, adminAuth, {
     userId: "worker-1",
     periodType: "weekly",
     periodStart: "2026-08-24",
     payDate: "2026-08-30",
-    hourlyRate: 11,
-    itisRate: 15,
-    weeklyWorkerSocialSecurity: 48.48,
-    yearToDateGrossTaxablePay: 808.5,
-    yearToDateTaxPaid: 121.28,
   });
   assert.equal(advice.period.end, "2026-08-30");
-  assert.equal(advice.deductions.workerSocialSecurity, 48.48);
-  assert.equal(advice.deductions.workerSocialSecurityRate, null);
-  assert.equal(advice.deductions.workerSocialSecuritySource, "operator_confirmed_weekly");
-  assert.deepEqual(advice.warnings, ["WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED"]);
+  assert.equal(advice.deductions.workerSocialSecurity, 48.51);
+  assert.equal(advice.deductions.workerSocialSecurityRate, 6);
+  assert.equal(advice.deductions.workerSocialSecuritySource, "calculated_from_saved_hours");
+  assert.deepEqual(advice.warnings, []);
 });
 
-test("weekly confirmed Social Security is required, money-safe and never accepted for monthly", async () => {
+test("manual payroll amounts are rejected so the server remains the source of calculation", async () => {
   const common = {
     userId: "worker-1",
     periodType: "weekly",
     periodStart: "2026-08-24",
     payDate: "2026-08-30",
     hourlyRate: 11,
-    itisRate: 15,
-    yearToDateGrossTaxablePay: 808.5,
-    yearToDateTaxPaid: 121.28,
   };
   const noDb = { DB: { prepare() { throw new Error("D1 must not be accessed"); } } };
   await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, common), { code: "INVALID_INPUT" });
-  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, weeklyWorkerSocialSecurity: -1 }), { code: "INVALID_INPUT" });
-  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, weeklyWorkerSocialSecurity: 1.001 }), { code: "INVALID_INPUT" });
-
-  const { env: zeroEnv } = await salaryAdviceEnvironment();
-  const zero = await calculateAdminSalaryAdvice(zeroEnv, adminAuth, { ...common, weeklyWorkerSocialSecurity: 0 });
-  assert.equal(zero.deductions.workerSocialSecurity, 0);
-
-  const { env: excessiveEnv } = await salaryAdviceEnvironment();
-  await assert.rejects(
-    calculateAdminSalaryAdvice(excessiveEnv, adminAuth, { ...common, weeklyWorkerSocialSecurity: 900 }),
-    { code: "INVALID_INPUT" },
-  );
-
-  await assert.rejects(
-    calculateAdminSalaryAdvice(noDb, adminAuth, {
-      ...common,
-      periodType: "monthly",
-      periodStart: "2026-08-01",
-      payDate: "2026-08-31",
-      workerSocialSecurityRate: 6,
-      weeklyWorkerSocialSecurity: 1,
-    }),
-    { code: "INVALID_INPUT" },
-  );
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, itisRate: 15 }), { code: "INVALID_INPUT" });
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, yearToDateTaxPaid: 1 }), { code: "INVALID_INPUT" });
 });
 
-test("confirmed ITIS, monthly card status and totals-to-date reject unsupported claims", async () => {
+test("automatic calculation rejects every retired manual input", async () => {
   const noDb = { DB: { prepare() { throw new Error("D1 must not be accessed"); } } };
   const common = {
     userId: "worker-1",
     periodType: "monthly",
     periodStart: "2026-08-01",
     payDate: "2026-08-31",
-    hourlyRate: 11,
     itisRate: 15,
-    workerSocialSecurityRate: 6,
-    yearToDateGrossTaxablePay: 808.5,
-    yearToDateTaxPaid: 121.28,
   };
-  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, itisRate: 15.5 }), { code: "INVALID_INPUT" });
-  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, workerSocialSecurityRate: 5 }), { code: "INVALID_INPUT" });
-  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, yearToDateTaxPaid: 900 }), { code: "INVALID_TOTALS_TO_DATE" });
-
-  const { env } = await salaryAdviceEnvironment();
-  await assert.rejects(
-    calculateAdminSalaryAdvice(env, adminAuth, { ...common, yearToDateGrossTaxablePay: 700 }),
-    { code: "INVALID_TOTALS_TO_DATE" },
-  );
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, common), { code: "INVALID_INPUT" });
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, workerSocialSecurityRate: 6 }), { code: "INVALID_INPUT" });
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, weeklyWorkerSocialSecurity: 1 }), { code: "INVALID_INPUT" });
+  await assert.rejects(calculateAdminSalaryAdvice(noDb, adminAuth, { ...common, yearToDateGrossTaxablePay: 1 }), { code: "INVALID_INPUT" });
 });
 
 test("worker role and obsolete request fields are rejected before calculation", async () => {

@@ -4,6 +4,7 @@ export interface PayrollProfile {
   userId: string;
   displayName: string;
   employeeNumber: string | null;
+  hourlyRate: number | null;
   isComplete: boolean;
   savedAt: string | null;
 }
@@ -25,6 +26,8 @@ export interface PayrollProfileDetails extends PayrollProfile {
 export interface PayrollSettings {
   businessName: string;
   businessAddress: string;
+  itisRate: number | null;
+  itisRateYear: number;
   updatedAt: string;
 }
 
@@ -62,15 +65,15 @@ export interface SalaryAdvice {
   deductions: {
     itisRate: number;
     incomeTax: number;
-    workerSocialSecurityRate: number | null;
+    workerSocialSecurityRate: 6;
     workerSocialSecurity: number;
-    workerSocialSecuritySource: "calculated_monthly" | "operator_confirmed_weekly";
+    workerSocialSecuritySource: "calculated_from_saved_hours";
     total: number;
   };
   totalsToDate: {
     grossTaxablePay: number;
     taxPaid: number;
-    source: "operator_confirmed";
+    source: "calculated_from_saved_hours";
   };
   grossTaxablePay: number;
   netPay: number;
@@ -304,6 +307,7 @@ export async function loadAdminPayrollSettings(): Promise<PayrollSettings | null
 export async function saveAdminPayrollSettings(input: {
   businessName: string;
   businessAddress: string;
+  itisRate: number;
 }): Promise<PayrollSettings> {
   return backend.post<PayrollSettings>("/api/admin/payroll-settings", input, true);
 }
@@ -313,14 +317,16 @@ export async function calculateAdminSalaryAdvice(input: {
   periodType: SalaryAdvicePeriodType;
   periodStart: string;
   payDate: string;
-  hourlyRate: number;
-  itisRate: number;
-  workerSocialSecurityRate?: 0 | 6;
-  weeklyWorkerSocialSecurity?: number;
-  yearToDateGrossTaxablePay: number;
-  yearToDateTaxPaid: number;
 }): Promise<SalaryAdvice> {
   return backend.post<SalaryAdvice>("/api/admin/salary-advice", input, true);
+}
+
+export async function saveAdminPayrollProfileCompensation(userId: string, hourlyRate: number): Promise<PayrollProfile> {
+  return backend.post<PayrollProfile>(
+    `/api/admin/payroll-profiles/${encodeURIComponent(userId)}/compensation`,
+    { hourlyRate },
+    true,
+  );
 }
 
 export async function revealAdminPayrollProfile(userId: string): Promise<PayrollProfileDetails> {

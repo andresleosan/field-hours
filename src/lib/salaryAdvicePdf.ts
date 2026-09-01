@@ -32,7 +32,7 @@ export class SalaryAdvicePdfError extends Error {
 
 const WARNING_TEXT: Record<SalaryAdviceWarningCode, string> = {
   WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED:
-    "Weekly Social Security was entered by the administrator from the employee's running calendar-month record and must match the official contribution notice.",
+    "Social Security is calculated automatically at the fixed 6% worker rate.",
 };
 
 async function fetchFont(url: URL): Promise<Uint8Array> {
@@ -227,7 +227,7 @@ export async function createSalaryAdvicePdf(
     && regular.widthOfTextAtSize(advice.worker.taxReference, 9) <= 150
     && regular.widthOfTextAtSize(advice.worker.socialReference, 9) <= 108;
   const permanentEstimate = "ESTIMATE - informational document; confirm all inputs against official records.";
-  const standardNote = "Generated from completed shifts for the selected period. Confirmed inputs are not stored.";
+  const standardNote = "Generated from the saved employee profile and completed shifts for the selected period, including administrator adjustments.";
   const documentNotes = [permanentEstimate, standardNote, ...warningTexts];
   const footerLines = wrapPdfText(documentNotes.join(" "), width - margin * 2 - 8, 7.5, regular);
   const notesNeedContinuation = footerLines.length > 4;
@@ -271,9 +271,7 @@ export async function createSalaryAdvicePdf(
 
   drawText(page, `Income Tax / ITIS ${advice.deductions.itisRate.toFixed(2)}%`, rightX + 10, tableTop - 54, 10, regular);
   drawRightText(page, money(advice.deductions.incomeTax), width - margin - 12, tableTop - 54, 10, regular);
-  const socialSecurityLabel = advice.deductions.workerSocialSecuritySource === "operator_confirmed_weekly"
-    ? "Employee Social Security (confirmed)"
-    : `Employee Social Security ${(advice.deductions.workerSocialSecurityRate ?? 0).toFixed(2)}%`;
+  const socialSecurityLabel = `Employee Social Security ${(advice.deductions.workerSocialSecurityRate ?? 6).toFixed(2)}%`;
   drawText(page, socialSecurityLabel, rightX + 10, tableTop - 78, 10, regular);
   drawRightText(page, money(advice.deductions.workerSocialSecurity), width - margin - 12, tableTop - 78, 10, regular);
 

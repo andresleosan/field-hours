@@ -13,14 +13,14 @@ const bundle = await build({
   target: "es2022",
   write: false,
   stdin: {
-    contents: 'export { saveWorkerPayrollProfile } from "./payrollProfiles.ts";',
+    contents: 'export { saveWorkerPayrollProfile, saveAdminPayrollProfileCompensation } from "./payrollProfiles.ts";',
     loader: "ts",
     resolveDir: sourceDirectory,
   },
 });
 const bundledSource = bundle.outputFiles[0]?.text;
 if (!bundledSource) throw new Error("The payroll profile test bundle could not be built.");
-const { saveWorkerPayrollProfile } = await import(
+const { saveWorkerPayrollProfile, saveAdminPayrollProfileCompensation } = await import(
   `data:text/javascript;base64,${Buffer.from(bundledSource).toString("base64")}`
 );
 
@@ -67,6 +67,14 @@ test("profile save rejects retired fields before reading or writing D1", async (
   await assert.rejects(
     saveWorkerPayrollProfile(env, workerAuth, { ...validBody, bankAccountNumber: "123" }),
     { status: 400, code: "INVALID_INPUT" },
+  );
+});
+
+test("only an administrator can assign an employee hourly rate", async () => {
+  const noDb = { DB: { prepare() { throw new Error("D1 must not be accessed"); } } };
+  await assert.rejects(
+    saveAdminPayrollProfileCompensation(noDb, workerAuth, "shared-user", { hourlyRate: 20 }),
+    { status: 403, code: "FORBIDDEN" },
   );
 });
 
@@ -155,6 +163,15 @@ test("clean composite UPSERT cannot mutate a Salary Advice profile in another te
   assert.match(cleanInsert, /ON CONFLICT\(organization_id, user_id\) DO UPDATE/);
   assert.doesNotMatch(cleanInsert, /pending_review|itis_rate_bps|reviewed_by/);
   assert.deepEqual(foreignRow, before);
+});
+
+test("automatic Salary Advice migration stores admin rate and yearly ITIS configuration separately", async () => {
+  const migration = await readFile(new URL("../migrations/0011_automatic_salary_advice.sql", import.meta.url), "utf8");
+  assert.match(migration, /ADD COLUMN hourly_rate_pence/);
+  assert.match(migration, /CREATE TABLE workforce_salary_advice_itis_rates/);
+  assert.match(migration, /PRIMARY KEY \(organization_id, rules_year\)/);
+  assert.match(migration, /rate_bps INTEGER NOT NULL CHECK \(rate_bps BETWEEN 0 AND 10000\)/);
+  assert.match(migration, /Rollback/);
 });
 
 test("database uniqueness closes the concurrent employee-number race with a safe 409", async () => {

@@ -259,25 +259,28 @@ export async function installAdminApi(
     reviewedAt: `2026-08-${String(20 - (index % 12)).padStart(2, "0")}T10:00:00.000Z`,
     reviewerName: "Admin Test",
   }));
-  const profile = {
+  let profile = {
     userId: "worker-1",
     displayName: "Worker Test",
     email: "worker@field-hours.test",
     employeeNumber: "EMP-001",
+    hourlyRate: 20,
     isComplete: true,
     savedAt: NOW,
   };
-  const secondProfile = {
+  let secondProfile = {
     userId: "worker-2",
     displayName: "Second Worker",
     email: "second@field-hours.test",
     employeeNumber: "EMP-002",
+    hourlyRate: 15,
     isComplete: true,
     savedAt: NOW,
   };
   let settings = {
     businessName: "Field Hours Test",
     businessAddress: "1 Test Street",
+    itisRate: 15,
     updatedAt: NOW,
   };
 
@@ -297,9 +300,13 @@ export async function installAdminApi(
       const input = body as Record<string, unknown> | undefined;
       const keys = Object.keys(input ?? {}).sort();
       if (
-        JSON.stringify(keys) !== JSON.stringify(["businessAddress", "businessName"])
+        JSON.stringify(keys) !== JSON.stringify(["businessAddress", "businessName", "itisRate"])
         || typeof input?.businessName !== "string"
         || typeof input.businessAddress !== "string"
+        || typeof input.itisRate !== "number"
+        || !Number.isInteger(input.itisRate)
+        || input.itisRate < 0
+        || input.itisRate > 100
       ) {
         return json(route, { error: "Unexpected Salary Advice settings contract", code: "INVALID_INPUT" }, 400);
       }
@@ -312,9 +319,23 @@ export async function installAdminApi(
       settings = {
         businessName: input.businessName,
         businessAddress: input.businessAddress,
+        itisRate: input.itisRate,
         updatedAt: NOW,
       };
       return json(route, settings);
+    }
+
+    const compensationMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/compensation$/);
+    if (method === "POST" && compensationMatch) {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as Record<string, unknown> | undefined;
+      if (JSON.stringify(Object.keys(input ?? {}).sort()) !== JSON.stringify(["hourlyRate"]) || typeof input?.hourlyRate !== "number") {
+        return json(route, { error: "Unexpected compensation contract", code: "INVALID_INPUT" }, 400);
+      }
+      const updated = compensationMatch[1] === "worker-2" ? { ...secondProfile, hourlyRate: input.hourlyRate } : { ...profile, hourlyRate: input.hourlyRate };
+      if (compensationMatch[1] === "worker-2") secondProfile = updated;
+      else profile = updated;
+      return json(route, updated);
     }
 
     if (method === "POST" && path === "/api/admin/payroll-profiles/worker-1/reveal") {
@@ -336,40 +357,11 @@ export async function installAdminApi(
       const periodType = input?.periodType;
       const periodStart = input?.periodStart;
       const payDate = input?.payDate;
-      const hourlyRate = input?.hourlyRate;
-      const itisRate = input?.itisRate;
-      const weeklyWorkerSocialSecurity = input?.weeklyWorkerSocialSecurity;
-      const workerSocialSecurityRate = input?.workerSocialSecurityRate;
-      const yearToDateGrossTaxablePay = input?.yearToDateGrossTaxablePay;
-      const yearToDateTaxPaid = input?.yearToDateTaxPaid;
-      const expectedKeys = periodType === "weekly"
-        ? [
-            "hourlyRate",
-            "itisRate",
-            "payDate",
-            "periodStart",
-            "periodType",
-            "userId",
-            "weeklyWorkerSocialSecurity",
-            "yearToDateGrossTaxablePay",
-            "yearToDateTaxPaid",
-          ]
-        : [
-            "hourlyRate",
-            "itisRate",
-            "payDate",
-            "periodStart",
-            "periodType",
-            "userId",
-            "workerSocialSecurityRate",
-            "yearToDateGrossTaxablePay",
-            "yearToDateTaxPaid",
-          ];
+      const expectedKeys = ["payDate", "periodStart", "periodType", "userId"];
       const parsedStart = typeof periodStart === "string" ? new Date(`${periodStart}T00:00:00Z`) : new Date(Number.NaN);
       const parsedPayDate = typeof payDate === "string" ? new Date(`${payDate}T00:00:00Z`) : new Date(Number.NaN);
       const isWeeklyStart = periodType === "weekly" && parsedStart.getUTCDay() === 1;
       const isMonthlyStart = periodType === "monthly" && parsedStart.getUTCDate() === 1;
-      const hasAtMostTwoDecimals = (value: number) => Math.abs(value * 100 - Math.round(value * 100)) <= 1e-7;
       if (
         JSON.stringify(keys) !== JSON.stringify(expectedKeys)
         || (input?.userId !== "worker-1" && input?.userId !== "worker-2")
@@ -384,29 +376,6 @@ export async function installAdminApi(
         || Number.isNaN(parsedPayDate.valueOf())
         || parsedPayDate.toISOString().slice(0, 10) !== payDate
         || payDate < periodStart
-        || typeof hourlyRate !== "number"
-        || hourlyRate < 0.01
-        || hourlyRate > 10_000
-        || !hasAtMostTwoDecimals(hourlyRate)
-        || typeof itisRate !== "number"
-        || !Number.isInteger(itisRate)
-        || itisRate < 0
-        || itisRate > 100
-        || (periodType === "weekly" && (
-          typeof weeklyWorkerSocialSecurity !== "number"
-          || weeklyWorkerSocialSecurity < 0
-          || weeklyWorkerSocialSecurity > 10_000_000
-          || !hasAtMostTwoDecimals(weeklyWorkerSocialSecurity)
-        ))
-        || (periodType === "monthly" && workerSocialSecurityRate !== 0 && workerSocialSecurityRate !== 6)
-        || typeof yearToDateGrossTaxablePay !== "number"
-        || yearToDateGrossTaxablePay < 0
-        || yearToDateGrossTaxablePay > 10_000_000
-        || !hasAtMostTwoDecimals(yearToDateGrossTaxablePay)
-        || typeof yearToDateTaxPaid !== "number"
-        || yearToDateTaxPaid < 0
-        || yearToDateTaxPaid > 10_000_000
-        || !hasAtMostTwoDecimals(yearToDateTaxPaid)
       ) {
         return json(route, { error: "Unexpected Salary Advice contract", code: "INVALID_INPUT" }, 400);
       }
@@ -430,23 +399,13 @@ export async function installAdminApi(
       const shiftCount = periodType === "weekly" ? 5 : 12;
       const hours = netMinutes / 60;
       const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const selectedProfile = input?.userId === "worker-2" ? secondProfile : profile;
+      const hourlyRate = selectedProfile.hourlyRate as number;
+      const itisRate = settings.itisRate;
       const grossTaxablePay = roundMoney(hours * hourlyRate);
       const incomeTax = roundMoney(grossTaxablePay * (itisRate / 100));
-      const workerSocialSecurity = periodType === "weekly"
-        ? roundMoney(weeklyWorkerSocialSecurity as number)
-        : grossTaxablePay < 618
-          ? 0
-          : roundMoney(Math.min(Math.floor(grossTaxablePay), 6062) * ((workerSocialSecurityRate as number) / 100));
+      const workerSocialSecurity = roundMoney(grossTaxablePay * 0.06);
       const total = roundMoney(incomeTax + workerSocialSecurity);
-      if (
-        workerSocialSecurity > grossTaxablePay
-        || total > grossTaxablePay
-        || yearToDateGrossTaxablePay < grossTaxablePay
-        || yearToDateTaxPaid < incomeTax
-        || yearToDateTaxPaid > yearToDateGrossTaxablePay
-      ) {
-        return json(route, { error: "Confirmed totals are inconsistent with this Salary Advice.", code: "INVALID_TOTALS_TO_DATE" }, 400);
-      }
 
       return json(route, {
         calculatedAt: NOW,
@@ -489,21 +448,19 @@ export async function installAdminApi(
         deductions: {
           itisRate,
           incomeTax,
-          workerSocialSecurityRate: periodType === "weekly" ? null : workerSocialSecurityRate,
-          workerSocialSecuritySource: periodType === "weekly" ? "operator_confirmed_weekly" : "calculated_monthly",
+          workerSocialSecurityRate: 6,
+          workerSocialSecuritySource: "calculated_from_saved_hours",
           workerSocialSecurity,
           total,
         },
         grossTaxablePay,
         netPay: roundMoney(grossTaxablePay - total),
         totalsToDate: {
-          grossTaxablePay: yearToDateGrossTaxablePay,
-          taxPaid: yearToDateTaxPaid,
-          source: "operator_confirmed",
+          grossTaxablePay,
+          taxPaid: incomeTax,
+          source: "calculated_from_saved_hours",
         },
-        warnings: periodType === "weekly"
-          ? ["WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED"]
-          : [],
+        warnings: [],
       });
     }
 

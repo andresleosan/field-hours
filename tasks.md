@@ -13,6 +13,16 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 - [ ] **JER-2027-03 (QA y documentación)**: Cubrir límites de año, semanas lunes-domingo, meses calendario, fechas de pago, Social Security semanal confirmado/mensual calculado, aritmética en enteros, PDF y exclusiones de coste patronal/referencias/aprobación. Actualizar `BRIEF.md`, `STACK.md`, esta guía y el reporte QA con evidencia real.
 - [ ] **JER-2027-04 (Corte productivo autorizado)**: Ejecutar autocrítica de seguridad y QA, preparar rollback, obtener autorización explícita y verificar Worker/frontend/monitor después del despliegue. No usar PII ni cálculos autenticados con datos reales como smoke sintético.
 
+## Fase 11: Salary Advice automático desde perfil y horas guardadas (EN IMPLEMENTACIÓN)
+
+> Alcance solicitado por el operador el 31 de agosto de 2026. El admin asigna la tarifa por empleado y la tasa ITIS anual; el sistema consulta D1 al calcular, aplica Social Security fija del 6% y obtiene los acumulados desde las horas guardadas, incluidas las modificadas. No inicia transferencias ni despliega automáticamente.
+
+- [x] **AUTO-SALARY-01 (Modelo de datos)**: Añadida la tarifa horaria al perfil activo y una tasa ITIS por organización/año en la migración aditiva `0011_automatic_salary_advice.sql`, con rollback manual documentado. No se aplicó en producción.
+- [x] **AUTO-SALARY-02 (Backend)**: Protegida la edición administrativa con rol y CSRF; el cálculo obtiene tarifa/ITIS/Social Security/acumulados desde D1, incluye turnos completados modificados y rechaza datos manuales obsoletos.
+- [x] **AUTO-SALARY-03 (Frontend)**: Añadida la edición admin de tarifa y ITIS anual; eliminados los campos manuales y añadido el botón bajo fecha de pago para consultar horas guardadas.
+- [x] **AUTO-SALARY-04 (QA)**: Typecheck frontend/Worker, lint, 16 pruebas Worker, 12 E2E de Salary Advice y auditoría visual del error pasan. La descarga PDF y la consulta previa comparten el contrato automático; no hubo despliegue ni escrituras productivas.
+- [ ] **AUTO-SALARY-04 (QA)**: Cubrir ajustes de horas, cálculo automático, autorización admin, PDF, responsive y regresiones sin desplegar a producción.
+
 ---
 
 ## Fase 10: Gobernanza de skills y reducción de alucinaciones (COMPLETADA Y VERIFICADA)

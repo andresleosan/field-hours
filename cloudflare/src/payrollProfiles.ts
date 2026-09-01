@@ -7,6 +7,7 @@ export interface PayrollProfileSummary {
   userId: string;
   displayName: string;
   employeeNumber: string | null;
+  hourlyRate: number | null;
   isComplete: boolean;
   savedAt: string | null;
 }
@@ -30,6 +31,7 @@ export interface PayrollPayslipIdentity {
   legalName: string;
   address: string;
   employeeNumber: string;
+  hourlyRatePence: number | null;
   taxReference: string;
   socialReference: string;
 }
@@ -41,6 +43,7 @@ interface ProfileRow {
   legalName: string | null;
   address: string | null;
   employeeNumber: string | null;
+  hourlyRatePence: number | null;
   taxReferenceCiphertext: string | null;
   socialReferenceCiphertext: string | null;
   savedAt: string | null;
@@ -50,6 +53,7 @@ type CompleteProfileRow = ProfileRow & {
   legalName: string;
   address: string;
   employeeNumber: string;
+  hourlyRatePence: number | null;
   taxReferenceCiphertext: string;
   socialReferenceCiphertext: string;
   savedAt: string;
@@ -77,6 +81,7 @@ function toSummary(row: ProfileRow): PayrollProfileSummary {
     userId: row.userId,
     displayName: row.displayName,
     employeeNumber: row.employeeNumber,
+    hourlyRate: row.hourlyRatePence == null ? null : Number((row.hourlyRatePence / 100).toFixed(2)),
     isComplete: profileExists(row),
     savedAt: row.savedAt,
   };
@@ -98,6 +103,7 @@ async function loadProfile(env: Env, organizationId: string, userId: string): Pr
        m.user_id AS userId, m.organization_id AS organizationId, m.display_name AS displayName,
        p.legal_name AS legalName, p.address AS address,
        p.employee_number AS employeeNumber,
+       p.hourly_rate_pence AS hourlyRatePence,
        p.tax_reference_ciphertext AS taxReferenceCiphertext,
        p.social_reference_ciphertext AS socialReferenceCiphertext,
        p.saved_at AS savedAt
@@ -230,6 +236,7 @@ export async function listAdminPayrollProfiles(env: Env, auth: AuthContext): Pro
        m.user_id AS userId, m.organization_id AS organizationId, m.display_name AS displayName,
        p.legal_name AS legalName, p.address AS address,
        p.employee_number AS employeeNumber,
+       p.hourly_rate_pence AS hourlyRatePence,
        p.tax_reference_ciphertext AS taxReferenceCiphertext,
        p.social_reference_ciphertext AS socialReferenceCiphertext,
        p.saved_at AS savedAt
@@ -272,6 +279,59 @@ export async function revealAdminPayrollProfile(
   };
 }
 
+function parseHourlyRatePence(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0.01 || value > 10_000) {
+    throw new ApiError(400, "INVALID_INPUT", "Hourly rate must be between £0.01 and £10,000.");
+  }
+  const pence = Math.round(value * 100);
+  if (Math.abs(value * 100 - pence) > 1e-7) {
+    throw new ApiError(400, "INVALID_INPUT", "Hourly rate can have at most two decimal places.");
+  }
+  return pence;
+}
+
+export async function saveAdminPayrollProfileCompensation(
+  env: Env,
+  auth: AuthContext,
+  userId: string,
+  body: { hourlyRate?: unknown; [key: string]: unknown },
+): Promise<PayrollProfileSummary> {
+  requireRole(auth, "admin");
+  const unsupportedFields = Object.keys(body).filter((key) => key !== "hourlyRate");
+  if (unsupportedFields.length > 0) {
+    throw new ApiError(400, "INVALID_INPUT", `Unsupported employee compensation field: ${unsupportedFields.join(", ")}.`);
+  }
+  const normalizedUserId = requireString(userId, "Worker", 1, 120);
+  const hourlyRatePence = parseHourlyRatePence(body.hourlyRate);
+  const existing = await loadProfile(env, auth.user.organizationId, normalizedUserId);
+  if (!existing) throw new ApiError(404, "NOT_FOUND", "Payroll profile not found.");
+
+  const updatedAt = new Date().toISOString();
+  const result = await env.DB.prepare(
+    `UPDATE workforce_salary_advice_profiles
+     SET hourly_rate_pence = ?1, saved_at = ?2
+     WHERE organization_id = ?3 AND user_id = ?4`,
+  ).bind(hourlyRatePence, updatedAt, auth.user.organizationId, normalizedUserId).run();
+  if (!result.success || (result.meta?.changes ?? 0) !== 1) {
+    throw new ApiError(409, "PROFILE_WRITE_CONFLICT", "Employee compensation could not be saved.");
+  }
+
+  await env.DB.prepare(
+    `INSERT INTO workforce_audit_events
+       (organization_id, actor_user_id, action, subject_id, metadata_json)
+     VALUES (?1, ?2, 'payroll.profile.compensation.updated', ?3, ?4)`,
+  ).bind(
+    auth.user.organizationId,
+    auth.user.id,
+    normalizedUserId,
+    JSON.stringify({ hourlyRateUpdated: true }),
+  ).run();
+
+  const saved = await loadProfile(env, auth.user.organizationId, normalizedUserId);
+  if (!saved) throw new ApiError(500, "INTERNAL_ERROR", "The employee compensation could not be loaded.");
+  return toSummary(saved);
+}
+
 export async function getAdminPayrollPayslipIdentity(
   env: Env,
   auth: AuthContext,
@@ -284,11 +344,12 @@ export async function getAdminPayrollPayslipIdentity(
     !profileExists(row)
     || !row.taxReferenceCiphertext
     || !row.socialReferenceCiphertext
+    || row.hourlyRatePence === null
   ) {
     throw new ApiError(
       409,
       "PAYROLL_PROFILE_INCOMPLETE",
-      "The worker payroll identity is incomplete.",
+      "The worker payroll identity or hourly rate is incomplete.",
     );
   }
   const [taxReference, socialReference] = await Promise.all([
@@ -300,6 +361,7 @@ export async function getAdminPayrollPayslipIdentity(
     legalName: row.legalName,
     address: row.address,
     employeeNumber: row.employeeNumber,
+    hourlyRatePence: row.hourlyRatePence,
     taxReference,
     socialReference,
   };

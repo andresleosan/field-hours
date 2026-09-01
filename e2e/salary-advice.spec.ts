@@ -70,11 +70,11 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
   expect(await week.locator("option:not([disabled])").count()).toBe(51);
   await week.selectOption("2026-08-24");
   await expect(page.getByLabel("Pay date")).toHaveValue("2026-08-30");
-  await page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" }).fill("20");
-  await page.getByRole("spinbutton", { name: "Confirmed ITIS for this document (%)" }).fill("15");
-  await page.getByRole("spinbutton", { name: /weekly.*Social Security/i }).fill("36");
-  await page.getByRole("spinbutton", { name: /Gross taxable pay to date/i }).fill("17928.50");
-  await page.getByRole("spinbutton", { name: /ITIS paid to date/i }).fill("2554.08");
+  await expect(page.getByRole("spinbutton", { name: /Rate for this Salary Advice/ })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: /Confirmed ITIS for this document/ })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: /weekly.*Social Security/i })).toHaveCount(0);
+  await page.getByRole("button", { name: "Check saved hours" }).click();
+  await expect(page.getByText("£800.00", { exact: true }).filter({ visible: true })).toBeVisible();
 
   const filename = "salary-advice_EMP-001_2026-08-24_2026-08-30.pdf";
   const downloadPromise = page.waitForEvent("download");
@@ -90,7 +90,7 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
     "informational document",
     "Basic Hourly Pay",
     "Income Tax / ITIS 15.00%",
-    "Employee Social Security (confirmed)",
+    "Employee Social Security 6.00%",
     "EMP-001",
     "Worker Test",
     "TAX-123",
@@ -99,10 +99,10 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
     "Tax Paid",
     "Net Pay",
     "£800.00",
-    "£36.00",
-    "£644.00",
-    "£17,928.50",
-    "£2,554.08",
+    "£48.00",
+    "£632.00",
+    "£800.00",
+    "£120.00",
   ]) {
     expect(pdfText).toContain(requiredText);
   }
@@ -112,30 +112,23 @@ test("admin selects a Monday-to-Sunday week and downloads a Salary Advice PDF wi
   await expect(page.getByRole("heading", { name: "Downloaded document summary" })).toBeVisible();
   await expect(page.getByText("Worker Test · 2026-08-24 – 2026-08-30", { exact: true })).toBeVisible();
   await expect(page.getByText("£800.00", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("£156.00", { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(page.getByText("£644.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£168.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£632.00", { exact: true }).filter({ visible: true })).toBeVisible();
   await page.getByText("View breakdown", { exact: true }).click();
-  await expect(page.getByText("£36.00", { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText("£48.00", { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(/Estimate based on completed shifts/i)).toBeVisible();
-  await expect(page.getByText(/running calendar-month record/i)).toBeVisible();
   await openAccountMenu(page, "Admin Test");
   await page.locator("#field-hours-account-panel").getByRole("button", { name: "ES", exact: true }).click();
-  await expect(page.getByText(/Seguridad Social semanal fue confirmada por el administrador/i)).toBeVisible();
 
   const writes = api.calls.filter((call) => call.method === "POST");
-  expect(writes).toHaveLength(1);
-  expect(writes[0].path).toBe("/api/admin/salary-advice");
-  expect(writes[0].body).toEqual({
+  expect(writes).toHaveLength(2);
+  expect(writes.every((call) => call.path === "/api/admin/salary-advice")).toBe(true);
+  expect(writes.every((call) => JSON.stringify(call.body) === JSON.stringify({
     userId: "worker-1",
     periodType: "weekly",
     periodStart: "2026-08-24",
     payDate: "2026-08-30",
-    hourlyRate: 20,
-    itisRate: 15,
-    weeklyWorkerSocialSecurity: 36,
-    yearToDateGrossTaxablePay: 17928.5,
-    yearToDateTaxPaid: 2554.08,
-  });
+  }))).toBe(true);
   expect(api.calls.some((call) => /payroll-(preview|runs)|\/review|payslips|payments?|bank-transfers?/i.test(call.path))).toBe(false);
   expectCsrfOnWrites(api.calls);
   expectNoExternalRequests(api);
@@ -162,8 +155,23 @@ test("unsaved business identity blocks Salary Advice until the settings write su
   expect(settingsWrite?.body).toEqual({
     businessName: "Field Hours Updated",
     businessAddress: "1 Test Street",
+    itisRate: 15,
   });
   expectCsrfOnWrites(api.calls);
+});
+
+test("only the administrator can update the employee profile hourly rate from Salary Advice", async ({ context, page }) => {
+  const api = await installAdminApi(context);
+  await openSalaryAdvice(page);
+  const profile = page.getByRole("article").filter({ hasText: "Worker Test" });
+  const rate = profile.getByRole("spinbutton", { name: /Employee hourly rate/ });
+  await rate.fill("21.25");
+  await profile.getByRole("button", { name: "Save profile" }).click();
+  await expect(profile.getByRole("status")).toContainText("Employee rate saved");
+  const write = api.calls.find((call) => call.method === "POST" && call.path === "/api/admin/payroll-profiles/worker-1/compensation");
+  expect(write?.body).toEqual({ hourlyRate: 21.25 });
+  expectCsrfOnWrites(api.calls);
+  expectNoExternalRequests(api);
 });
 
 test("business identity stays locked while saving and a failed save keeps PDF generation blocked", async ({ context, page }) => {
@@ -183,7 +191,7 @@ test("business identity stays locked while saving and a failed save keeps PDF ge
   await expect(calculate).toBeDisabled();
 });
 
-test("monthly Salary Advice sends the 6 percent employee setting and omits the weekly amount", async ({ context, page }) => {
+test("monthly Salary Advice calculates from the saved profile and annual settings", async ({ context, page }) => {
   const api = await installAdminApi(context);
 
   await openSalaryAdvice(page);
@@ -191,17 +199,11 @@ test("monthly Salary Advice sends the 6 percent employee setting and omits the w
   await expect(page.getByRole("button", { name: "Monthly", exact: true })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("combobox", { name: "Calendar month" }).selectOption("2026-08-01");
   await expect(page.getByLabel("Pay date")).toHaveValue("2026-08-31");
-  await page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" }).fill("15.50");
-  await page.getByRole("spinbutton", { name: "Confirmed ITIS for this document (%)" }).fill("15");
+  await expect(page.getByRole("spinbutton", { name: /Rate for this Salary Advice/ })).toHaveCount(0);
+  await expect(page.getByRole("spinbutton", { name: /Confirmed ITIS for this document/ })).toHaveCount(0);
   await expect(page.getByRole("spinbutton", { name: /weekly.*Social Security/i })).toHaveCount(0);
-  const standard = page.getByRole("button", { name: /Standard.*6%/i });
-  const exempt = page.getByRole("button", { name: /Exempt.*0%/i });
-  await expect(standard).toHaveAttribute("aria-pressed", "false");
-  await expect(exempt).toHaveAttribute("aria-pressed", "false");
-  await standard.click();
-  await expect(standard).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("spinbutton", { name: /Gross taxable pay to date/i }).fill("17928.50");
-  await page.getByRole("spinbutton", { name: /ITIS paid to date/i }).fill("2554.08");
+  await page.getByRole("button", { name: "Check saved hours" }).click();
+  await expect(page.getByText("£2,400.00", { exact: true }).last()).toBeVisible();
 
   const filename = "salary-advice_EMP-001_2026-08-01_2026-08-31.pdf";
   const downloadPromise = page.waitForEvent("download");
@@ -216,57 +218,32 @@ test("monthly Salary Advice sends the 6 percent employee setting and omits the w
     periodType: "monthly",
     periodStart: "2026-08-01",
     payDate: "2026-08-31",
-    hourlyRate: 15.5,
-    itisRate: 15,
-    workerSocialSecurityRate: 6,
-    yearToDateGrossTaxablePay: 17928.5,
-    yearToDateTaxPaid: 2554.08,
   });
-  expect(request?.body).not.toHaveProperty("weeklyWorkerSocialSecurity");
   expectCsrfOnWrites(api.calls);
   expectNoExternalRequests(api);
 });
 
-test("monthly Social Security confirmation is cleared for every employee and period change", async ({ context, page }) => {
+test("automatic calculation checks the selected employee and period", async ({ context, page }) => {
   await installAdminApi(context);
   await openSalaryAdvice(page);
   await page.getByRole("button", { name: "Monthly", exact: true }).click();
-  const standard = page.getByRole("button", { name: /Standard.*6%/i });
-  const exempt = page.getByRole("button", { name: /Exempt.*0%/i });
-
-  await exempt.click();
-  await expect(exempt).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Check saved hours" }).click();
+  await expect(page.getByText("£2,400.00", { exact: true }).last()).toBeVisible();
   await page.getByRole("combobox", { name: "Employee" }).selectOption("worker-2");
-  await expect(standard).toHaveAttribute("aria-pressed", "false");
-  await expect(exempt).toHaveAttribute("aria-pressed", "false");
-
-  await standard.click();
   await page.getByRole("combobox", { name: "Calendar month" }).selectOption("2026-07-01");
-  await expect(standard).toHaveAttribute("aria-pressed", "false");
-  await expect(exempt).toHaveAttribute("aria-pressed", "false");
-
-  await exempt.click();
-  await page.getByRole("button", { name: "Weekly", exact: true }).click();
-  await page.getByRole("button", { name: "Monthly", exact: true }).click();
-  await expect(standard).toHaveAttribute("aria-pressed", "false");
-  await expect(exempt).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Check saved hours" }).click();
+  await expect(page.getByText("£1,800.00", { exact: true }).last()).toBeVisible();
 });
 
 test("employee and period controls are locked while a Salary Advice response is pending", async ({ context, page }) => {
   await installAdminApi(context, { salaryAdviceDelayMs: 500 });
   await openSalaryAdvice(page);
   await page.getByRole("combobox", { name: "Week (Monday to Sunday)" }).selectOption("2026-08-24");
-  await page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" }).fill("10");
-  await page.getByRole("spinbutton", { name: "Confirmed ITIS for this document (%)" }).fill("15");
-  await page.getByRole("spinbutton", { name: /weekly.*Social Security/i }).fill("20");
-  await page.getByRole("spinbutton", { name: /Gross taxable pay to date/i }).fill("1000");
-  await page.getByRole("spinbutton", { name: /ITIS paid to date/i }).fill("100");
 
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Calculate and download PDF" }).click();
   await expect(page.getByRole("combobox", { name: "Employee" })).toBeDisabled();
   await expect(page.getByRole("combobox", { name: "Week (Monday to Sunday)" })).toBeDisabled();
-  await expect(page.getByRole("spinbutton", { name: "Rate for this Salary Advice (£)" })).toBeDisabled();
   await downloadPromise;
   await expect(page.getByRole("combobox", { name: "Employee" })).toBeEnabled();
 });

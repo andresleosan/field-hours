@@ -25,6 +25,7 @@ import {
   loadAdminPayrollProfiles,
   loadAdminPayrollSettings,
   revealAdminPayrollProfile,
+  saveAdminPayrollProfileCompensation,
   saveAdminPayrollSettings,
   type PayrollProfile,
   type PayrollProfileDetails,
@@ -218,9 +219,9 @@ export function SalaryAdviceWorkspace() {
       </nav>
       <div id="salary-create-section" className={activeSection === "create" ? "block" : "hidden md:block"}>
         <SalaryAdviceCalculator
-          profiles={profiles.filter((profile) => profile.isComplete)}
-          settingsReady={Boolean(settings) && !settingsDirty && !settingsSaving}
-          settingsNeedSave={Boolean(settings) && (settingsDirty || settingsSaving)}
+          profiles={profiles.filter((profile) => profile.isComplete && profile.hourlyRate !== null)}
+          settingsReady={Boolean(settings?.itisRate !== null && settings?.itisRate !== undefined) && !settingsDirty && !settingsSaving}
+          settingsNeedSave={Boolean(settings) && (settings.itisRate === null || settingsDirty || settingsSaving)}
           onOpenBusiness={() => {
             setActiveSection("business");
             window.requestAnimationFrame(() => document.getElementById("salary-business-section")?.scrollIntoView({ behavior: "smooth", block: "start" }));
@@ -236,7 +237,12 @@ export function SalaryAdviceWorkspace() {
         />
       </div>
       <div id="salary-employees-section" className={activeSection === "employees" ? "block" : "hidden md:block"}>
-        <EmployeeProfilesCard profiles={profiles} detailsBusy={detailsBusy} onReveal={reveal} />
+        <EmployeeProfilesCard
+          profiles={profiles}
+          detailsBusy={detailsBusy}
+          onReveal={reveal}
+          onUpdated={(updated) => setProfiles((current) => current.map((profile) => profile.userId === updated.userId ? updated : profile))}
+        />
       </div>
       {details && <EmployeeDetailsDialog details={details} onClose={closeDetails} />}
       <p className="sr-only" aria-live="polite">{lang}</p>
@@ -258,6 +264,7 @@ function BusinessDetailsCard({
   const { t } = useI18n();
   const [businessName, setBusinessName] = useState(settings?.businessName ?? "");
   const [businessAddress, setBusinessAddress] = useState(settings?.businessAddress ?? "");
+  const [itisRate, setItisRate] = useState(settings?.itisRate == null ? "" : String(settings.itisRate));
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [noticeError, setNoticeError] = useState(false);
@@ -265,15 +272,19 @@ function BusinessDetailsCard({
   useEffect(() => {
     setBusinessName(settings?.businessName ?? "");
     setBusinessAddress(settings?.businessAddress ?? "");
+    setItisRate(settings?.itisRate == null ? "" : String(settings.itisRate));
     onDirtyChange(false);
   }, [settings, onDirtyChange]);
 
-  function updateDraft(nextName: string, nextAddress: string) {
+  function updateDraft(nextName: string, nextAddress: string, nextItisRate: string) {
     setBusinessName(nextName);
     setBusinessAddress(nextAddress);
+    setItisRate(nextItisRate);
+    const parsedItisRate = nextItisRate === "" ? null : Number(nextItisRate);
     onDirtyChange(
       nextName.trim() !== (settings?.businessName ?? "")
-      || nextAddress.trim() !== (settings?.businessAddress ?? ""),
+      || nextAddress.trim() !== (settings?.businessAddress ?? "")
+      || parsedItisRate !== (settings?.itisRate ?? null),
     );
   }
 
@@ -284,12 +295,20 @@ function BusinessDetailsCard({
     setNotice("");
     setNoticeError(false);
     try {
+      const parsedItisRate = Number(itisRate);
+      if (!Number.isInteger(parsedItisRate) || parsedItisRate < 0 || parsedItisRate > 100) {
+        setNotice(t("itisRateHelp"));
+        setNoticeError(true);
+        return;
+      }
       const saved = await saveAdminPayrollSettings({
         businessName,
         businessAddress,
+        itisRate: parsedItisRate,
       });
       setBusinessName(saved.businessName);
       setBusinessAddress(saved.businessAddress);
+      setItisRate(saved.itisRate == null ? "" : String(saved.itisRate));
       onSaved(saved);
       onDirtyChange(false);
       setNotice(t("businessDetailsSaved"));
@@ -316,11 +335,16 @@ function BusinessDetailsCard({
         <fieldset disabled={busy} className="contents">
         <label className="text-sm font-medium">
           {t("businessName")}
-          <input value={businessName} onChange={(event) => updateDraft(event.target.value, businessAddress)} required maxLength={160} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
+          <input value={businessName} onChange={(event) => updateDraft(event.target.value, businessAddress, itisRate)} required maxLength={160} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
         </label>
         <label className="text-sm font-medium">
           {t("businessAddress")}
-          <input value={businessAddress} onChange={(event) => updateDraft(businessName, event.target.value)} required maxLength={250} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
+          <input value={businessAddress} onChange={(event) => updateDraft(businessName, event.target.value, itisRate)} required maxLength={250} className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
+        </label>
+        <label className="text-sm font-medium">
+          {t("annualItisRate")}
+          <input type="number" min="0" max="100" step="1" value={itisRate} onChange={(event) => updateDraft(businessName, businessAddress, event.target.value)} required inputMode="numeric" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("annualItisRateHelp")}</span>
         </label>
         <div className="flex items-end">
           <button type="submit" disabled={busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60 md:w-auto">
@@ -342,12 +366,39 @@ function EmployeeProfilesCard({
   profiles,
   detailsBusy,
   onReveal,
+  onUpdated,
 }: {
   profiles: PayrollProfile[];
   detailsBusy: string | null;
   onReveal: (profile: PayrollProfile) => void;
+  onUpdated: (profile: PayrollProfile) => void;
 }) {
   const { t } = useI18n();
+  const [draftRates, setDraftRates] = useState<Record<string, string>>({});
+  const [savingUserId, setSavingUserId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<{ userId: string; message: string; error: boolean } | null>(null);
+
+  async function saveRate(profile: PayrollProfile) {
+    const rawRate = draftRates[profile.userId] ?? (profile.hourlyRate == null ? "" : String(profile.hourlyRate));
+    const rate = Number(rawRate);
+    if (!Number.isFinite(rate) || rate < 0.01 || rate > 10_000 || Math.abs(rate * 100 - Math.round(rate * 100)) > 1e-7) {
+      setNotice({ userId: profile.userId, message: t("hourlyRateValidation"), error: true });
+      return;
+    }
+    setSavingUserId(profile.userId);
+    setNotice(null);
+    try {
+      const updated = await saveAdminPayrollProfileCompensation(profile.userId, rate);
+      onUpdated(updated);
+      setDraftRates((current) => ({ ...current, [profile.userId]: String(updated.hourlyRate ?? rate) }));
+      setNotice({ userId: profile.userId, message: t("employeeRateSaved"), error: false });
+    } catch (error) {
+      setNotice({ userId: profile.userId, message: errorMessage(error, t("employeeRateSaveError")), error: true });
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
   return (
     <section className="rounded-3xl border border-border bg-card p-5 shadow-sm sm:p-7" aria-labelledby="salary-profiles-title">
       <div className="flex items-start justify-between gap-4">
@@ -362,10 +413,30 @@ function EmployeeProfilesCard({
         {profiles.map((profile) => (
           <article key={profile.userId} className="rounded-2xl border border-border bg-muted/25 p-4">
             <p className="font-semibold">{profile.displayName}</p>
-            <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${profile.isComplete ? "text-success" : "text-muted-foreground"}`}>
-              {profile.isComplete ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-              {profile.isComplete ? t("profileReady") : t("profileMissing")}
+            <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${profile.isComplete && profile.hourlyRate !== null ? "text-success" : "text-muted-foreground"}`}>
+              {profile.isComplete && profile.hourlyRate !== null ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              {!profile.isComplete ? t("profileMissing") : profile.hourlyRate === null ? t("profileRateMissing") : t("profileReady")}
             </p>
+            <label className="mt-3 block text-sm font-medium">
+              {t("editHourlyRate")}
+              <input
+                type="number"
+                min="0.01"
+                max="10000"
+                step="0.01"
+                value={draftRates[profile.userId] ?? (profile.hourlyRate == null ? "" : String(profile.hourlyRate))}
+                onChange={(event) => setDraftRates((current) => ({ ...current, [profile.userId]: event.target.value }))}
+                disabled={!profile.isComplete || savingUserId !== null}
+                className="mt-1.5 h-10 w-full rounded-xl border border-input bg-background px-3 font-mono"
+                inputMode="decimal"
+              />
+            </label>
+            {profile.isComplete && (
+              <button type="button" onClick={() => void saveRate(profile)} disabled={savingUserId !== null} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-60">
+                {savingUserId === profile.userId && <Loader2 className="h-4 w-4 animate-spin" />}{t("saveProfile")}
+              </button>
+            )}
+            {notice?.userId === profile.userId && <p role={notice.error ? "alert" : "status"} className={`mt-2 text-xs ${notice.error ? "text-destructive" : "text-muted-foreground"}`}>{notice.message}</p>}
             {profile.isComplete && (
               <button type="button" onClick={() => onReveal(profile)} disabled={detailsBusy !== null} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-border px-3 py-2 text-sm font-semibold hover:bg-muted disabled:opacity-60">
                 {detailsBusy === profile.userId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Eye className="h-4 w-4" />}{t("viewDetails")}
@@ -394,12 +465,6 @@ function SalaryAdviceCalculator({
   const [periodStart, setPeriodStart] = useState(currentWeekStart());
   const [payDate, setPayDate] = useState(periodEnd("weekly", currentWeekStart()));
   const [userId, setUserId] = useState("");
-  const [hourlyRate, setHourlyRate] = useState("");
-  const [itisRate, setItisRate] = useState("");
-  const [monthlySocialSecurityRate, setMonthlySocialSecurityRate] = useState<0 | 6 | null>(null);
-  const [weeklySocialSecurity, setWeeklySocialSecurity] = useState("");
-  const [yearToDateGross, setYearToDateGross] = useState("");
-  const [yearToDateTax, setYearToDateTax] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [downloaded, setDownloaded] = useState("");
@@ -420,12 +485,6 @@ function SalaryAdviceCalculator({
 
   function clearDocumentInputs() {
     documentRevision.current += 1;
-    setHourlyRate("");
-    setItisRate("");
-    setMonthlySocialSecurityRate(null);
-    setWeeklySocialSecurity("");
-    setYearToDateGross("");
-    setYearToDateTax("");
     setAdvice(null);
     setDownloaded("");
     setError("");
@@ -458,48 +517,9 @@ function SalaryAdviceCalculator({
     return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${start}T00:00:00Z`));
   }
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function calculate(downloadPdf: boolean): Promise<void> {
     setError("");
     setDownloaded("");
-    const rate = Number(hourlyRate);
-    if (!Number.isFinite(rate) || rate < 0.01 || rate > 10_000 || Math.abs(rate * 100 - Math.round(rate * 100)) > 1e-7) {
-      setError(t("hourlyRateValidation"));
-      return;
-    }
-    const confirmedItisRate = Number(itisRate);
-    if (!Number.isInteger(confirmedItisRate) || confirmedItisRate < 0 || confirmedItisRate > 100) {
-      setError(t("itisRateHelp"));
-      return;
-    }
-    const confirmedWeeklySocialSecurity = Number(weeklySocialSecurity);
-    if (
-      periodType === "weekly"
-      && (!Number.isFinite(confirmedWeeklySocialSecurity)
-        || confirmedWeeklySocialSecurity < 0
-        || Math.abs(confirmedWeeklySocialSecurity * 100 - Math.round(confirmedWeeklySocialSecurity * 100)) > 1e-7)
-    ) {
-      setError(t("weeklySocialSecurityHelp"));
-      return;
-    }
-    if (periodType === "monthly" && monthlySocialSecurityRate === null) {
-      setError(t("monthlySocialSecurityHelp"));
-      return;
-    }
-    const confirmedYearToDateGross = Number(yearToDateGross);
-    const confirmedYearToDateTax = Number(yearToDateTax);
-    if (
-      !Number.isFinite(confirmedYearToDateGross)
-      || !Number.isFinite(confirmedYearToDateTax)
-      || confirmedYearToDateGross < 0
-      || confirmedYearToDateTax < 0
-      || confirmedYearToDateTax > confirmedYearToDateGross
-      || Math.abs(confirmedYearToDateGross * 100 - Math.round(confirmedYearToDateGross * 100)) > 1e-7
-      || Math.abs(confirmedYearToDateTax * 100 - Math.round(confirmedYearToDateTax * 100)) > 1e-7
-    ) {
-      setError(t("totalsToDateHelp"));
-      return;
-    }
     const submittedRevision = documentRevision.current;
     setBusy(true);
     try {
@@ -508,19 +528,14 @@ function SalaryAdviceCalculator({
         periodType,
         periodStart,
         payDate,
-        hourlyRate: rate,
-        itisRate: confirmedItisRate,
-        ...(periodType === "weekly"
-          ? { weeklyWorkerSocialSecurity: confirmedWeeklySocialSecurity }
-          : { workerSocialSecurityRate: monthlySocialSecurityRate as 0 | 6 }),
-        yearToDateGrossTaxablePay: confirmedYearToDateGross,
-        yearToDateTaxPaid: confirmedYearToDateTax,
       });
       if (documentRevision.current !== submittedRevision) return;
-      const filename = await downloadSalaryAdvicePdf(result);
-      if (documentRevision.current !== submittedRevision) return;
       setAdvice(result);
-      setDownloaded(`${t("downloaded")}: ${filename}`);
+      if (downloadPdf) {
+        const filename = await downloadSalaryAdvicePdf(result);
+        if (documentRevision.current !== submittedRevision) return;
+        setDownloaded(`${t("downloaded")}: ${filename}`);
+      }
     } catch (caught) {
       setError(
         caught instanceof SalaryAdvicePdfError
@@ -530,6 +545,11 @@ function SalaryAdviceCalculator({
     } finally {
       setBusy(false);
     }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void calculate(true);
   }
 
   return (
@@ -544,7 +564,7 @@ function SalaryAdviceCalculator({
       </div>
       {!settingsReady && (
         <div role="alert" className="mt-5 rounded-2xl border border-warning/40 bg-warning/15 p-4 text-sm text-foreground">
-          <p>{t(settingsNeedSave ? "businessDetailsUnsaved" : "businessDetailsRequired")}</p>
+          <p>{t(settingsNeedSave ? "businessDetailsUnsaved" : "salaryConfigurationMissing")}</p>
           <button type="button" onClick={onOpenBusiness} className="mt-3 min-h-11 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted">
             {sectionCopy.business}
           </button>
@@ -591,55 +611,22 @@ function SalaryAdviceCalculator({
             <input type="date" value={payDate} min={periodStart} onChange={(event) => { setPayDate(event.target.value); markDocumentChanged(); }} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3" />
           </label>
           </section>
-          <section aria-labelledby="salary-amounts-group-title" className="grid gap-4 border-t border-border pt-5 md:grid-cols-2 xl:grid-cols-3">
+          <section aria-labelledby="salary-automatic-group-title" className="grid gap-4 border-t border-border pt-5 md:grid-cols-2 xl:grid-cols-3">
           <div className="md:col-span-2 xl:col-span-3">
-            <h3 id="salary-amounts-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.confirmedAmounts}</h3>
+            <h3 id="salary-automatic-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.confirmedAmounts}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{t("automaticCalculationHelp")}</p>
           </div>
-          <label className="text-sm font-medium">
-            {t("hourlyRateAdvice")}
-            <input type="number" min="0.01" max="10000" step="0.01" value={hourlyRate} onChange={(event) => { setHourlyRate(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-            <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("hourlyRateHelp")}</span>
-          </label>
-          <label className="text-sm font-medium">
-            {t("itisRateAdvice")}
-            <input type="number" min="0" max="100" step="1" value={itisRate} onChange={(event) => { setItisRate(event.target.value); markDocumentChanged(); }} required inputMode="numeric" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-            <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("itisRateHelp")}</span>
-          </label>
-          {periodType === "monthly" ? (
-            <fieldset>
-              <legend className="text-sm font-medium">{t("monthlySocialSecurityStatus")}</legend>
-              <div className="mt-1.5 grid grid-cols-2 rounded-xl border border-input bg-muted/30 p-1">
-                {([6, 0] as const).map((rate) => (
-                  <button key={rate} type="button" onClick={() => { setMonthlySocialSecurityRate(rate); markDocumentChanged(); }} aria-pressed={monthlySocialSecurityRate === rate} className={`min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors ${monthlySocialSecurityRate === rate ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-                    {rate === 6 ? t("socialSecurityStandard") : t("socialSecurityExempt")}
-                  </button>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("monthlySocialSecurityHelp")}</p>
-            </fieldset>
-          ) : (
-            <label className="text-sm font-medium">
-              {t("weeklySocialSecurityAmount")}
-              <input type="number" min="0" step="0.01" value={weeklySocialSecurity} onChange={(event) => { setWeeklySocialSecurity(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-              <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("weeklySocialSecurityHelp")}</span>
-            </label>
-          )}
-          </section>
-          <section aria-labelledby="salary-totals-group-title" className="grid gap-4 border-t border-border pt-5 md:grid-cols-2 xl:grid-cols-3">
-          <div className="md:col-span-2 xl:col-span-3">
-            <h3 id="salary-totals-group-title" className="text-sm font-semibold text-foreground">{sectionCopy.totalsDownload}</h3>
+          <div className="rounded-2xl border border-border bg-muted/25 p-4 text-sm md:col-span-2 xl:col-span-3">
+            <p className="font-semibold">{t("socialSecurityStandard")}</p>
           </div>
-          <label className="text-sm font-medium">
-            {t("yearToDateGross")}
-            <input type="number" min="0" step="0.01" value={yearToDateGross} onChange={(event) => { setYearToDateGross(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-          </label>
-          <label className="text-sm font-medium">
-            {t("yearToDateTax")}
-            <input type="number" min="0" step="0.01" value={yearToDateTax} onChange={(event) => { setYearToDateTax(event.target.value); markDocumentChanged(); }} required inputMode="decimal" className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono" />
-            <span className="mt-1 block text-xs font-normal text-muted-foreground">{t("totalsToDateHelp")}</span>
-          </label>
-          <div className="flex items-end">
-            <button type="submit" disabled={!settingsReady} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60">
+          <div className="flex items-end md:col-span-2 xl:col-span-3">
+            <button type="button" onClick={() => void calculate(false)} disabled={!settingsReady || busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-brand bg-background px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-brand/10 disabled:opacity-60">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+              {busy ? t("checkingSavedHours") : t("checkSavedHours")}
+            </button>
+          </div>
+          <div className="flex items-end md:col-span-2 xl:col-span-3">
+            <button type="submit" disabled={!settingsReady || busy} className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
               {busy ? t("calculating") : t("calculateDownload")}
             </button>
@@ -738,6 +725,7 @@ function EmployeeDetailsDialog({ details, onClose }: { details: PayrollProfileDe
           {[
             [t("employee"), details.legalName],
             [t("employeeNumber"), details.employeeNumber],
+            [t("editHourlyRate"), details.hourlyRate == null ? "—" : money(details.hourlyRate)],
             [t("taxReference"), details.taxReference],
             [t("socialReference"), details.socialReference],
           ].map(([label, value]) => <div key={label} className="rounded-2xl border border-border bg-muted/25 p-3"><dt className="text-xs font-semibold text-muted-foreground">{label}</dt><dd className="mt-1 break-words font-mono text-sm">{value ?? "—"}</dd></div>)}

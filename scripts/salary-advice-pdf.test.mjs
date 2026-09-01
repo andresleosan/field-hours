@@ -139,23 +139,16 @@ test("Salary Advice is a deterministic one-page A4 landscape PDF", async () => {
   await renderedDocument.destroy();
 });
 
-test("weekly PDF identifies Social Security as confirmed and never invents a rate", async () => {
+test("weekly PDF identifies the fixed Social Security rate", async () => {
   const weekly = {
     ...advice,
     period: { type: "weekly", start: "2026-08-24", end: "2026-08-30", payDate: "2026-08-30" },
-    deductions: {
-      ...advice.deductions,
-      workerSocialSecurityRate: null,
-      workerSocialSecuritySource: "operator_confirmed_weekly",
-    },
-    warnings: ["WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED"],
   };
   const bytes = await createSalaryAdvicePdf(weekly, pdfFonts);
   const { renderedDocument, text: extractedText } = await extractPdfText(bytes);
-  assert.match(extractedText, /Employee Social Security \(confirmed\)/);
-  assert.match(extractedText, /running calendar-month record/);
+  assert.match(extractedText, /Employee Social Security 6\.00%/);
   assert.match(extractedText, /ESTIMATE/);
-  assert.doesNotMatch(extractedText, /Employee Social Security 6/);
+  assert.doesNotMatch(extractedText, /Employee Social Security \(confirmed\)|running calendar-month record/i);
   await renderedDocument.destroy();
 });
 

@@ -24,6 +24,7 @@ import {
   getWorkerPayrollProfile,
   listAdminPayrollProfiles,
   revealAdminPayrollProfile,
+  saveAdminPayrollProfileCompensation,
   saveWorkerPayrollProfile,
 } from "./payrollProfiles";
 import { getWorkerPayrollSummary } from "./payrollSummary";
@@ -205,6 +206,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       await readJson<{
         businessName?: unknown;
         businessAddress?: unknown;
+        itisRate?: unknown;
         [key: string]: unknown;
       }>(request),
     ));
@@ -222,12 +224,6 @@ async function route(request: Request, env: Env): Promise<Response> {
         periodType?: unknown;
         periodStart?: unknown;
         payDate?: unknown;
-        hourlyRate?: unknown;
-        itisRate?: unknown;
-        workerSocialSecurityRate?: unknown;
-        weeklyWorkerSocialSecurity?: unknown;
-        yearToDateGrossTaxablePay?: unknown;
-        yearToDateTaxPaid?: unknown;
         [key: string]: unknown;
       }>(request),
     ));
@@ -240,6 +236,19 @@ async function route(request: Request, env: Env): Promise<Response> {
     const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
     await enforcePayrollRateLimit(env, auth, "profile_reveal");
     return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
+  }
+
+  const payrollCompensationMatch = path.match(/^\/api\/admin\/payroll-profiles\/([^/]+)\/compensation$/);
+  if (payrollCompensationMatch && request.method === "POST") {
+    const auth = await getAuth(request, env);
+    await assertCsrf(request, auth);
+    const userId = decodeURIComponent(payrollCompensationMatch[1] ?? "");
+    return json(request, env, await saveAdminPayrollProfileCompensation(
+      env,
+      auth,
+      userId,
+      await readJson<{ hourlyRate?: unknown; [key: string]: unknown }>(request),
+    ));
   }
 
   if (request.method === "GET" && path === "/api/admin/password-reset-requests") {

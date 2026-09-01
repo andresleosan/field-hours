@@ -6,8 +6,6 @@ import { aggregateCompletedShifts } from "./shiftMetrics";
 import type { AuthContext } from "./types";
 
 const RULES_YEAR = 2026;
-const MONTHLY_MINIMUM_EARNINGS_PENCE = 61_800;
-const MONTHLY_STANDARD_EARNINGS_LIMIT_PENCE = 606_200;
 
 export type SalaryAdvicePeriodType = "weekly" | "monthly";
 export type SalaryAdviceWarningCode = "WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED";
@@ -40,13 +38,13 @@ export interface SalaryAdvice {
     incomeTax: number;
     workerSocialSecurityRate: number | null;
     workerSocialSecurity: number;
-    workerSocialSecuritySource: "calculated_monthly" | "operator_confirmed_weekly";
+    workerSocialSecuritySource: "calculated_from_saved_hours";
     total: number;
   };
   totalsToDate: {
     grossTaxablePay: number;
     taxPaid: number;
-    source: "operator_confirmed";
+    source: "calculated_from_saved_hours";
   };
   grossTaxablePay: number;
   netPay: number;
@@ -114,42 +112,6 @@ export function parseSalaryAdvicePeriod(
   return { type: periodType, start, end, payDate };
 }
 
-function parseHourlyRate(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0.01 || value > 10_000) {
-    throw new ApiError(400, "INVALID_INPUT", "Hourly rate must be between £0.01 and £10,000 for this advice.");
-  }
-  const pence = Math.round(value * 100);
-  if (Math.abs(value * 100 - pence) > 1e-7) {
-    throw new ApiError(400, "INVALID_INPUT", "Hourly rate can have at most two decimal places.");
-  }
-  return pence;
-}
-
-function parseMoneyPence(value: unknown, field: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 10_000_000) {
-    throw new ApiError(400, "INVALID_INPUT", `${field} must be a non-negative GBP amount.`);
-  }
-  const pence = Math.round(value * 100);
-  if (Math.abs(value * 100 - pence) > 1e-7) {
-    throw new ApiError(400, "INVALID_INPUT", `${field} can have at most two decimal places.`);
-  }
-  return pence;
-}
-
-function parseItisRate(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || !Number.isInteger(value) || value < 0 || value > 100) {
-    throw new ApiError(400, "INVALID_INPUT", "ITIS rate must be a whole percentage from the employee's current notice.");
-  }
-  return value * 100;
-}
-
-function parseMonthlyWorkerSocialSecurityRate(value: unknown): number {
-  if (value !== 0 && value !== 6) {
-    throw new ApiError(400, "INVALID_INPUT", "Monthly worker Social Security must be 6% standard or 0% exempt.");
-  }
-  return value * 100;
-}
-
 function money(pence: number): number {
   return Number((pence / 100).toFixed(2));
 }
@@ -158,14 +120,8 @@ function percentage(basisPoints: number): number {
   return Number((basisPoints / 100).toFixed(2));
 }
 
-export function calculateMonthlyWorkerSocialSecurity(
-  grossPence: number,
-  workerRateBps: number,
-): number {
-  const roundedGross = Math.floor(grossPence / 100) * 100;
-  if (roundedGross < MONTHLY_MINIMUM_EARNINGS_PENCE) return 0;
-  const contributionBase = Math.min(roundedGross, MONTHLY_STANDARD_EARNINGS_LIMIT_PENCE);
-  return Math.round(contributionBase * workerRateBps / 10_000);
+export function calculateMonthlyWorkerSocialSecurity(grossPence: number): number {
+  return Math.max(0, Math.round(grossPence * 600 / 10_000));
 }
 
 export async function calculateAdminSalaryAdvice(
@@ -176,12 +132,6 @@ export async function calculateAdminSalaryAdvice(
     periodType?: unknown;
     periodStart?: unknown;
     payDate?: unknown;
-    hourlyRate?: unknown;
-    itisRate?: unknown;
-    workerSocialSecurityRate?: unknown;
-    weeklyWorkerSocialSecurity?: unknown;
-    yearToDateGrossTaxablePay?: unknown;
-    yearToDateTaxPaid?: unknown;
     [key: string]: unknown;
   },
 ): Promise<SalaryAdvice> {
@@ -191,12 +141,6 @@ export async function calculateAdminSalaryAdvice(
     "periodType",
     "periodStart",
     "payDate",
-    "hourlyRate",
-    "itisRate",
-    "workerSocialSecurityRate",
-    "weeklyWorkerSocialSecurity",
-    "yearToDateGrossTaxablePay",
-    "yearToDateTaxPaid",
   ]);
   const unsupportedFields = Object.keys(body).filter((key) => !allowedFields.has(key));
   if (unsupportedFields.length > 0) {
@@ -205,39 +149,29 @@ export async function calculateAdminSalaryAdvice(
 
   const userId = requireString(body.userId, "Worker", 1, 120);
   const period = parseSalaryAdvicePeriod(body.periodType, body.periodStart, body.payDate);
-  const hourlyRatePence = parseHourlyRate(body.hourlyRate);
-  const itisRateBps = parseItisRate(body.itisRate);
-  const yearToDateGrossPence = parseMoneyPence(body.yearToDateGrossTaxablePay, "Gross taxable pay to date");
-  const yearToDateTaxPence = parseMoneyPence(body.yearToDateTaxPaid, "Tax paid to date");
-  if (yearToDateTaxPence > yearToDateGrossPence) {
-    throw new ApiError(400, "INVALID_TOTALS_TO_DATE", "Tax paid to date cannot exceed gross taxable pay to date.");
-  }
-  let monthlyWorkerRateBps: number | null = null;
-  let confirmedWeeklySocialSecurityPence: number | null = null;
-  if (period.type === "monthly") {
-    monthlyWorkerRateBps = parseMonthlyWorkerSocialSecurityRate(body.workerSocialSecurityRate);
-    if (body.weeklyWorkerSocialSecurity !== undefined) {
-      throw new ApiError(400, "INVALID_INPUT", "Weekly Social Security must not be sent for a monthly Salary Advice.");
-    }
-  } else {
-    confirmedWeeklySocialSecurityPence = parseMoneyPence(
-      body.weeklyWorkerSocialSecurity,
-      "Confirmed weekly worker Social Security",
-    );
-    if (body.workerSocialSecurityRate !== undefined) {
-      throw new ApiError(400, "INVALID_INPUT", "A monthly Social Security rate must not be sent for a weekly Salary Advice.");
-    }
-  }
   const [settings, identity, metrics] = await Promise.all([
     getSalaryAdviceSettings(env, auth.user.organizationId),
     getAdminPayrollPayslipIdentity(env, auth, userId),
     aggregateCompletedShifts(env, auth.user.organizationId, userId, period.start, period.end),
   ]);
+  const yearStart = `${period.start.slice(0, 4)}-01-01`;
+  const yearToDateMetrics = await aggregateCompletedShifts(
+    env,
+    auth.user.organizationId,
+    userId,
+    yearStart,
+    period.end,
+  );
+
+  if (identity.hourlyRatePence === null) {
+    throw new ApiError(409, "PAYROLL_PROFILE_INCOMPLETE", "Assign an hourly rate to this worker before calculating a Salary Advice.");
+  }
+  const hourlyRatePence = identity.hourlyRatePence;
+  const itisRateBps = Math.round(settings.itisRate * 100);
 
   const grossPence = Math.max(0, Math.round(metrics.minutes * hourlyRatePence / 60));
-  const workerSocialSecurityPence = period.type === "monthly"
-    ? calculateMonthlyWorkerSocialSecurity(grossPence, monthlyWorkerRateBps ?? 0)
-    : confirmedWeeklySocialSecurityPence ?? 0;
+  const yearToDateGrossPence = Math.max(0, Math.round(yearToDateMetrics.minutes * hourlyRatePence / 60));
+  const workerSocialSecurityPence = calculateMonthlyWorkerSocialSecurity(grossPence);
   if (workerSocialSecurityPence > grossPence) {
     throw new ApiError(400, "INVALID_INPUT", "Worker Social Security cannot exceed gross pay for this Salary Advice.");
   }
@@ -246,17 +180,9 @@ export async function calculateAdminSalaryAdvice(
   if (deductionPence > grossPence) {
     throw new ApiError(409, "DEDUCTIONS_EXCEED_GROSS", "Confirmed deductions exceed gross pay for this Salary Advice.");
   }
-  if (yearToDateGrossPence < grossPence || yearToDateTaxPence < incomeTaxPence) {
-    throw new ApiError(
-      400,
-      "INVALID_TOTALS_TO_DATE",
-      "Confirmed totals to date must include this Salary Advice and tax paid cannot exceed gross taxable pay.",
-    );
-  }
+  const yearToDateTaxPence = Math.max(0, Math.round(yearToDateGrossPence * itisRateBps / 10_000));
   const netPence = grossPence - deductionPence;
-  const warnings = period.type === "weekly"
-    ? ["WEEKLY_SOCIAL_SECURITY_RECONCILIATION_REQUIRED" as const]
-    : [];
+  const warnings: SalaryAdviceWarningCode[] = [];
 
   await env.DB.prepare(
     `INSERT INTO workforce_audit_events
@@ -271,9 +197,10 @@ export async function calculateAdminSalaryAdvice(
       periodStart: period.start,
       periodEnd: period.end,
       shiftCount: metrics.shifts,
-      weeklySocialSecurityConfirmed: period.type === "weekly",
-      totalsToDateConfirmed: true,
-      itisRateConfirmed: true,
+      yearToDateShiftCount: yearToDateMetrics.shifts,
+      calculationSource: "saved_profile_and_completed_shifts",
+      socialSecurityRate: 6,
+      itisRateYear: settings.itisRateYear,
     }),
   ).run();
 
@@ -303,15 +230,15 @@ export async function calculateAdminSalaryAdvice(
     deductions: {
       itisRate: percentage(itisRateBps),
       incomeTax: money(incomeTaxPence),
-      workerSocialSecurityRate: monthlyWorkerRateBps === null ? null : percentage(monthlyWorkerRateBps),
+      workerSocialSecurityRate: 6,
       workerSocialSecurity: money(workerSocialSecurityPence),
-      workerSocialSecuritySource: period.type === "weekly" ? "operator_confirmed_weekly" : "calculated_monthly",
+      workerSocialSecuritySource: "calculated_from_saved_hours",
       total: money(deductionPence),
     },
     totalsToDate: {
       grossTaxablePay: money(yearToDateGrossPence),
       taxPaid: money(yearToDateTaxPence),
-      source: "operator_confirmed",
+      source: "calculated_from_saved_hours",
     },
     grossTaxablePay: money(grossPence),
     netPay: money(netPence),

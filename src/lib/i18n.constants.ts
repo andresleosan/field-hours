@@ -140,6 +140,16 @@ export interface Translations {
   sensitiveEncrypted: string;
   saveProfile: string;
   updateProfile: string;
+  checkSavedHours: string;
+  checkingSavedHours: string;
+  automaticCalculationHelp: string;
+  salaryConfigurationMissing: string;
+  profileRateMissing: string;
+  employeeRateSaved: string;
+  employeeRateSaveError: string;
+  annualItisRate: string;
+  annualItisRateHelp: string;
+  editHourlyRate: string;
 
   // Auth & Onboarding
   secureAccess: string;
@@ -456,6 +466,16 @@ export const translations: Record<Language, Translations> = {
     sensitiveEncrypted: "Los identificadores sensibles están cifrados y solo se muestran cuando hacen falta para el documento.",
     saveProfile: "Guardar perfil",
     updateProfile: "Actualizar perfil",
+    checkSavedHours: "Consultar horas guardadas",
+    checkingSavedHours: "Consultando horas guardadas…",
+    automaticCalculationHelp: "La tarifa del perfil, ITIS anual y Social Security del 6% se calculan con los datos guardados y las horas completadas, incluidos los ajustes del administrador.",
+    salaryConfigurationMissing: "Configura la tarifa del empleado y el ITIS anual antes de calcular.",
+    profileRateMissing: "Falta asignar la tarifa horaria",
+    employeeRateSaved: "Tarifa del empleado guardada.",
+    employeeRateSaveError: "No se pudo guardar la tarifa del empleado.",
+    annualItisRate: "ITIS anual (%)",
+    annualItisRateHelp: "Porcentaje fijo para el año de reglas; solo el administrador puede modificarlo.",
+    editHourlyRate: "Tarifa horaria del empleado (£)",
 
     secureAccess: "Acceso seguro",
     welcomeBack: "Bienvenido de nuevo",
@@ -765,6 +785,16 @@ export const translations: Record<Language, Translations> = {
     sensitiveEncrypted: "Sensitive identifiers are encrypted and shown only when needed for the document.",
     saveProfile: "Save profile",
     updateProfile: "Update profile",
+    checkSavedHours: "Check saved hours",
+    checkingSavedHours: "Checking saved hours…",
+    automaticCalculationHelp: "The profile rate, annual ITIS and fixed 6% Social Security are calculated from saved data and completed shifts, including administrator adjustments.",
+    salaryConfigurationMissing: "Set the employee rate and annual ITIS before calculating.",
+    profileRateMissing: "Hourly rate still needs to be assigned",
+    employeeRateSaved: "Employee rate saved.",
+    employeeRateSaveError: "The employee rate could not be saved.",
+    annualItisRate: "Annual ITIS (%)",
+    annualItisRateHelp: "Fixed percentage for the rules year; only an administrator can change it.",
+    editHourlyRate: "Employee hourly rate (£)",
 
     secureAccess: "Secure access",
     welcomeBack: "Welcome back",
@@ -1074,6 +1104,16 @@ export const translations: Record<Language, Translations> = {
     sensitiveEncrypted: "Os identificadores sensíveis são criptografados e exibidos somente quando necessários para o documento.",
     saveProfile: "Salvar perfil",
     updateProfile: "Atualizar perfil",
+    checkSavedHours: "Consultar horas guardadas",
+    checkingSavedHours: "A consultar horas guardadas…",
+    automaticCalculationHelp: "A tarifa do perfil, o ITIS anual e a Segurança Social fixa de 6% são calculados com os dados guardados e os turnos concluídos, incluindo ajustes do administrador.",
+    salaryConfigurationMissing: "Configure a tarifa do funcionário e o ITIS anual antes de calcular.",
+    profileRateMissing: "Falta atribuir a tarifa horária",
+    employeeRateSaved: "Tarifa do funcionário guardada.",
+    employeeRateSaveError: "Não foi possível guardar a tarifa do funcionário.",
+    annualItisRate: "ITIS anual (%)",
+    annualItisRateHelp: "Percentagem fixa para o ano das regras; só o administrador pode alterá-la.",
+    editHourlyRate: "Tarifa horária do funcionário (£)",
 
     secureAccess: "Acesso seguro",
     welcomeBack: "Bem-vindo de volta",

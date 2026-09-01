@@ -73,6 +73,12 @@ La siguiente prioridad preventiva es preparar las reglas Jersey 2027 sin modific
 - Riesgos altos de dependencias remediados o aceptados explícitamente con mitigaciones.
 - Evidencia y rollback documentados antes de cualquier cambio en producción.
 
+## Adenda vigente — Salary Advice automatico (31 de agosto de 2026)
+
+El administrador asigna la tarifa horaria en el perfil de cada empleado y puede actualizarla. La tasa ITIS se guarda como configuracion anual de la organizacion y tambien puede actualizarla el administrador. El sistema calcula el Salary Advice consultando las horas completadas guardadas en D1, incluyendo cambios administrativos, aplica siempre Social Security del 6% y muestra bruto, ITIS, Seguridad Social, deducciones y neto. El boton `Consultar horas guardadas` aparece debajo de la fecha de pago y usa el mismo calculo que la descarga PDF.
+
+Los importes manuales de tarifa, ITIS, Seguridad Social y acumulados ya no forman parte del contrato activo. El documento sigue siendo informativo y no inicia pagos.
+
 ## Estado de este documento
 
 Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. La Fase 9 móvil quedó desplegada y verificada en producción el 31 de agosto de 2026, sin cambios de Worker, D1, cálculo o PDF. El único backlog funcional planificado es la renovación anual Jersey 2027, que permanece pendiente y fail-closed hasta completar su evidencia oficial y técnica.
