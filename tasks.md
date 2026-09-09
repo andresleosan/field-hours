@@ -223,3 +223,22 @@ Objetivo: dar mayor flexibilidad a los trabajadores durante su jornada, mantenie
 - [x] **Tarea B.5 (QA)**: E2E 5/5: dos breaks (10 y 25 min), dos shifts el mismo día, total de 1h 25m, historial, GPS, contrato sin foto, CSRF y viewport 390x844 sin overflow. Smoke productivo aprobado después de `0009`: esquema/índices correctos, health directo/proxy HTTP 200, rutas nuevas protegidas y bundle publicado.
 
 > Desplegado el 25 de agosto de 2026 con D1 `0009`, Worker `6a65af24-a8c2-4301-9276-9ac8aff12eba` y Vercel `dpl_AixYHr6JEu5RTYTNLXeX65PN3hUL`; rollback y recuperación documentados en `docs/RELEASE-2026-08-25-payroll-worker-flexibility.md`.
+
+## Corrección de historial y filtros (2026-09-09)
+
+- [x] Corregir carga y guardado de horas en la zona de la organización, conservando instantes sin cambios.
+- [x] Adaptar el diálogo a móviles con día/hora separados, foco, scroll y controles táctiles.
+- [x] Añadir Select Period con inicio/fin inclusivos y conservar filtros existentes.
+- [x] Verificar regresiones horarias, filtrado, móvil y compilación con datos sintéticos.
+
+### Evidencia local y revisión
+
+Estado: implementado y verificado en el alcance solicitado. Publicación en GitHub y producción autorizada por el operador el 2026-09-09. Intento bloqueado: GitHub devuelve 403 para la cuenta Luismadef45 y Vercel solo permite el equipo luismadef45s-projects, sin acceso al proyecto de andres-leo-san-s-projects. Pendiente subir a main con una cuenta autorizada para activar la integración existente de Vercel. Referencia anterior para rollback: commit 729f68e, deployments 5p8z5hHty2AzVh2HRS27VmFvYVbZ (field-hours) y G76kRQXwsm8LDNJ8Aphiv8Zzwjdi (fieldhours).
+
+- `npm run typecheck`, `npm run lint`, `npm run build`: aprobados. Build conserva el aviso existente de bundles mayores de 500 kB.
+- `npm run test:worker`: 39/39.
+- `npm run test:e2e -- --config=qa/reports/local-browser.config.ts e2e/admin-shift-management.spec.ts e2e/shift-date-time.spec.ts`: 8/8.
+- `npm run test:e2e -- --config=qa/reports/local-browser.config.ts`: 51/52. El fallo de `worker clock action stays fully above the bottom navigation at 320x568` se reprodujo con el mismo resultado en el commit original `729f68e`, en `/tmp/field-hours-baseline-6iwzodim`: borde del selector 449.5 px frente al máximo esperado 436 px. Pertenece a la pantalla de fichaje del trabajador y queda fuera de esta corrección.
+- Chromium local build 1228 con configuración temporal ignorada por Git; la descarga de Chromium 1200 quedó detenida al atascarse. Vídeo deshabilitado solo en la configuración temporal; capturas y trazas conservadas. No se afirma validación física en iPhone/Android ni en WebKit/Firefox.
+- Capturas revisadas en `qa/reports/playwright-artifacts/`: diálogo a 320×568 y 390×844, interacción en horizontal 844×390, filtros de periodo en móvil. Controles de al menos 44 px y texto de entrada de 16 px; scroll, Escape y retorno de foco comprobados.
+- Revisión del cambio: reutiliza el API autorizado con CSRF y auditoría, sin cambios de permisos, base de datos o dependencias. Las fechas se convierten en la zona de la organización; los valores sin editar conservan segundos e instante, los horarios inexistentes y rangos invertidos se rechazan, y las respuestas antiguas no sustituyen el último filtro.

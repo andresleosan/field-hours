@@ -82,3 +82,7 @@ Los importes manuales de tarifa, ITIS, Seguridad Social y acumulados ya no forma
 ## Estado de este documento
 
 Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión sustituye como alcance vigente las decisiones erróneas de preview global, review/approve payroll, tarifa organizacional y “payment ready” que todavía puedan aparecer en notas históricas. La Fase 9 móvil quedó desplegada y verificada en producción el 31 de agosto de 2026, sin cambios de Worker, D1, cálculo o PDF. El único backlog funcional planificado es la renovación anual Jersey 2027, que permanece pendiente y fail-closed hasta completar su evidencia oficial y técnica.
+
+## Ajuste solicitado: historial y periodos (2026-09-09)
+
+Corregir la diferencia horaria al editar jornadas; mejorar fecha, hora y espaciado del diálogo en móvil; conservar filtros existentes y añadir Select Period con inicio y fin inclusivos.

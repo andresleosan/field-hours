@@ -140,6 +140,7 @@ export async function installAdminApi(
   context: BrowserContext,
   options: {
     denseData?: boolean;
+    filterHistory?: boolean;
     language?: MockLanguage;
     salaryAdviceError?: boolean;
     salaryAdviceDelayMs?: number;
@@ -289,7 +290,25 @@ export async function installAdminApi(
     if (method === "GET" && path === "/api/session") return json(route, { user: sessionUser("admin") });
     if (method === "GET" && path === "/api/admin/today") return json(route, adminPeople);
     if (method === "GET" && path === "/api/projects") return json(route, adminProjects);
-    if (method === "GET" && path === "/api/admin/shifts/history") return json(route, adminHistory);
+    if (method === "GET" && path === "/api/admin/shifts/history") {
+      const query = new URL(route.request().url()).searchParams;
+      return json(route, options.filterHistory ? adminHistory.filter((record) =>
+        (!query.get("start_date") || String(record.work_date) >= query.get("start_date")!) &&
+        (!query.get("end_date") || String(record.work_date) <= query.get("end_date")!) &&
+        (!query.get("user_id") || record.user_id === query.get("user_id")) &&
+        (!query.get("project_id") || record.project_id === query.get("project_id"))
+      ) : adminHistory);
+    }
+    if (method === "POST" && path === "/api/admin/shifts/adjust") {
+      if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
+      const input = body as { shiftId: string; clockInAt: string; clockOutAt: string; reason: string };
+      const record = adminHistory.find((item) => item.id === input.shiftId);
+      if (!record || !input.reason.trim() || Date.parse(input.clockOutAt) <= Date.parse(input.clockInAt)) {
+        return json(route, { error: "Invalid adjustment" }, 400);
+      }
+      Object.assign(record, { clock_in_at: input.clockInAt, clock_out_at: input.clockOutAt });
+      return json(route, { ok: true, shiftId: input.shiftId });
+    }
     if (method === "GET" && path === "/api/admin/auth-requests") return json(route, options.denseData ? denseGoogleRequests : []);
     if (method === "GET" && path === "/api/admin/password-reset-requests") return json(route, options.denseData ? densePasswordRequests : []);
     if (method === "GET" && path === "/api/admin/request-history") return json(route, options.denseData ? denseRequestHistory : []);

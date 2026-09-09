@@ -249,6 +249,14 @@ export interface Translations {
   // History & Reports
   reportsTitle: string;
   periodFilter: string;
+  periodCustom: string;
+  periodStart: string;
+  periodEnd: string;
+  periodInvalid: string;
+  shiftDateLabel: string;
+  shiftTimeLabel: string;
+  shiftTimeInvalid: string;
+  shiftTimeOrder: string;
   workerFilter: string;
   projectFilter: string;
   filters: string;
@@ -570,6 +578,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Historial de Turnos y Reportes",
     periodFilter: "Período",
+    periodCustom: "Seleccionar período",
+    periodStart: "Fecha inicial",
+    periodEnd: "Fecha final",
+    periodInvalid: "La fecha final debe ser igual o posterior a la inicial.",
+    shiftDateLabel: "Día",
+    shiftTimeLabel: "Hora",
+    shiftTimeInvalid: "Selecciona una fecha y hora válidas en la zona indicada. Esa hora puede no existir por el cambio horario.",
+    shiftTimeOrder: "La salida debe ser posterior a la entrada.",
     workerFilter: "Trabajador",
     projectFilter: "Proyecto / Obra",
     filters: "Filtros",
@@ -888,6 +904,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Shift History & Reports",
     periodFilter: "Period",
+    periodCustom: "Select Period",
+    periodStart: "Start date",
+    periodEnd: "End date",
+    periodInvalid: "End date must be on or after start date.",
+    shiftDateLabel: "Date",
+    shiftTimeLabel: "Time",
+    shiftTimeInvalid: "Choose a valid date and time in the displayed timezone. This time may not exist due to a clock change.",
+    shiftTimeOrder: "Clock-out time must be after clock-in time.",
     workerFilter: "Worker",
     projectFilter: "Project / Site",
     filters: "Filters",
@@ -1206,6 +1230,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Histórico de Turnos e Relatórios",
     periodFilter: "Período",
+    periodCustom: "Selecionar período",
+    periodStart: "Data inicial",
+    periodEnd: "Data final",
+    periodInvalid: "A data final deve ser igual ou posterior à inicial.",
+    shiftDateLabel: "Dia",
+    shiftTimeLabel: "Hora",
+    shiftTimeInvalid: "Selecione uma data e hora válidas no fuso indicado. Essa hora pode não existir devido à mudança de horário.",
+    shiftTimeOrder: "A saída deve ser posterior à entrada.",
     workerFilter: "Funcionário",
     projectFilter: "Projeto / Obra",
     filters: "Filtros",

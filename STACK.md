@@ -123,3 +123,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 ## Estado de este documento
 
 Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo review/approve payroll, preview global automático y configuración empresarial inferida. La Fase 8 cerró con gate reproducible, autocrítica, Graphify, D1 `0010`, Worker y frontend verificados. La Fase 9 móvil quedó desplegada y verificada el 31 de agosto de 2026 en Vercel `dpl_9CU4g1SLMnk1sFanSxaTBSBAAqvY`; el Worker permaneció en `6c551bca-3a7c-4a98-a019-23538c9e379f` y no se alteraron backend, D1, cálculo o PDF. Evidencia y rollback: `docs/RELEASE-2026-08-31-mobile-workforce.md`. El siguiente cambio funcional planificado es el ruleset Jersey 2027, todavía pendiente y sin cifras inferidas.
+
+## Historial: decisiones de implementación (2026-09-09)
+
+Mantener React/TypeScript, controles nativos y el contrato start_date/end_date existente. Mostrar y convertir ajustes en la zona de la organización usando Intl; conservar timestamps originales cuando no se editan. Validar fechas inexistentes por cambio horario y orden de entrada/salida. Verificación con Playwright y datos sintéticos.
