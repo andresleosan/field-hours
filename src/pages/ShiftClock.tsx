@@ -2068,6 +2068,21 @@ function ProjectEditModal({
   );
 }
 
+function BreakDurationFields({ hours, minutes, onHours, onMinutes }: {
+  hours: string; minutes: string; onHours: (value: string) => void; onMinutes: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const style = "mt-1.5 block min-h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  return <fieldset className="min-w-0">
+    <legend className="text-sm font-semibold">{t("breakTime")}</legend>
+    <p className="mt-1 text-sm text-muted-foreground">{t("breakDurationHelp")}</p>
+    <div className="mt-2 grid grid-cols-2 gap-3">
+      <label className="min-w-0 text-sm">{t("breakHours")}<input type="number" inputMode="numeric" min="0" step="1" required value={hours} onChange={e => onHours(e.target.value)} className={style} /></label>
+      <label className="min-w-0 text-sm">{t("breakMinutesLabel")}<input type="number" inputMode="numeric" min="0" max="59" step="1" required value={minutes} onChange={e => onMinutes(e.target.value)} className={style} /></label>
+    </div>
+  </fieldset>;
+}
+
 function CreateAdminShiftModal({
   workers,
   projects,
@@ -2091,6 +2106,8 @@ function CreateAdminShiftModal({
   const [clockIn, setClockIn] = useState(() => localDateTime(8));
   const [clockOut, setClockOut] = useState(() => localDateTime(17));
   const [description, setDescription] = useState("");
+  const [breakHours, setBreakHours] = useState("0");
+  const [breakRemainder, setBreakRemainder] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useModalFocus(onClose);
@@ -2112,10 +2129,16 @@ function CreateAdminShiftModal({
       return;
     }
 
+    const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
+    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / 60000)) {
+      setError(t("breakDurationInvalid"));
+      return;
+    }
     setError("");
     setBusy(true);
     try {
       await createAdminShift({
+        breakMinutes,
         userId: workerId,
         projectId: projectId || undefined,
         clockInAt: clockInAt.toISOString(),
@@ -2178,6 +2201,8 @@ function CreateAdminShiftModal({
             {t("clockOutTime")}
             <input type="datetime-local" value={clockOut} onChange={(event) => setClockOut(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </label>
+
+          <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
 
           <label className="block text-xs font-semibold uppercase text-muted-foreground">
             {t("workDescription")}
@@ -2243,6 +2268,8 @@ function AdjustShiftModal({
     shift.clock_out_at ? shiftDateTime(shift.clock_out_at, timezone) : shiftDateTime(new Date(), timezone)
   );
   const [reason, setReason] = useState("");
+  const [breakHours, setBreakHours] = useState(String(Math.floor(shift.break_minutes / 60)));
+  const [breakRemainder, setBreakRemainder] = useState(String(shift.break_minutes % 60));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useModalFocus(onClose);
@@ -2263,10 +2290,16 @@ function AdjustShiftModal({
       setError(t("shiftTimeOrder"));
       return;
     }
+    const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
+    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / 60000)) {
+      setError(t("breakDurationInvalid"));
+      return;
+    }
     setError("");
     setBusy(true);
     try {
       await adjustShift({
+        breakMinutes,
         shiftId: shift.id,
         clockInAt,
         clockOutAt,
@@ -2307,6 +2340,8 @@ function AdjustShiftModal({
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <ShiftDateTimeFields label={t("clockInTime")} value={clockIn} onChange={setClockIn} />
           <ShiftDateTimeFields label={t("clockOutTime")} value={clockOut} onChange={setClockOut} />
+
+          <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
 
           <div>
             <label htmlFor="adjust-reason" className="block text-sm font-semibold">{t("adjustReason")}</label>

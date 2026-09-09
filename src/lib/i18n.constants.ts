@@ -269,6 +269,10 @@ export interface Translations {
   periodAll: string;
   totalWorked: string;
   breakTime: string;
+  breakHours: string;
+  breakMinutesLabel: string;
+  breakDurationHelp: string;
+  breakDurationInvalid: string;
   totalShifts: string;
   activeStaff: string;
   exportExcel: string;
@@ -598,6 +602,11 @@ export const translations: Record<Language, Translations> = {
     periodAll: "Todos los registros",
     totalWorked: "Horas Trabajadas",
     breakTime: "Tiempo de Pausas",
+    breakHours: "Horas de descanso",
+    breakMinutesLabel: "Minutos de descanso",
+    breakDurationHelp: "Descanso total que se descontará de la jornada.",
+    breakDurationInvalid: "El descanso debe ser un número entero de minutos y no superar la jornada.",
+
     totalShifts: "Total Turnos",
     activeStaff: "Personal Activo",
     exportExcel: "Exportar a Excel",
@@ -924,6 +933,11 @@ export const translations: Record<Language, Translations> = {
     periodAll: "All Records",
     totalWorked: "Total Worked",
     breakTime: "Break Time",
+    breakHours: "Break hours",
+    breakMinutesLabel: "Break minutes",
+    breakDurationHelp: "Total break time deducted from this workday.",
+    breakDurationInvalid: "Break must be whole minutes and cannot exceed the workday.",
+
     totalShifts: "Total Shifts",
     activeStaff: "Active Staff",
     exportExcel: "Export Excel",
@@ -1250,6 +1264,10 @@ export const translations: Record<Language, Translations> = {
     periodAll: "Todos os registros",
     totalWorked: "Horas Trabalhadas",
     breakTime: "Tempo de Intervalo",
+    breakHours: "Horas de pausa",
+    breakMinutesLabel: "Minutos de pausa",
+    breakDurationHelp: "Pausa total descontada desta jornada.",
+    breakDurationInvalid: "A pausa deve ser um número inteiro de minutos e não pode exceder a jornada.",
     totalShifts: "Total de Turnos",
     activeStaff: "Funcionários Ativos",
     exportExcel: "Exportar para Excel",

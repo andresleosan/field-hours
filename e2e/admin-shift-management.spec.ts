@@ -20,6 +20,8 @@ test("admin creates a complete workday with a required employee-visible descript
   const description = dialog.getByRole("textbox", { name: "Workday description *" });
   await expect(description).toHaveAttribute("required", "");
   await description.fill("Approved paper timesheet for site work.");
+  await dialog.getByLabel("Break hours", { exact: true }).fill("1");
+  await dialog.getByLabel("Break minutes", { exact: true }).fill("15");
   await dialog.getByRole("button", { name: "Save Workday" }).click();
 
   await expect(page.getByRole("status")).toContainText("Workday created successfully");
@@ -30,6 +32,7 @@ test("admin creates a complete workday with a required employee-visible descript
     userId: "worker-1",
     projectId: "project-1",
     description: "Approved paper timesheet for site work.",
+    breakMinutes: 75,
   });
   expect(Date.parse((createCall?.body as { clockInAt: string }).clockInAt)).not.toBeNaN();
   expect(Date.parse((createCall?.body as { clockOutAt: string }).clockOutAt)).not.toBeNaN();
@@ -74,6 +77,9 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }
     const saved = api.calls.find((call) => call.path === "/api/admin/shifts/adjust");
     expect(saved?.body).toMatchObject({ clockInAt: "2026-08-24T08:00:00.000Z", clockOutAt: "2026-08-24T16:30:00.000Z" });
     await adjust.click();
+    await expect(dialog.getByLabel("Break minutes", { exact: true })).toHaveValue("30");
+    await dialog.getByLabel("Break hours", { exact: true }).fill("1");
+    await dialog.getByLabel("Break minutes", { exact: true }).fill("15");
     await inTime.fill("10:15");
     await outTime.fill("09:00");
     await dialog.getByRole("textbox", { name: "Reason for Adjustment *" }).fill("Corrected arrival.");
@@ -86,6 +92,8 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }
     expect(api.calls.filter((call) => call.path === "/api/admin/shifts/adjust").at(-1)?.body).toMatchObject({ clockInAt: "2026-08-24T09:15:00.000Z" });
     await adjust.click();
     await expect(inTime).toHaveValue("10:15");
+    await expect(dialog.getByLabel("Break hours", { exact: true })).toHaveValue("1");
+    await expect(dialog.getByLabel("Break minutes", { exact: true })).toHaveValue("15");
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(adjust).toBeFocused();

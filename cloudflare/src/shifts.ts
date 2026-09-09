@@ -79,6 +79,7 @@ export interface ShiftAdjustmentNotice {
 }
 
 interface HistoryRow {
+  breakMinutesOverride?: number | null;
   id: string;
   userId: string;
   displayName: string;
@@ -179,7 +180,7 @@ function toHistoryRecord(
   const clockIn = new Date(row.clockInAt).getTime();
   const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
   const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
-  const breakMinutes = breakMinutesFromEvents(events);
+  const breakMinutes = row.breakMinutesOverride ?? breakMinutesFromEvents(events, row.breakStartedAt, row.breakEndedAt, clockOut);
 
   return {
     id: row.id,
@@ -671,6 +672,7 @@ export async function adminShiftHistory(
       s.work_date AS workDate,
       s.state,
       s.clock_in_at AS clockInAt,
+      s.break_minutes_override AS breakMinutesOverride,
       s.break_started_at AS breakStartedAt,
       s.break_ended_at AS breakEndedAt,
       s.clock_out_at AS clockOutAt,
@@ -766,6 +768,7 @@ export async function workerShiftHistory(
       s.work_date AS workDate,
       s.state,
       s.clock_in_at AS clockInAt,
+      s.break_minutes_override AS breakMinutesOverride,
       s.break_started_at AS breakStartedAt,
       s.break_ended_at AS breakEndedAt,
       s.clock_out_at AS clockOutAt,
@@ -842,6 +845,7 @@ export async function adminCreateShift(
     clockInAt?: unknown;
     clockOutAt?: unknown;
     description?: unknown;
+    breakMinutes?: unknown;
   },
 ): Promise<{ ok: true; shiftId: string }> {
   requireRole(auth, "admin");
@@ -856,6 +860,8 @@ export async function adminCreateShift(
   if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
     throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
   }
+
+  const breakMinutes = validateBreakMinutes(body.breakMinutes === undefined ? 0 : body.breakMinutes, clockInAt, clockOutAt);
 
   const worker = await env.DB.prepare(
     `SELECT m.user_id AS id
@@ -884,12 +890,13 @@ export async function adminCreateShift(
     target_user_id: userId,
     project_id: projectId,
     created_by: auth.user.email,
+    break_minutes: breakMinutes,
   });
   const results = await env.DB.batch([
     env.DB.prepare(
       `INSERT INTO workforce_shifts
-       (id, organization_id, user_id, state, clock_in_at, clock_out_at, work_date, project_id)
-       VALUES (?1, ?2, ?3, 'complete', ?4, ?5, ?6, ?7)`,
+       (id, organization_id, user_id, state, clock_in_at, clock_out_at, work_date, project_id, break_minutes_override)
+       VALUES (?1, ?2, ?3, 'complete', ?4, ?5, ?6, ?7, ?8)`,
     ).bind(
       shiftId,
       auth.user.organizationId,
@@ -898,6 +905,7 @@ export async function adminCreateShift(
       clockOutAt,
       workDate(auth.user.timezone, new Date(clockInAt)),
       projectId,
+      breakMinutes,
     ),
     env.DB.prepare(
       `INSERT INTO workforce_audit_events
@@ -920,6 +928,7 @@ export async function adminAdjustShift(
     clockInAt?: unknown;
     clockOutAt?: unknown;
     reason?: unknown;
+    breakMinutes?: unknown;
   },
 ): Promise<{ ok: true; shiftId: string }> {
   requireRole(auth, "admin");
@@ -929,12 +938,13 @@ export async function adminAdjustShift(
   const clockOutAt = optionalTimestamp(body.clockOutAt, "Clock-out time");
 
   const currentShift = await env.DB.prepare(
-    `SELECT id, user_id, clock_in_at, clock_out_at, state
+    `SELECT id, user_id, clock_in_at, clock_out_at, state, break_minutes_override
      FROM workforce_shifts
      WHERE id = ?1 AND organization_id = ?2 LIMIT 1`,
   ).bind(shiftId, auth.user.organizationId).first<{
     id: string;
     user_id: string;
+    break_minutes_override?: number | null;
     clock_in_at: string;
     clock_out_at: string | null;
     state: string;
@@ -949,6 +959,8 @@ export async function adminAdjustShift(
   if (finalClockOut && Date.parse(finalClockOut) <= Date.parse(finalClockIn)) {
     throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
   }
+  const requestedBreak = body.breakMinutes === undefined ? currentShift.break_minutes_override : body.breakMinutes;
+  const breakMinutes = body.breakMinutes === undefined && requestedBreak == null ? null : validateBreakMinutes(requestedBreak, finalClockIn, finalClockOut);
   const finalState = finalClockOut ? "complete" : currentShift.state;
 
   await assertNoShiftOverlap(
@@ -968,12 +980,14 @@ export async function adminAdjustShift(
     new_clock_out: finalClockOut,
     target_user_id: currentShift.user_id,
     adjusted_by: auth.user.email,
+    old_break_minutes_override: currentShift.break_minutes_override ?? null,
+    new_break_minutes_override: breakMinutes,
   });
 
   const results = await env.DB.batch([
     env.DB.prepare(
       `UPDATE workforce_shifts
-       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3, work_date = ?4
+       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3, work_date = ?4, break_minutes_override = ?7
        WHERE id = ?5 AND organization_id = ?6`,
     ).bind(
       finalClockIn,
@@ -982,6 +996,7 @@ export async function adminAdjustShift(
       workDate(auth.user.timezone, new Date(finalClockIn)),
       shiftId,
       auth.user.organizationId,
+      breakMinutes,
     ),
     env.DB.prepare(
       `INSERT INTO workforce_audit_events
@@ -994,4 +1009,11 @@ export async function adminAdjustShift(
   }
 
   return { ok: true, shiftId };
+}
+
+function validateBreakMinutes(value: unknown, start: string, end: string | null): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0 || !end || value > Math.floor((Date.parse(end) - Date.parse(start)) / 60000)) {
+    throw new ApiError(400, "INVALID_INPUT", "Break must be whole minutes between zero and the shift duration. A clock-out time is required.");
+  }
+  return value;
 }

@@ -301,12 +301,12 @@ export async function installAdminApi(
     }
     if (method === "POST" && path === "/api/admin/shifts/adjust") {
       if (!assertCsrf(route)) return json(route, { error: "CSRF token missing", code: "CSRF_INVALID" }, 403);
-      const input = body as { shiftId: string; clockInAt: string; clockOutAt: string; reason: string };
+      const input = body as { shiftId: string; clockInAt: string; clockOutAt: string; reason: string; breakMinutes?: number };
       const record = adminHistory.find((item) => item.id === input.shiftId);
       if (!record || !input.reason.trim() || Date.parse(input.clockOutAt) <= Date.parse(input.clockInAt)) {
         return json(route, { error: "Invalid adjustment" }, 400);
       }
-      Object.assign(record, { clock_in_at: input.clockInAt, clock_out_at: input.clockOutAt });
+      Object.assign(record, { clock_in_at: input.clockInAt, clock_out_at: input.clockOutAt, break_minutes: input.breakMinutes ?? record.break_minutes, net_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60000) - (input.breakMinutes ?? record.break_minutes) });
       return json(route, { ok: true, shiftId: input.shiftId });
     }
     if (method === "GET" && path === "/api/admin/auth-requests") return json(route, options.denseData ? denseGoogleRequests : []);
@@ -496,6 +496,7 @@ export async function installAdminApi(
         clockInAt?: unknown;
         clockOutAt?: unknown;
         description?: unknown;
+        breakMinutes?: number;
       };
       if (
         input?.userId !== "worker-1"
@@ -522,8 +523,8 @@ export async function installAdminApi(
         project_id: input.projectId ?? null,
         project_name: input.projectId === "project-1" ? "Existing Site" : null,
         duration_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60_000),
-        break_minutes: 0,
-        net_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60_000),
+        break_minutes: input.breakMinutes ?? 0,
+        net_minutes: Math.round((Date.parse(input.clockOutAt) - Date.parse(input.clockInAt)) / 60_000) - (input.breakMinutes ?? 0),
         events: [],
         admin_adjustment: {
           kind: "created",

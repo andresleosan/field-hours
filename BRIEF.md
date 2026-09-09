@@ -86,3 +86,6 @@ Corregido el 30 de agosto de 2026 por instrucción del operador. Esta versión s
 ## Ajuste solicitado: historial y periodos (2026-09-09)
 
 Corregir la diferencia horaria al editar jornadas; mejorar fecha, hora y espaciado del diálogo en móvil; conservar filtros existentes y añadir Select Period con inicio y fin inclusivos.
+
+
+Permitir introducir el descanso total en horas y minutos al crear y ajustar jornadas; conservar los eventos originales y descontar el total en historial y nómina.

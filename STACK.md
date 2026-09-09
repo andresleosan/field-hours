@@ -127,3 +127,6 @@ Corregido y desplegado el 30 de agosto de 2026 para retirar del diseño activo r
 ## Historial: decisiones de implementación (2026-09-09)
 
 Mantener React/TypeScript, controles nativos y el contrato start_date/end_date existente. Mostrar y convertir ajustes en la zona de la organización usando Intl; conservar timestamps originales cuando no se editan. Validar fechas inexistentes por cambio horario y orden de entrada/salida. Verificación con Playwright y datos sintéticos.
+
+
+Descanso administrativo: columna nullable break_minutes_override, total explícito que sustituye el cómputo por eventos. NULL conserva comportamiento anterior. Validación de minutos enteros no negativos y no superiores al turno; auditoría de valores anteriores/nuevos. Migración aditiva 0012; antes de producción verificar backup D1. Rollback: volver a Worker/frontend anteriores conservando columna y datos; no borrar la columna ni los eventos.

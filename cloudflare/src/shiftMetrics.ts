@@ -4,6 +4,7 @@ export interface ShiftMetricEvent {
 }
 
 export interface CompletedShiftMetricRow {
+  breakMinutesOverride?: number | null;
   id: string;
   userId: string;
   clockInAt: string;
@@ -62,7 +63,7 @@ export function netMinutesFromShift(
   const durationMinutes = Number.isFinite(clockIn) && Number.isFinite(clockOut)
     ? Math.max(0, Math.round((clockOut - clockIn) / 60000))
     : 0;
-  return Math.max(0, durationMinutes - breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut));
+  return Math.max(0, durationMinutes - (shift.breakMinutesOverride ?? breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut)));
 }
 
 export async function aggregateCompletedShifts(
@@ -78,6 +79,7 @@ export async function aggregateCompletedShifts(
       s.user_id AS userId,
       s.clock_in_at AS clockInAt,
       s.clock_out_at AS clockOutAt,
+      s.break_minutes_override AS breakMinutesOverride,
       s.break_started_at AS breakStartedAt,
       s.break_ended_at AS breakEndedAt
     FROM workforce_shifts s

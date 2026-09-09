@@ -242,3 +242,16 @@ Estado: implementado y verificado en el alcance solicitado. Publicación en GitH
 - Chromium local build 1228 con configuración temporal ignorada por Git; la descarga de Chromium 1200 quedó detenida al atascarse. Vídeo deshabilitado solo en la configuración temporal; capturas y trazas conservadas. No se afirma validación física en iPhone/Android ni en WebKit/Firefox.
 - Capturas revisadas en `qa/reports/playwright-artifacts/`: diálogo a 320×568 y 390×844, interacción en horizontal 844×390, filtros de periodo en móvil. Controles de al menos 44 px y texto de entrada de 16 px; scroll, Escape y retorno de foco comprobados.
 - Revisión del cambio: reutiliza el API autorizado con CSRF y auditoría, sin cambios de permisos, base de datos o dependencias. Las fechas se convierten en la zona de la organización; los valores sin editar conservan segundos e instante, los horarios inexistentes y rangos invertidos se rechazan, y las respuestas antiguas no sustituyen el último filtro.
+
+
+## Descanso en jornadas administrativas
+
+- [x] Añadir persistencia y validación del descanso con auditoría.
+- [x] Añadir controles móviles de horas/minutos en ambos formularios.
+- [x] Verificar cálculo neto, creación, edición y valores inválidos.
+
+Despliegue de esta ampliación pendiente; migración solo local durante implementación.
+
+Validación: typecheck frontend/Worker, lint y build aprobados; 41/41 pruebas Worker y 8/8 E2E específicas en Chromium. Creación con 75 minutos y edición/reapertura con 1 h 15 min verificadas a 320×568, 390×844 y 844×390. Migración 0012 probada en SQLite en memoria: filas anteriores conservan NULL y el CHECK rechaza negativos. Revisión: rol admin, aislamiento por organización, CSRF y eventos originales conservados; creación/ajuste y auditoría en batch. Sin cambios en dependencias ni datos productivos. Para publicar: backup D1 verificado → migración 0012 → Worker → frontend; rollback a versiones anteriores conservando la columna.
+
+Publicación autorizada por el operador. Intento 2026-09-09: Cloudflare devuelve 7404 para D1; Wrangler solo tiene acceso a la cuenta Luismadef45. No se aplicó migración ni se desplegó Worker. Cambio subido a rama feat/admin-break-duration; main pendiente hasta disponer de acceso al Cloudflare propietario y verificar backup.

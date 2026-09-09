@@ -453,6 +453,7 @@ export async function loadWorkerHistory(params?: {
 }
 
 export async function adjustShift(input: {
+  breakMinutes?: number;
   shiftId: string;
   clockInAt?: string;
   clockOutAt?: string;
@@ -462,6 +463,7 @@ export async function adjustShift(input: {
 }
 
 export async function createAdminShift(input: {
+  breakMinutes?: number;
   userId: string;
   projectId?: string;
   clockInAt: string;
