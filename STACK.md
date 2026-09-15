@@ -8,18 +8,13 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 
 **Nivel 3 — empresarial.** Maneja autenticación, autorización por roles, geolocalización, datos personales y fiscales cifrados, nómina, auditoría, dos plataformas de datos y migraciones en producción.
 
-- **Workflow completo de Superpowers:** no, por decisión explícita de `docs/adr/ADR-002-governance-for-discovery-skills-and-superpowers.md`. Codex sí soporta el plugin, pero Field Hours solo admite sus skills compatibles; commits por subagentes, worktrees automáticos, fuentes de planificación paralelas y ciclos propios quedan subordinados o excluidos por `AGENTS.md`.
 - **Ciclo de autocrítica completo:** sí; seguridad, QA y rendimiento cuando corresponda son gates obligatorios.
-- **Skills avanzadas:** `advanced-qa-strategy` para la estrategia de pruebas; `technical-governance` cuando aparezca una decisión costosa de revertir; `advanced-architecture` solo si se replantea la separación actual entre Cloudflare y Supabase.
 
 ## Entorno
 
 - Plataforma de orquestación: Codex CLI `0.151.0-alpha.7.2`.
-- Core Cronos: `4.2.0`, restaurado en `.cronos/`; coincide con `.agencia-version`.
-- Compatibilidad: el core fue verificado documentalmente contra Codex al 3 de agosto de 2026, no contra esta versión alfa exacta. En esta sesión se comprobaron lectura/escritura del workspace, permisos con aprobación y ejecución de herramientas; Playwright MCP no está expuesto.
-- Superpowers instalado: sí, `superpowers@openai-curated`, habilitado globalmente el 31 de agosto de 2026. El instalador reportó snapshot `11c74d6b` y el manifiesto local real es 5.1.3, aunque upstream y `openai/plugins` muestran 6.3.0; esta deriva está documentada, no se presenta como 6.3 instalado. En Field Hours solo quedan autorizadas las skills compatibles enumeradas en `AGENTS.md`; una actualización futura debe volver a verificar manifiesto y guardrails en una sesión nueva.
-- Skills versionadas en el proyecto: `accessibility`, `supabase-postgres-best-practices` y la adaptación local `cronos-grill-me`, con procedencia, revisión, restricciones y hashes reproducibles en `.agents/skills-lock.json`. La segunda aplica solo al subsistema Supabase/PostgreSQL; no aplica a D1/SQLite y sus ejemplos nunca autorizan ejecutar SQL. `cronos-grill-me` sirve únicamente para descubrimiento persistente consentido y no autoriza implementación, Git, despliegues ni indexación externa.
-- Descubrimiento de terceros: `find-skills` fue revisada y no instalada porque duplica `skill-installer`, AutoSkills y la búsqueda de plugins. El comando `npx skills find` puede evaluarse bajo demanda, pero cada resultado requiere revisión de procedencia antes de instalarse.
+- Gobernanza de agentes: Cronos (`.cronos/`, `.agencia-version`), `AGENTS.md` y `.agents/` (reglas, skills y `skills-lock.json`) se retiraron el 15 de septiembre de 2026 por decisión del operador; Codex trabaja sin instrucciones ni skills de proyecto.
+- Superpowers instalado: sí, `superpowers@openai-curated`, habilitado globalmente el 31 de agosto de 2026. El instalador reportó snapshot `11c74d6b` y el manifiesto local real es 5.1.3, aunque upstream y `openai/plugins` muestran 6.3.0; esta deriva está documentada, no se presenta como 6.3 instalado.
 
 ## Frontend
 
@@ -118,7 +113,7 @@ SPA/PWA de gestión de personal y operaciones de obra construida con React/TypeS
 - Estilo: TypeScript estricto, componentes funcionales React, imports por alias `@/`, ESLint y utilidades Tailwind.
 - Estructura: `src/` para SPA, `cloudflare/src/` para Worker, migraciones separadas por proveedor, `docs/` para decisiones y releases.
 - Nomenclatura: componentes React en PascalCase; funciones/variables en camelCase; migraciones con prefijo numérico; endpoints REST bajo `/api`.
-- Idioma: interfaz con cadenas operativas ES/EN/PT; documentación de Cronos en español.
+- Idioma: interfaz con cadenas operativas ES/EN/PT; documentación en español.
 
 ## Estado de este documento
 

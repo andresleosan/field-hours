@@ -1,7 +1,9 @@
 # ADR-002: Gobernanza de skills de descubrimiento y Superpowers
 
 Fecha: 2026-08-31
-Estado: aceptada
+Estado: sustituida el 2026-09-15
+
+> Cronos, `AGENTS.md`, `.agents/` (incluida `cronos-grill-me`) y la verificación `test:skills` se retiraron de Field Hours el 15 de septiembre de 2026 por decisión del operador. Este registro se conserva solo como historial; sus decisiones ya no aplican.
 
 ## Contexto
 

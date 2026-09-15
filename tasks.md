@@ -29,6 +29,8 @@ Documento de seguimiento de tareas y validaciones paso a paso. Cada tarea pasa p
 
 > Alcance autorizado por el operador el 31 de agosto de 2026. Esta fase solo modifica disciplina de desarrollo y documentación; no cambia frontend, backend, D1, Supabase, Salary Advice ni producción.
 
+> Retirada el 15 de septiembre de 2026 por decisión del operador: se eliminaron Cronos (`.cronos/`, `.agencia-version`), `AGENTS.md`, `.agents/` y la verificación `test:skills`. Las tareas de esta fase y la Tarea O.1 quedan como historial; el proyecto ya no usa gobernanza Cronos ni skills versionadas.
+
 - [x] **SKL-01 (Auditoría y decisión)**: Contrastar `find-skills`, `grill-me` y Superpowers contra las reglas de Cronos, verificar procedencia/versiones y documentar la decisión en `docs/adr/ADR-002-governance-for-discovery-skills-and-superpowers.md`.
 - [x] **SKL-02 (Adaptación segura de descubrimiento)**: Crear `cronos-grill-me` como entrevista persistente de una pregunta a la vez, con consentimiento previo, hechos confirmados separados de hipótesis, privacidad, log append-only, pausa/reanudación y límites explícitos de autorización.
 - [x] **SKL-03 (Procedencia reproducible)**: Registrar commit, licencia, archivos, bytes, hash del bundle, restricciones y avisos de terceros en `.agents/skills-lock.json` y `.agents/THIRD_PARTY_NOTICES.md`.
