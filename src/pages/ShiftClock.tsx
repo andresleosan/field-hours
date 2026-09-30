@@ -45,7 +45,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { shiftDateTime, shiftDateTimeToIso } from "@/lib/shiftDateTime";
+import { periodDateRange, shiftDateTime, shiftDateTimeToIso } from "@/lib/shiftDateTime";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import { useI18n } from "@/lib/useI18n";
 import type { Translations } from "@/lib/i18n.constants";
@@ -2487,32 +2487,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }, []);
 
-  const calculateDateRange = useCallback((period: string) => {
-    const today = new Date();
-    const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-    
-    if (period === "today") {
-      return { start: toYMD(today), end: toYMD(today) };
-    }
-    if (period === "this_week") {
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(today.setDate(diff));
-      return { start: toYMD(monday), end: toYMD(new Date()) };
-    }
-    if (period === "last_week") {
-      const prevMonday = new Date();
-      prevMonday.setDate(prevMonday.getDate() - 7 - (prevMonday.getDay() === 0 ? 6 : prevMonday.getDay() - 1));
-      const prevSunday = new Date(prevMonday);
-      prevSunday.setDate(prevSunday.getDate() + 6);
-      return { start: toYMD(prevMonday), end: toYMD(prevSunday) };
-    }
-    if (period === "this_month") {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start: toYMD(firstDay), end: toYMD(new Date()) };
-    }
-    return { start: undefined, end: undefined };
-  }, []);
+  const calculateDateRange = useCallback((period: string) => periodDateRange(period, user.timezone), [user.timezone]);
 
   const refreshHistory = useCallback(async () => {
     const requestId = ++historyRequestId.current;

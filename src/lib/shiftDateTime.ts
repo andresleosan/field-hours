@@ -32,3 +32,15 @@ export function shiftDateTimeToIso(value: string, timezone: string, original?: s
   if (original) candidates.sort((a, b) => Math.abs(a - Date.parse(original)) - Math.abs(b - Date.parse(original)));
   return new Date(candidates[0]).toISOString();
 }
+
+/** Inclusive YYYY-MM-DD range for a history period, in the organization's calendar. */
+export function periodDateRange(period: string, timezone: string, now = new Date()): { start?: string; end?: string } {
+  const today = shiftDateTime(now, timezone).slice(0, 10);
+  const day = (offset: number) => new Date(Date.parse(`${today}T00:00:00Z`) + offset * 86_400_000).toISOString().slice(0, 10);
+  const sinceMonday = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7;
+  if (period === "today") return { start: today, end: today };
+  if (period === "this_week") return { start: day(-sinceMonday), end: today };
+  if (period === "last_week") return { start: day(-sinceMonday - 7), end: day(-sinceMonday - 1) };
+  if (period === "this_month") return { start: `${today.slice(0, 8)}01`, end: today };
+  return { start: undefined, end: undefined };
+}
