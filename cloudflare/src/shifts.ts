@@ -208,7 +208,8 @@ function optionalTimestamp(value: unknown, field: string): string | null {
   if (value === undefined || value === null || value === "") return null;
   const normalized = requireString(value, field, 1, 80);
   const timestamp = Date.parse(normalized);
-  if (!Number.isFinite(timestamp)) {
+  // Years outside 2000–2099 serialize as "+275760-…"/"-000001-…" and break text ordering in SQL.
+  if (!Number.isFinite(timestamp) || timestamp < Date.UTC(2000, 0, 1) || timestamp >= Date.UTC(2100, 0, 1)) {
     throw new ApiError(400, "INVALID_INPUT", `${field} must be a valid date and time.`);
   }
   return new Date(timestamp).toISOString();

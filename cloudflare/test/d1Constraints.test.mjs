@@ -191,3 +191,10 @@ test("E19: text length is counted in characters, like the database CHECKs", () =
   assert.throws(() => http.requireString("😀", "Name", 2, 160), { status: 400 });
   assert.equal(http.requireString("😀😀", "Name", 2, 2), "😀😀");
 });
+
+test("E22: timestamps outside 2000–2099 are rejected with a 400", async () => {
+  const id = await insertShift({ day: "2020-03-03", clockIn: "08:00", clockOut: "16:00" });
+  for (const clockOutAt of ["+275760-09-13T00:00:00.000Z", "1999-12-31T23:00:00.000Z"]) {
+    await assert.rejects(shifts.adminAdjustShift(env, admin, { shiftId: id, clockOutAt, reason: "año raro" }), { status: 400 });
+  }
+});
