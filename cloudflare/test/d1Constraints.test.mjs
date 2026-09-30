@@ -22,6 +22,7 @@ const google = await load("src/googleAuth.ts");
 const auth = await load("src/auth.ts");
 const http = await load("src/http.ts");
 const requestHistory = await load("src/requestHistory.ts");
+const payrollProfiles = await load("src/payrollProfiles.ts");
 
 const persist = mkdtempSync(join(tmpdir(), "field-hours-d1-"));
 const proxy = await getPlatformProxy({ configPath: join(root, "wrangler.jsonc"), persist: { path: persist } });
@@ -219,4 +220,11 @@ test("E23: each rejected password reset shows its own rejection reason", async (
   assert.equal(reason("reset-1"), "first");
   assert.equal(reason("reset-2"), "second");
   assert.equal(reason("reset-3"), null);
+});
+
+test("E24: setting pay before the worker saved their profile explains why", async () => {
+  await assert.rejects(
+    payrollProfiles.saveAdminPayrollProfileCompensation(env, admin, "worker-1", { hourlyRate: 15, itisRate: 10 }),
+    { status: 409, code: "PROFILE_NOT_SUBMITTED" },
+  );
 });

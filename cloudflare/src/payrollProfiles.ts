@@ -324,6 +324,9 @@ export async function saveAdminPayrollProfileCompensation(
   const itisRateBps = parseItisRateBps(body.itisRate);
   const existing = await loadProfile(env, auth.user.organizationId, normalizedUserId);
   if (!existing) throw new ApiError(404, "NOT_FOUND", "Payroll profile not found.");
+  if (!existing.savedAt) {
+    throw new ApiError(409, "PROFILE_NOT_SUBMITTED", "This worker has not saved their payroll details yet. Ask them to complete their profile first.");
+  }
 
   const updatedAt = new Date().toISOString();
   const result = await env.DB.prepare(
