@@ -44,6 +44,18 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E24 | ✅ | Admin no puede fijar el salario hasta que el trabajador guarde su perfil (409 confuso) | `cloudflare/src/payrollProfiles.ts` |
 | E25 | ✅ | Claves de Google en caché 1 h sin refrescar si llega una clave nueva | `googleAuth.ts` |
 
+## Fuera de esta revisión
+
+| # | Estado | Problema | Dónde |
+|---|---|---|---|
+| E26 | ⬜ | Test e2e ya roto antes de esta revisión (también falla en `066a306`): en 320×568 el selector de proyecto queda ~13 px por debajo de lo permitido sobre el botón de fichar | `e2e/mobile-workforce.spec.ts:132` |
+
+## Verificación final (2026-09-30)
+
+- `npm run test:worker`: 55/55 ✅ (incluye `cloudflare/test/d1Constraints.test.mjs` contra D1 local real)
+- `tsc` worker + app ✅ · `npm run lint` ✅ · `npm run build` ✅
+- `npm run test:e2e`: 52/53 ✅ — el único fallo es E26 (preexistente)
+
 ## Registro de reparaciones
 
 (se rellena a medida que se arregla cada uno)
