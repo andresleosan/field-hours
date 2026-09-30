@@ -84,3 +84,9 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
   - `closeExpiredShifts()` (`openShift.ts`) cierra todo turno abierto con `clock_in + 24 h` como salida (recorta la pausa en curso) y deja auditoría `shift.auto_closed`; se ejecuta al fichar/consultar y por cron cada 15 min (`wrangler.jsonc` → `triggers.crons`).
   - El contador de la pantalla se detiene a las 24 h. Tests en `d1Constraints.test.mjs` y `src/lib/timeClock.test.mjs`.
   - Límite conocido: la hora offline la declara el móvil; un trabajador con conocimientos técnicos podría adelantarla hasta el último evento de su turno (queda registrada la hora real de recepción para auditar).
+
+## Despliegue a producción (2026-09-30)
+
+1. D1 `field-hours-prod` (cuenta Cloudflare **AndresLeoSan** `05fb22c1…`): migración `0013` aplicada; 3 filas de `workforce_auth_requests` conservadas. Punto de restauración previo: `wrangler d1 time-travel restore field-hours-prod --bookmark=000002b4-00000000-000050f6-1f78d2e96bd36d6b5fecf4ea825cd9b5`. Antes del despliegue había 0 turnos abiertos >24 h.
+2. Worker `field-hours-api` versión `e1a60707-f256-432b-89ad-0e59904ca33b` con cron `*/15 * * * *`; `/api/health` 200.
+3. Frontend: push `066a306..90d45f6` → Vercel sirve `index-CUaiVU_4.js` (igual al build local).
