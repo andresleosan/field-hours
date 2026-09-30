@@ -21,6 +21,7 @@ const metrics = await load("src/shiftMetrics.ts");
 const google = await load("src/googleAuth.ts");
 const auth = await load("src/auth.ts");
 const http = await load("src/http.ts");
+const requestHistory = await load("src/requestHistory.ts");
 
 const persist = mkdtempSync(join(tmpdir(), "field-hours-d1-"));
 const proxy = await getPlatformProxy({ configPath: join(root, "wrangler.jsonc"), persist: { path: persist } });
@@ -197,4 +198,25 @@ test("E22: timestamps outside 2000–2099 are rejected with a 400", async () => 
   for (const clockOutAt of ["+275760-09-13T00:00:00.000Z", "1999-12-31T23:00:00.000Z"]) {
     await assert.rejects(shifts.adminAdjustShift(env, admin, { shiftId: id, clockOutAt, reason: "año raro" }), { status: 400 });
   }
+});
+
+test("E23: each rejected password reset shows its own rejection reason", async () => {
+  const insert = (id, requestedAt, reviewedAt, status = "rejected") => env.DB.prepare(
+    `INSERT INTO workforce_password_reset_requests (id, organization_id, user_id, email, status, requested_at, reviewed_at)
+     VALUES (?1, 'org', 'worker-1', 'w@t.test', ?4, ?2, ?3)`,
+  ).bind(id, requestedAt, reviewedAt, status).run();
+  const audit = (reason, at) => env.DB.prepare(
+    `INSERT INTO workforce_audit_events (organization_id, actor_user_id, action, subject_id, metadata_json, created_at)
+     VALUES ('org', 'admin-1', 'account.password.reset_rejected', 'worker-1', ?1, ?2)`,
+  ).bind(JSON.stringify({ reason }), at).run();
+  await insert("reset-1", "2026-01-01T10:00:00.000Z", "2026-01-01T11:00:00.000Z");
+  await audit("first", "2026-01-01T11:00:00.010Z");
+  await insert("reset-2", "2026-02-01T10:00:00.000Z", "2026-02-01T11:00:00.000Z");
+  await audit("second", "2026-02-01T11:00:00.010Z");
+  await insert("reset-3", "2026-01-15T10:00:00.000Z", "2026-01-15T11:00:00.000Z", "issued");
+  const rows = await requestHistory.listRequestHistory(env, admin);
+  const reason = (id) => rows.find((row) => row.id === id).reason;
+  assert.equal(reason("reset-1"), "first");
+  assert.equal(reason("reset-2"), "second");
+  assert.equal(reason("reset-3"), null);
 });
