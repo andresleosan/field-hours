@@ -14,7 +14,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E4 | ✅ | Pausas fuera del horario ajustado se siguen descontando (se calculan con los eventos sin recortar) | `cloudflare/src/shiftMetrics.ts` `breakMinutesFromEvents` | Horas netas de menos |
 | E5 | ✅ | Rechazar/aprobar por 2ª vez una solicitud Google del mismo email choca con `UNIQUE (email, request_type, status)` | `cloudflare/src/googleAuth.ts` + migración 0004 | Error 500; la solicitud queda pendiente para siempre |
 | E6 | ✅ | Aprobar solicitud Google de alguien que ya tiene cuenta choca con el email único | `googleAuth.ts` aprobación | Error 500 |
-| E7 | ⬜ | Los errores 500 se registran sin mensaje | `cloudflare/src/index.ts` manejador global | Imposible diagnosticar desde los logs |
+| E7 | ✅ | Los errores 500 se registran sin mensaje | `cloudflare/src/index.ts` manejador global | Imposible diagnosticar desde los logs |
 
 ## 🟠 Importantes
 
@@ -54,3 +54,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E4** — `breakMinutesFromEvents` recorta cada pausa a [entrada, salida] (historial y totales). Test en `d1Constraints.test.mjs`.
 - **E5** — Migración `0013_auth_requests_history.sql`: reconstruye `workforce_auth_requests` sin `UNIQUE (email, request_type, status)` y con índice único parcial «una pendiente por email y tipo». ⚠️ Hay que aplicarla en la D1 de producción **antes** de desplegar el Worker. Test en `d1Constraints.test.mjs`.
 - **E6** — Aprobar solicitud Google: 409 claro si el email ya tiene cuenta (`ACCOUNT_EXISTS`) o la cuenta Google ya está vinculada (`GOOGLE_ALREADY_LINKED`). Test en `d1Constraints.test.mjs`.
+- **E7** — `index.ts`: los 500 no controlados registran `errorMessage` (máx. 500 caracteres; nunca en `SyntaxError`) y los `ApiError` ≥500 también dejan una línea de log.

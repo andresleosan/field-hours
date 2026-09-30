@@ -411,6 +411,7 @@ export default {
       return await route(request, env);
     } catch (error) {
       if (error instanceof ApiError) {
+        if (error.status >= 500) console.error(JSON.stringify({ level: "error", event: "api_error", path: new URL(request.url).pathname, code: error.code }));
         const cookies = error.code === "UNAUTHENTICATED" ? clearAuthCookies() : [];
         return json(
           request,
@@ -427,6 +428,9 @@ export default {
         path: new URL(request.url).pathname,
         requestId: request.headers.get("cf-ray") ?? crypto.randomUUID(),
         errorName: error instanceof Error ? error.name : "UnknownError",
+        // D1 messages name the failed constraint, never the bound values. JSON syntax errors
+        // can quote the parsed text, so they are left out.
+        errorMessage: error instanceof Error && !(error instanceof SyntaxError) ? error.message.slice(0, 500) : undefined,
       }));
       return json(
         request,
