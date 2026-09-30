@@ -2086,21 +2086,19 @@ function BreakDurationFields({ hours, minutes, onHours, onMinutes }: {
 function CreateAdminShiftModal({
   workers,
   projects,
+  timezone,
   onClose,
   onSaved,
 }: {
   workers: Person[];
   projects: Project[];
+  timezone: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const localDateTime = (hour: number) => {
-    const value = new Date();
-    value.setHours(hour, 0, 0, 0);
-    const offset = value.getTimezoneOffset() * 60_000;
-    return new Date(value.getTime() - offset).toISOString().slice(0, 16);
-  };
+  // Wall times are in the organization timezone, whatever the admin's device is set to.
+  const localDateTime = (hour: number) => `${shiftDateTime(new Date(), timezone).slice(0, 10)}T${String(hour).padStart(2, "0")}:00`;
   const [workerId, setWorkerId] = useState(workers[0]?.id ?? "");
   const [projectId, setProjectId] = useState("");
   const [clockIn, setClockIn] = useState(() => localDateTime(8));
@@ -2122,15 +2120,19 @@ function CreateAdminShiftModal({
       setError(t("workDescription"));
       return;
     }
-    const clockInAt = new Date(clockIn);
-    const clockOutAt = new Date(clockOut);
-    if (!clockIn || !clockOut || !Number.isFinite(clockInAt.getTime()) || !Number.isFinite(clockOutAt.getTime()) || clockOutAt <= clockInAt) {
-      setError("Clock-out time must be after clock-in time.");
+    const clockInAt = shiftDateTimeToIso(clockIn, timezone);
+    const clockOutAt = shiftDateTimeToIso(clockOut, timezone);
+    if (!clockInAt || !clockOutAt) {
+      setError(t("shiftTimeInvalid"));
+      return;
+    }
+    if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
+      setError(t("shiftTimeOrder"));
       return;
     }
 
     const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
-    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / 60000)) {
+    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((Date.parse(clockOutAt) - Date.parse(clockInAt)) / 60000)) {
       setError(t("breakDurationInvalid"));
       return;
     }
@@ -2141,8 +2143,8 @@ function CreateAdminShiftModal({
         breakMinutes,
         userId: workerId,
         projectId: projectId || undefined,
-        clockInAt: clockInAt.toISOString(),
-        clockOutAt: clockOutAt.toISOString(),
+        clockInAt,
+        clockOutAt,
         description: description.trim(),
       });
       onSaved();
@@ -3654,6 +3656,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <CreateAdminShiftModal
             workers={people}
             projects={projects}
+            timezone={user.timezone}
             onClose={() => setCreateShiftOpen(false)}
             onSaved={() => {
               setMessage("Workday created successfully with audit description recorded.");

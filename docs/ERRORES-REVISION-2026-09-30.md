@@ -23,7 +23,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E8 | ✅ | El admin puede dejar un turno abierto con entrada en el futuro o con la entrada después del inicio de una pausa en curso | `shifts.ts` `adminAdjustShift` | Trabajador bloqueado (409) |
 | E9 | ✅ | Carrera: el ajuste puede reabrir un turno que el trabajador acaba de cerrar | `shifts.ts` `adminAdjustShift` | Turno reabierto e inconsistente |
 | E10 | ✅ | Fichar entrada no comprueba solape con turnos creados por el admin | `shifts.ts` `performShiftAction` | Horas pagadas dos veces |
-| E11 | ⬜ | «Crear turno» usa la zona horaria del navegador, no la de la organización | `ShiftClock.tsx` modal de crear | Turnos desplazados si el portátil no está en hora de Jersey |
+| E11 | ✅ | «Crear turno» usa la zona horaria del navegador, no la de la organización | `ShiftClock.tsx` modal de crear | Turnos desplazados si el portátil no está en hora de Jersey |
 | E12 | ⬜ | Una acción offline que falla con 4xx atasca la cola para siempre; una acción online puede adelantar a la cola | `src/lib/offlineQueue.ts`, `ShiftClock.tsx` `act()` | Acciones «pendientes» que nunca llegan |
 | E13 | ⏸️ | Acciones offline se registran con la hora de sincronización, no la real | `offlineQueue.ts` → `shifts.ts` | Salida a las 17:00 sin señal queda a las 19:30. **Decisión:** ¿aceptar la hora del móvil (con límite)? |
 | E14 | ⬜ | Límite de login solo por email: cualquiera puede bloquear la cuenta del admin | `cloudflare/src/auth.ts` | Admin bloqueado 15 min |
@@ -57,3 +57,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E7** — `index.ts`: los 500 no controlados registran `errorMessage` (máx. 500 caracteres; nunca en `SyntaxError`) y los `ApiError` ≥500 también dejan una línea de log.
 - **E9** — `adminAdjustShift`: candado optimista (`state`, `clock_in_at`, `clock_out_at` leídos) → 409 `SHIFT_ADJUST_FAILED` si el turno cambió; la auditoría solo se escribe si el UPDATE cambió la fila (`WHERE changes() = 1`). Test en `d1Constraints.test.mjs`.
 - **E10** — `performShiftAction` (clock_in) llama a `assertNoShiftOverlap` → 409 `SHIFT_OVERLAP` si un turno registrado por el admin ya cubre ese momento. Test en `d1Constraints.test.mjs`.
+- **E11** — «Crear turno» interpreta y precarga las horas en la zona de la organización (`shiftDateTimeToIso`), no en la del navegador; una hora inexistente (cambio de hora) se rechaza. Verificado con TZ=America/New_York.
