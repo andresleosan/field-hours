@@ -19,6 +19,7 @@ async function load(entry) {
 const shifts = await load("src/shifts.ts");
 const metrics = await load("src/shiftMetrics.ts");
 const google = await load("src/googleAuth.ts");
+const auth = await load("src/auth.ts");
 
 const persist = mkdtempSync(join(tmpdir(), "field-hours-d1-"));
 const proxy = await getPlatformProxy({ configPath: join(root, "wrangler.jsonc"), persist: { path: persist } });
@@ -166,4 +167,21 @@ test("E10: a worker cannot clock in inside a shift an admin already recorded", a
     }),
     { status: 409, code: "SHIFT_OVERLAP" },
   );
+});
+
+// Workers-only API used by password verification; same polyfill as passwordPepper.test.mjs.
+if (typeof crypto.subtle.timingSafeEqual !== "function") {
+  Object.defineProperty(crypto.subtle, "timingSafeEqual", {
+    configurable: true,
+    value: (left, right) => left.byteLength === right.byteLength
+      && Buffer.compare(Buffer.from(left.buffer, left.byteOffset, left.byteLength), Buffer.from(right.buffer, right.byteOffset, right.byteLength)) === 0,
+  });
+}
+
+test("E14: wrong passwords from one address do not lock the account for other addresses", async () => {
+  const pepperedEnv = { ...env, PASSWORD_PEPPER_CURRENT: "p".repeat(64) };
+  const attempt = (ip) => auth.login(pepperedEnv, { email: "a@t.test", password: "wrong-password-123" }, ip);
+  for (let i = 0; i < 5; i += 1) await assert.rejects(attempt("203.0.113.9"), { status: 401 });
+  await assert.rejects(attempt("203.0.113.9"), { status: 429 });
+  await assert.rejects(attempt("198.51.100.7"), { status: 401 });
 });

@@ -88,6 +88,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     const result = await login(
       env,
       await readJson<{ email?: unknown; password?: unknown }>(request),
+      request.headers.get("CF-Connecting-IP") ?? "unknown",
     );
     return json(request, env, { user: result.user }, 200, result.cookies);
   }

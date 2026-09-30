@@ -22,6 +22,8 @@ import {
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
+// Per-address cap across all emails, against password spraying.
+const MAX_LOGIN_ATTEMPTS_PER_IP = 30;
 
 interface AuthRow {
   sessionHash: string;
@@ -157,14 +159,14 @@ async function recordFailedAttempt(env: Env, keyHash: string, now: Date): Promis
   ).bind(keyHash, now.toISOString(), threshold).run();
 }
 
-async function assertNotRateLimited(env: Env, keyHash: string, now: Date): Promise<void> {
+async function assertNotRateLimited(env: Env, keyHash: string, now: Date, maxAttempts = MAX_LOGIN_ATTEMPTS): Promise<void> {
   const row = await env.DB.prepare(
     `SELECT attempt_count AS attemptCount, window_started_at AS windowStartedAt
      FROM workforce_auth_attempts WHERE key_hash = ?1`,
   ).bind(keyHash).first<AttemptRow>();
   if (
     row
-    && row.attemptCount >= MAX_LOGIN_ATTEMPTS
+    && row.attemptCount >= maxAttempts
     && new Date(row.windowStartedAt).getTime() > now.getTime() - LOGIN_WINDOW_MS
   ) {
     throw new ApiError(429, "RATE_LIMITED", "Too many sign-in attempts. Try again later.");
@@ -174,13 +176,17 @@ async function assertNotRateLimited(env: Env, keyHash: string, now: Date): Promi
 export async function login(
   env: Env,
   body: { email?: unknown; password?: unknown },
+  clientIp = "unknown",
 ): Promise<{ cookies: string[]; user: SessionUser }> {
   const email = normalizeEmail(body.email);
   const password = requirePassword(body.password);
-  const keyHash = await sha256Hex(`login:${email}`);
+  // Keyed by email *and* address, so a stranger's wrong guesses cannot lock the owner out.
+  const keyHash = await sha256Hex(`login:${email}:${clientIp}`);
+  const ipKeyHash = await sha256Hex(`login-ip:${clientIp}`);
   const now = new Date();
   const peppers = passwordPepperConfig(env);
   await assertNotRateLimited(env, keyHash, now);
+  await assertNotRateLimited(env, ipKeyHash, now, MAX_LOGIN_ATTEMPTS_PER_IP);
 
   const row = await env.DB.prepare(
     `SELECT
@@ -218,6 +224,7 @@ export async function login(
   }
   if (!row || !verification.matches) {
     await recordFailedAttempt(env, keyHash, now);
+    await recordFailedAttempt(env, ipKeyHash, now);
     throw new ApiError(401, "INVALID_CREDENTIALS", "Email or password is incorrect.");
   }
 
