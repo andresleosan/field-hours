@@ -25,11 +25,11 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E10 | ✅ | Fichar entrada no comprueba solape con turnos creados por el admin | `shifts.ts` `performShiftAction` | Horas pagadas dos veces |
 | E11 | ✅ | «Crear turno» usa la zona horaria del navegador, no la de la organización | `ShiftClock.tsx` modal de crear | Turnos desplazados si el portátil no está en hora de Jersey |
 | E12 | ✅ | Una acción offline que falla con 4xx atasca la cola para siempre; una acción online puede adelantar a la cola | `src/lib/offlineQueue.ts`, `ShiftClock.tsx` `act()` | Acciones «pendientes» que nunca llegan |
-| E13 | ⏸️ | Acciones offline se registran con la hora de sincronización, no la real | `offlineQueue.ts` → `shifts.ts` | Salida a las 17:00 sin señal queda a las 19:30. **Decisión:** ¿aceptar la hora del móvil (con límite)? |
+| E13 | ✅ | Acciones offline se registran con la hora de sincronización, no la real | `offlineQueue.ts` → `shifts.ts` | Salida a las 17:00 sin señal queda a las 19:30. **Decisión:** ¿aceptar la hora del móvil (con límite)? |
 | E14 | ✅ | Límite de login solo por email: cualquiera puede bloquear la cuenta del admin | `cloudflare/src/auth.ts` | Admin bloqueado 15 min |
-| E15 | ⏸️ | `must_change_password` solo se exige en la pantalla, no en el servidor | `auth.ts` `getAuth` | Cuenta con contraseña temporal usa toda la API. **Decisión:** la pantalla deja «saltar» el cambio a propósito (solo afecta a cuentas creadas con `bootstrap-admin`/`seed`); ¿obligarlo? |
-| E16 | ⏸️ | Cambiar contraseña no pide la actual | `auth.ts` | Sesión robada = cuenta robada. **Decisión:** ¿pedir la actual? (cambia la pantalla) |
-| E17 | ⏸️ | Social Security 6 % sin tope de ingresos | `cloudflare/src/salaryAdvice.ts` | Posible sobre-deducción. **Decisión:** confirmar regla y tope de Jersey |
+| E15 | ⏸️ Sin cambios por decisión de Luis (2026-09-30) | `must_change_password` solo se exige en la pantalla, no en el servidor | `auth.ts` `getAuth` | Cuenta con contraseña temporal usa toda la API. **Decisión:** la pantalla deja «saltar» el cambio a propósito (solo afecta a cuentas creadas con `bootstrap-admin`/`seed`); ¿obligarlo? |
+| E16 | ⏸️ Sin cambios por decisión de Luis (2026-09-30) | Cambiar contraseña no pide la actual | `auth.ts` | Sesión robada = cuenta robada. **Decisión:** ¿pedir la actual? (cambia la pantalla) |
+| E17 | ⏸️ Sin cambios por decisión de Luis (2026-09-30) | Social Security 6 % sin tope de ingresos | `cloudflare/src/salaryAdvice.ts` | Posible sobre-deducción. **Decisión:** confirmar regla y tope de Jersey |
 | E18 | ⏸️ | Reglas de nómina fijas a 2026 | `salaryAdvice.ts` | Periodos que tocan 2027 se rechazan. **Decisión:** tasas 2027 |
 
 ## 🟢 Pequeños
@@ -52,7 +52,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 
 ## Verificación final (2026-09-30)
 
-- `npm run test:worker`: 55/55 ✅ (incluye `cloudflare/test/d1Constraints.test.mjs` contra D1 local real)
+- `npm run test:worker`: 58/58 (tras E13) ✅ (incluye `cloudflare/test/d1Constraints.test.mjs` contra D1 local real)
 - `tsc` worker + app ✅ · `npm run lint` ✅ · `npm run build` ✅
 - `npm run test:e2e`: 52/53 ✅ — el único fallo es E26 (preexistente)
 
@@ -79,3 +79,8 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E23** — `requestHistory.ts`: el motivo solo se busca en solicitudes rechazadas y se toma el evento de rechazo más cercano a su `reviewed_at`. Test en `d1Constraints.test.mjs`.
 - **E24** — Guardar salario sin ficha del trabajador: 409 `PROFILE_NOT_SUBMITTED` con mensaje claro. Test en `d1Constraints.test.mjs`.
 - **E25** — `verifyGoogleIdToken`: si el `kid` no está en la caché, recarga las claves de Google una vez (el token viene del intercambio servidor-a-servidor, no del usuario, así que no se puede abusar para forzar recargas).
+- **E13** — Decisión de Luis: el turno cuenta desde la hora real del fichaje y se cierra solo a las 24 h sin salida.
+  - Las acciones offline envían la hora del toque (`occurredAt`); el servidor la acepta acotada a [último momento del turno o salida anterior, ahora] y nunca más de 24 h atrás; la auditoría guarda `received_at` y `claimed_at`.
+  - `closeExpiredShifts()` (`openShift.ts`) cierra todo turno abierto con `clock_in + 24 h` como salida (recorta la pausa en curso) y deja auditoría `shift.auto_closed`; se ejecuta al fichar/consultar y por cron cada 15 min (`wrangler.jsonc` → `triggers.crons`).
+  - El contador de la pantalla se detiene a las 24 h. Tests en `d1Constraints.test.mjs` y `src/lib/timeClock.test.mjs`.
+  - Límite conocido: la hora offline la declara el móvil; un trabajador con conocimientos técnicos podría adelantarla hasta el último evento de su turno (queda registrada la hora real de recepción para auditar).

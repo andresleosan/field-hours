@@ -57,6 +57,7 @@ import {
   workerShiftHistory,
   workerToday,
 } from "./shifts";
+import { closeExpiredShifts } from "./openShift";
 
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -398,6 +399,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         location?: unknown;
         idempotencyKey?: unknown;
         projectId?: unknown;
+        occurredAt?: unknown;
       }>(request),
     );
     return json(request, env, snapshot);
@@ -448,5 +450,9 @@ export default {
         500,
       );
     }
+  },
+  // Closes shifts left open for 24 hours even when nobody opens the app.
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(closeExpiredShifts(env.DB));
   },
 } satisfies ExportedHandler<Env>;

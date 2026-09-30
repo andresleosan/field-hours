@@ -26,6 +26,7 @@ export function queueOfflineAction(
   location: LocationEvidence,
   idempotencyKey: string,
   projectId?: string,
+  queuedAt = new Date().toISOString(),
 ): QueuedAction {
   const item: QueuedAction = {
     id: crypto.randomUUID(),
@@ -33,7 +34,7 @@ export function queueOfflineAction(
     location,
     idempotencyKey,
     projectId,
-    queuedAt: new Date().toISOString(),
+    queuedAt,
   };
   const current = getOfflineQueue();
   current.push(item);
@@ -58,7 +59,8 @@ export async function syncOfflineQueue(
 
   for (const item of queue) {
     try {
-      lastSnapshot = await runShiftAction(item.action, item.location, item.idempotencyKey, item.projectId);
+      // queuedAt is when the worker tapped; the server clamps it to a safe range.
+      lastSnapshot = await runShiftAction(item.action, item.location, item.idempotencyKey, item.projectId, item.queuedAt);
       syncedCount++;
       processed++;
       if (onSynced && lastSnapshot) onSynced(lastSnapshot);

@@ -15,7 +15,7 @@
     "test:e2e:install:cross-browser": "node scripts/run-playwright.mjs --install --cross-browser",
     "test:e2e:cross-browser": "node scripts/run-playwright.mjs --cross-browser",
     "generate:pwa-icons": "node scripts/generate-pwa-icons.mjs",
-    "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs cloudflare/test/passwordPepper.test.mjs cloudflare/test/disabledWorkers.test.mjs cloudflare/test/payrollProfiles.test.mjs cloudflare/test/salaryAdvice.test.mjs cloudflare/test/serviceWorker.test.mjs cloudflare/test/d1Constraints.test.mjs src/lib/shiftDateTime.test.mjs",
+    "test:worker": "node --test cloudflare/test/openShift.test.mjs cloudflare/test/adminShift.test.mjs cloudflare/test/passwordPepper.test.mjs cloudflare/test/disabledWorkers.test.mjs cloudflare/test/payrollProfiles.test.mjs cloudflare/test/salaryAdvice.test.mjs cloudflare/test/serviceWorker.test.mjs cloudflare/test/d1Constraints.test.mjs src/lib/shiftDateTime.test.mjs src/lib/timeClock.test.mjs",
     "test:pdf": "node --test scripts/salary-advice-pdf.test.mjs",
     "test:ops": "node --test scripts/production-health.test.mjs scripts/pages-security-headers.test.mjs && node scripts/rehearse-d1-recovery.mjs",
     "test:xlsx": "node scripts/check-xlsx.mjs",

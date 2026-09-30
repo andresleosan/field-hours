@@ -1019,6 +1019,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       setMessage("That action is no longer available. Refresh your shift and try again.");
       return;
     }
+    const tappedAt = new Date().toISOString();
     setMessage("");
     setBusy(nextAction);
     let fallback: {
@@ -1029,7 +1030,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
     const queueForServerConfirmation = ({ location, idempotencyKey, projectId }: NonNullable<typeof fallback>) => {
       try {
-        queueOfflineAction(nextAction, location, idempotencyKey, projectId);
+        queueOfflineAction(nextAction, location, idempotencyKey, projectId, tappedAt);
       } catch {
         setMessage("The network request failed and this device could not preserve the action. Keep this screen open and try again.");
         return false;
@@ -1038,7 +1039,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       const newEvent: ShiftEvent = {
         id: idempotencyKey,
         type: nextAction,
-        at: new Date().toISOString(),
+        at: tappedAt,
         location,
       };
       setShift((previous) => ({

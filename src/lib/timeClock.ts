@@ -341,12 +341,14 @@ export async function runShiftAction(
   location: LocationEvidence,
   idempotencyKey: string,
   projectId?: string,
+  occurredAt?: string,
 ): Promise<ShiftSnapshot> {
   return backend.post<ShiftSnapshot>("/api/shift/action", {
     action,
     location,
     idempotencyKey,
     projectId,
+    occurredAt,
   }, true);
 }
 
@@ -556,6 +558,9 @@ export function formatWorkedDuration(
 ): string {
   let activeSince: number | null = null;
   let milliseconds = 0;
+  // The server closes a shift 24 hours after clock-in; stop the counter there too.
+  const clockIn = events.find((event) => event.type === "clock_in");
+  if (clockIn) now = Math.min(now, new Date(clockIn.at).getTime() + 24 * 3_600_000);
   for (const event of events) {
     const occurredAt = new Date(event.at).getTime();
     if (!Number.isFinite(occurredAt)) continue;

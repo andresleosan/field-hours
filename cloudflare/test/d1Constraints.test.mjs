@@ -228,3 +228,54 @@ test("E24: setting pay before the worker saved their profile explains why", asyn
     { status: 409, code: "PROFILE_NOT_SUBMITTED" },
   );
 });
+
+async function addWorker(id) {
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations) VALUES (?1, ?2, ?3, ?4, 100000)").bind(id, `${id}@t.test`, "s".repeat(32), "h".repeat(64)),
+    env.DB.prepare("INSERT INTO workforce_memberships (organization_id, user_id, role, display_name) VALUES ('org', ?1, 'worker', ?1)").bind(id),
+  ]);
+  return { ...worker, user: { ...worker.user, id, email: `${id}@t.test` } };
+}
+const gps = { latitude: 49.18, longitude: -2.1, accuracy: 10 };
+
+test("E13: an offline action keeps the time the worker tapped, clamped to a safe range", async () => {
+  await env.DB.prepare("INSERT INTO workforce_projects (id, organization_id, name) VALUES ('project-1', 'org', 'Site')").run().catch(() => {});
+  const project = await env.DB.prepare("SELECT id FROM workforce_projects LIMIT 1").first();
+  const who = await addWorker("worker-13");
+  const act = (action, occurredAt) => shifts.performShiftAction(env, who, { action, projectId: project.id, location: gps, idempotencyKey: crypto.randomUUID(), occurredAt });
+  const minutesAgo = (m) => new Date(Date.now() - m * 60_000).toISOString();
+
+  const tapped = minutesAgo(30);
+  await act("clock_in", tapped);
+  const opened = await env.DB.prepare("SELECT clock_in_at FROM workforce_shifts WHERE user_id = 'worker-13'").first();
+  assert.equal(opened.clock_in_at, tapped);
+  // Before the clock-in: clamped up to the shift's last recorded moment.
+  await act("start_break", minutesAgo(60));
+  const row = await env.DB.prepare("SELECT break_started_at FROM workforce_shifts WHERE user_id = 'worker-13'").first();
+  assert.equal(row.break_started_at, tapped);
+  // In the future: clamped down to now.
+  await act("end_break", new Date(Date.now() + 3_600_000).toISOString());
+  const ended = await env.DB.prepare("SELECT break_ended_at FROM workforce_shifts WHERE user_id = 'worker-13'").first();
+  assert.ok(Date.parse(ended.break_ended_at) <= Date.now());
+  const audit = await env.DB.prepare("SELECT metadata_json FROM workforce_audit_events WHERE action = 'shift.clock_in' AND subject_id = (SELECT id FROM workforce_shifts WHERE user_id = 'worker-13')").first();
+  assert.ok(JSON.parse(audit.metadata_json).received_at);
+});
+
+test("E13: a shift left open for 24 hours closes itself at clock-in + 24h", async () => {
+  const who = await addWorker("worker-24");
+  const clockIn = new Date(Date.now() - 25 * 3_600_000).toISOString();
+  const breakStart = new Date(Date.parse(clockIn) + 23 * 3_600_000).toISOString();
+  await env.DB.prepare(
+    "INSERT INTO workforce_shifts (id, organization_id, user_id, state, clock_in_at, break_started_at, work_date) VALUES ('auto-close-24', 'org', 'worker-24', 'on_break', ?1, ?2, '2020-06-01')",
+  ).bind(clockIn, breakStart).run();
+  const today = await shifts.workerToday(env, who);
+  assert.equal(today.state, "off_shift");
+  const row = await env.DB.prepare("SELECT state, clock_out_at, break_ended_at FROM workforce_shifts WHERE id = 'auto-close-24'").first();
+  const end = new Date(Date.parse(clockIn) + 24 * 3_600_000).toISOString();
+  assert.deepEqual(row, { state: "complete", clock_out_at: end, break_ended_at: end });
+  const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM workforce_audit_events WHERE action = 'shift.auto_closed' AND subject_id = 'auto-close-24'").first();
+  assert.equal(n, 1);
+  // 24h worked minus the 1h break still open at the cutoff.
+  const [history] = await shifts.workerShiftHistory(env, who, new URLSearchParams());
+  assert.equal(history.duration_minutes - history.break_minutes, 23 * 60);
+});

@@ -2,7 +2,7 @@ import { ApiError, requireString } from "./http";
 import { requireRole } from "./auth";
 import { haversineDistanceMeters } from "./projects";
 import { allForIds, breakMinutesFromEvents } from "./shiftMetrics";
-import { findOpenShiftForWorker, type OpenShiftRow } from "./openShift";
+import { MAX_SHIFT_HOURS, closeExpiredShifts, findOpenShiftForWorker, type OpenShiftRow } from "./openShift";
 import type {
   AuthContext,
   LocationEvidence,
@@ -323,6 +323,7 @@ async function snapshotFromRow(env: Env, row: ShiftRow | null): Promise<ShiftSna
 }
 
 export async function workerToday(env: Env, auth: AuthContext): Promise<ShiftSnapshot> {
+  await closeExpiredShifts(env.DB);
   return snapshotFromRow(
     env,
     await findOpenShiftForWorker(env.DB, auth.user.organizationId, auth.user.id),
@@ -358,6 +359,29 @@ function parseLocation(value: unknown): LocationEvidence {
     longitude: Number(longitude.toFixed(7)),
     accuracy: Math.round(accuracy),
   };
+}
+
+/**
+ * Offline actions carry the time the worker actually tapped. That time is clamped to
+ * [floor, now]: never in the future, never before the shift's latest recorded moment (or
+ * the worker's previous clock-out), never more than 24h ago. Online actions use server time.
+ */
+async function resolveOccurredAt(env: Env, auth: AuthContext, claimed: unknown, shift: ShiftRow | null): Promise<string> {
+  const now = Date.now();
+  if (claimed === undefined || claimed === null) return new Date(now).toISOString();
+  const at = Date.parse(requireString(claimed, "Action time", 20, 40));
+  if (!Number.isFinite(at)) throw new ApiError(400, "INVALID_INPUT", "Action time must be a valid date and time.");
+  const row = shift
+    ? await env.DB.prepare("SELECT MAX(occurred_at) AS last FROM workforce_shift_events WHERE shift_id = ?1")
+      .bind(shift.id).first<{ last: string | null }>()
+    : await env.DB.prepare("SELECT MAX(clock_out_at) AS last FROM workforce_shifts WHERE organization_id = ?1 AND user_id = ?2")
+      .bind(auth.user.organizationId, auth.user.id).first<{ last: string | null }>();
+  const floor = Math.max(
+    now - MAX_SHIFT_HOURS * 3_600_000,
+    ...[row?.last, shift?.clockInAt, shift?.breakStartedAt, shift?.breakEndedAt]
+      .map((value) => (value ? Date.parse(value) : Number.NEGATIVE_INFINITY)),
+  );
+  return new Date(Math.min(now, Math.max(at, floor))).toISOString();
 }
 
 function parseAction(value: unknown): ShiftAction {
@@ -407,6 +431,7 @@ export async function performShiftAction(
     location?: unknown;
     idempotencyKey?: unknown;
     projectId?: unknown;
+    occurredAt?: unknown;
   },
 ): Promise<ShiftSnapshot> {
   const action = parseAction(body.action);
@@ -422,9 +447,12 @@ export async function performShiftAction(
   ).bind(auth.user.id, idempotencyKey).first<{ id: string }>();
   if (previous) return workerToday(env, auth);
 
-  const occurredAt = new Date().toISOString();
+  await closeExpiredShifts(env.DB);
   const eventId = crypto.randomUUID();
   let shift = await findOpenShiftForWorker(env.DB, auth.user.organizationId, auth.user.id);
+  const receivedAt = new Date().toISOString();
+  const occurredAt = await resolveOccurredAt(env, auth, body.occurredAt, shift);
+  const timing = body.occurredAt == null ? {} : { received_at: receivedAt, claimed_at: body.occurredAt };
 
   if (action === "clock_in") {
     if (shift) throw new ApiError(409, "INVALID_TRANSITION", "Finish the current shift before starting another one.");
@@ -473,7 +501,7 @@ export async function performShiftAction(
           auth.user.organizationId,
           auth.user.id,
           occurredAt,
-          workDate(auth.user.timezone),
+          workDate(auth.user.timezone, new Date(occurredAt)),
           projectId,
         ),
         env.DB.prepare(
@@ -504,6 +532,7 @@ export async function performShiftAction(
             project_id: projectId,
             geofence_distance_m: geofenceDistance,
             out_of_bounds: outOfBounds,
+            ...timing,
           }),
         ),
       ]);
@@ -548,8 +577,8 @@ export async function performShiftAction(
       env.DB.prepare(
         `INSERT INTO workforce_audit_events
          (organization_id, actor_user_id, action, subject_id, metadata_json)
-         VALUES (?1, ?2, ?3, ?4, '{"source":"web"}')`,
-      ).bind(auth.user.organizationId, auth.user.id, `shift.${action}`, shift.id),
+         VALUES (?1, ?2, ?3, ?4, ?5)`,
+      ).bind(auth.user.organizationId, auth.user.id, `shift.${action}`, shift.id, JSON.stringify({ source: "web", ...timing })),
     ]);
     if (Number(results[0]?.meta.changes ?? 0) !== 1) {
       throw new ApiError(409, "INVALID_TRANSITION", "The shift state changed. Refresh and try again.");
@@ -575,6 +604,7 @@ export async function performShiftAction(
 
 export async function adminToday(env: Env, auth: AuthContext): Promise<AdminSnapshot[]> {
   requireRole(auth, "admin");
+  await closeExpiredShifts(env.DB);
   const date = workDate(auth.user.timezone);
   const members = await env.DB.prepare(
     `SELECT
@@ -664,6 +694,7 @@ export async function adminShiftHistory(
   params: URLSearchParams,
 ): Promise<ShiftHistoryRecord[]> {
   requireRole(auth, "admin");
+  await closeExpiredShifts(env.DB);
   const userId = params.get("user_id");
   const projectId = params.get("project_id");
   const startDate = params.get("start_date");
@@ -760,6 +791,7 @@ export async function workerShiftHistory(
   auth: AuthContext,
   params: URLSearchParams,
 ): Promise<ShiftHistoryRecord[]> {
+  await closeExpiredShifts(env.DB);
   const startDate = params.get("start_date");
   const endDate = params.get("end_date");
 
