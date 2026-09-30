@@ -42,7 +42,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E22 | ✅ | Fechas con año fuera de 0000–9999 pasan la validación → 500 | `shifts.ts` `optionalTimestamp` |
 | E23 | ✅ | Historial de reseteo de contraseña puede mostrar el motivo de rechazo de otra solicitud | `cloudflare/src/requestHistory.ts` |
 | E24 | ✅ | Admin no puede fijar el salario hasta que el trabajador guarde su perfil (409 confuso) | `cloudflare/src/payrollProfiles.ts` |
-| E25 | ⬜ | Claves de Google en caché 1 h sin refrescar si llega una clave nueva | `googleAuth.ts` |
+| E25 | ✅ | Claves de Google en caché 1 h sin refrescar si llega una clave nueva | `googleAuth.ts` |
 
 ## Registro de reparaciones
 
@@ -66,3 +66,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E22** — `optionalTimestamp` solo acepta años 2000–2099 (400 si no). Test en `d1Constraints.test.mjs`.
 - **E23** — `requestHistory.ts`: el motivo solo se busca en solicitudes rechazadas y se toma el evento de rechazo más cercano a su `reviewed_at`. Test en `d1Constraints.test.mjs`.
 - **E24** — Guardar salario sin ficha del trabajador: 409 `PROFILE_NOT_SUBMITTED` con mensaje claro. Test en `d1Constraints.test.mjs`.
+- **E25** — `verifyGoogleIdToken`: si el `kid` no está en la caché, recarga las claves de Google una vez (el token viene del intercambio servidor-a-servidor, no del usuario, así que no se puede abusar para forzar recargas).

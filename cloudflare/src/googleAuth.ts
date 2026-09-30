@@ -94,8 +94,8 @@ function decodeJson<T>(value: string): T {
   }
 }
 
-async function fetchGoogleJwks(): Promise<GoogleJwks> {
-  if (cachedGoogleJwks && cachedGoogleJwks.expiresAt > Date.now()) return cachedGoogleJwks.value;
+async function fetchGoogleJwks(forceRefresh = false): Promise<GoogleJwks> {
+  if (!forceRefresh && cachedGoogleJwks && cachedGoogleJwks.expiresAt > Date.now()) return cachedGoogleJwks.value;
   const response = await fetch("https://www.googleapis.com/oauth2/v3/certs", {
     signal: AbortSignal.timeout(8_000),
   });
@@ -125,7 +125,9 @@ async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<G
   if (claims.email_verified !== true || typeof claims.sub !== "string" || !claims.sub || !Number.isFinite(claims.exp) || claims.exp <= Math.floor(Date.now() / 1000)) {
     throw new ApiError(401, "GOOGLE_EMAIL_UNVERIFIED", "The Google account email must be verified.");
   }
-  const key = (await fetchGoogleJwks()).keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === header.kid);
+  const findKey = (jwks: GoogleJwks) => jwks.keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === header.kid);
+  // Google rotates keys; an unknown kid means the cache is stale, so refetch once.
+  const key = findKey(await fetchGoogleJwks()) ?? findKey(await fetchGoogleJwks(true));
   if (!key) throw new ApiError(401, "GOOGLE_KEY_UNKNOWN", "Google identity could not be verified.");
   const publicKey = await crypto.subtle.importKey(
     "jwk",
