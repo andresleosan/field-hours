@@ -936,13 +936,14 @@ export async function adminAdjustShift(
   const clockOutAt = optionalTimestamp(body.clockOutAt, "Clock-out time");
 
   const currentShift = await env.DB.prepare(
-    `SELECT id, user_id, clock_in_at, clock_out_at, state, break_minutes_override
+    `SELECT id, user_id, clock_in_at, clock_out_at, state, break_minutes_override, break_started_at
      FROM workforce_shifts
      WHERE id = ?1 AND organization_id = ?2 LIMIT 1`,
   ).bind(shiftId, auth.user.organizationId).first<{
     id: string;
     user_id: string;
     break_minutes_override?: number | null;
+    break_started_at: string | null;
     clock_in_at: string;
     clock_out_at: string | null;
     state: string;
@@ -956,6 +957,13 @@ export async function adminAdjustShift(
   const finalClockOut = clockOutAt || currentShift.clock_out_at;
   if (finalClockOut && Date.parse(finalClockOut) <= Date.parse(finalClockIn)) {
     throw new ApiError(400, "INVALID_INPUT", "Clock-out time must be after clock-in time.");
+  }
+  // An open shift must stay usable by the worker: no future start, no start after an ongoing break.
+  if (!finalClockOut && Date.parse(finalClockIn) > Date.now()) {
+    throw new ApiError(400, "INVALID_INPUT", "Clock-in time cannot be in the future for a shift in progress.");
+  }
+  if (!finalClockOut && currentShift.state === "on_break" && currentShift.break_started_at && currentShift.break_started_at < finalClockIn) {
+    throw new ApiError(400, "INVALID_INPUT", "Clock-in time must be before the break in progress.");
   }
   const requestedBreak = body.breakMinutes === undefined ? currentShift.break_minutes_override : body.breakMinutes;
   const breakMinutes = body.breakMinutes === undefined && requestedBreak == null ? null : validateBreakMinutes(requestedBreak, finalClockIn, finalClockOut);

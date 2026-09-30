@@ -10,7 +10,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E0 | ✅ `066a306` | Ajuste con pausa registrada fuera del nuevo horario viola un CHECK de la tabla | `cloudflare/src/shifts.ts` `adminAdjustShift` | «The service could not complete this request.» |
 | E1 | ✅ | Consultas con un parámetro por turno (`IN (?1..?N)`); D1 admite máx. 100 | `shifts.ts` `adjustmentsForShifts` + eventos del historial; `shiftMetrics.ts` `aggregateCompletedShifts` | Error 500 o historial vacío con ≥100 turnos (historial admin/trabajador, resumen de horas, salary advice) |
 | E2 | ✅ | Filtros de periodo convierten la fecha local a UTC | `src/pages/ShiftClock.tsx` `calculateDateRange` | «Este mes» empieza el día 31 del mes anterior en horario de verano; «hoy»/semanas fallan de 00:00 a 01:00 |
-| E3 | ⬜ | Ajustar un turno en curso lo cierra en «ahora» (salida obligatoria en el modal) | `ShiftClock.tsx` modal de ajuste + `shifts.ts` | El trabajador queda bloqueado: «The shift state changed» |
+| E3 | ✅ | Ajustar un turno en curso lo cierra en «ahora» (salida obligatoria en el modal) | `ShiftClock.tsx` modal de ajuste + `shifts.ts` | El trabajador queda bloqueado: «The shift state changed» |
 | E4 | ⬜ | Pausas fuera del horario ajustado se siguen descontando (se calculan con los eventos sin recortar) | `cloudflare/src/shiftMetrics.ts` `breakMinutesFromEvents` | Horas netas de menos |
 | E5 | ⬜ | Rechazar/aprobar por 2ª vez una solicitud Google del mismo email choca con `UNIQUE (email, request_type, status)` | `cloudflare/src/googleAuth.ts` + migración 0004 | Error 500; la solicitud queda pendiente para siempre |
 | E6 | ⬜ | Aprobar solicitud Google de alguien que ya tiene cuenta choca con el email único | `googleAuth.ts` aprobación | Error 500 |
@@ -20,7 +20,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 
 | # | Estado | Problema | Dónde | Síntoma |
 |---|---|---|---|---|
-| E8 | ⬜ | El admin puede dejar un turno abierto con entrada en el futuro o con la entrada después del inicio de una pausa en curso | `shifts.ts` `adminAdjustShift` | Trabajador bloqueado (409) |
+| E8 | ✅ | El admin puede dejar un turno abierto con entrada en el futuro o con la entrada después del inicio de una pausa en curso | `shifts.ts` `adminAdjustShift` | Trabajador bloqueado (409) |
 | E9 | ⬜ | Carrera: el ajuste puede reabrir un turno que el trabajador acaba de cerrar | `shifts.ts` `adminAdjustShift` | Turno reabierto e inconsistente |
 | E10 | ⬜ | Fichar entrada no comprueba solape con turnos creados por el admin | `shifts.ts` `performShiftAction` | Horas pagadas dos veces |
 | E11 | ⬜ | «Crear turno» usa la zona horaria del navegador, no la de la organización | `ShiftClock.tsx` modal de crear | Turnos desplazados si el portátil no está en hora de Jersey |
@@ -49,3 +49,5 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 (se rellena a medida que se arregla cada uno)
 - **E1** — `allForIds()` en `shiftMetrics.ts` consulta las listas de ids en bloques de 90. Test nuevo `cloudflare/test/d1Constraints.test.mjs` (D1 local real con todas las migraciones): con 150 turnos fallaba antes, pasa ahora.
 - **E2** — `periodDateRange()` en `src/lib/shiftDateTime.ts` calcula los rangos con el calendario de la organización (Europe/Jersey); `ShiftClock.tsx` lo usa. Test `src/lib/shiftDateTime.test.mjs` (00:30 BST, domingo).
+- **E3** — Modal de ajuste: en un turno en curso la salida y la pausa quedan ocultas tras la casilla «Marcar también la salida» (desmarcada por defecto); sin marcarla solo se corrige la entrada y el turno sigue abierto.
+- **E8** — `adminAdjustShift` rechaza (400) una entrada futura en un turno abierto o posterior al inicio de la pausa en curso. Test en `d1Constraints.test.mjs`.

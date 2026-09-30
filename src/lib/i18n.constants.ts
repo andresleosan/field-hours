@@ -301,6 +301,7 @@ export interface Translations {
   adjustReason: string;
   adjustReasonPlaceholder: string;
   saveAdjustment: string;
+  closeShiftToo: string;
   adminAdjustedNotice: string;
   adminCreatedNotice: string;
   adminAdjustedReason: string;
@@ -635,6 +636,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo del Ajuste *",
     adjustReasonPlaceholder: "Ej. El trabajador olvidó fichar su salida al finalizar el turno",
     saveAdjustment: "Guardar Ajuste",
+    closeShiftToo: "Marcar también la salida (cierra el turno en curso)",
     adminAdjustedNotice: "Horas modificadas por un administrador",
     adminCreatedNotice: "Jornada agregada por un administrador",
     adminAdjustedReason: "Motivo",
@@ -966,6 +968,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Reason for Adjustment *",
     adjustReasonPlaceholder: "e.g. Worker forgot to clock out at the end of the shift",
     saveAdjustment: "Save Adjustment",
+    closeShiftToo: "Also set clock-out (closes the shift in progress)",
     adminAdjustedNotice: "Hours modified by an administrator",
     adminCreatedNotice: "Workday added by an administrator",
     adminAdjustedReason: "Reason",
@@ -1296,6 +1299,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo do Ajuste *",
     adjustReasonPlaceholder: "Ex. O funcionário esqueceu de registrar a saída ao fim do expediente",
     saveAdjustment: "Salvar Ajuste",
+    closeShiftToo: "Marcar também a saída (fecha o turno em curso)",
     adminAdjustedNotice: "Horas modificadas por um administrador",
     adminCreatedNotice: "Jornada adicionada por um administrador",
     adminAdjustedReason: "Motivo",

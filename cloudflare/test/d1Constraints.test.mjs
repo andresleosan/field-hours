@@ -71,3 +71,27 @@ test("E1: history and totals work with more than 100 shifts (D1 bound-parameter 
   const totals = await metrics.aggregateCompletedShifts(env, "org", "worker-1");
   assert.ok(totals.shifts > 100);
 });
+
+test("E3/E8: an open shift can be corrected without closing it, and cannot be left unusable", async () => {
+  const id = `shift-${++seq}`;
+  const clockIn = new Date(Date.now() - 3 * 3_600_000).toISOString();
+  const breakStart = new Date(Date.now() - 3_600_000).toISOString();
+  await env.DB.prepare(
+    `INSERT INTO workforce_shifts (id, organization_id, user_id, state, clock_in_at, break_started_at, work_date)
+     VALUES (?1, 'org', 'worker-1', 'on_break', ?2, ?3, '2030-01-01')`,
+  ).bind(id, clockIn, breakStart).run();
+  const earlier = new Date(Date.now() - 4 * 3_600_000).toISOString();
+  await shifts.adminAdjustShift(env, admin, { shiftId: id, clockInAt: earlier, reason: "llegó antes" });
+  const row = await env.DB.prepare("SELECT state, clock_in_at, clock_out_at, break_started_at FROM workforce_shifts WHERE id = ?1").bind(id).first();
+  assert.deepEqual(row, { state: "on_break", clock_in_at: earlier, clock_out_at: null, break_started_at: breakStart });
+
+  await assert.rejects(
+    shifts.adminAdjustShift(env, admin, { shiftId: id, clockInAt: new Date(Date.now() + 3_600_000).toISOString(), reason: "futuro" }),
+    { status: 400 },
+  );
+  await assert.rejects(
+    shifts.adminAdjustShift(env, admin, { shiftId: id, clockInAt: new Date(Date.now() - 30 * 60_000).toISOString(), reason: "tras la pausa" }),
+    { status: 400 },
+  );
+  await env.DB.prepare("UPDATE workforce_shifts SET state = 'complete', clock_out_at = ?2 WHERE id = ?1").bind(id, new Date().toISOString()).run();
+});

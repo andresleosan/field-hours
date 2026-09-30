@@ -2267,6 +2267,8 @@ function AdjustShiftModal({
   const [clockOut, setClockOut] = useState(
     shift.clock_out_at ? shiftDateTime(shift.clock_out_at, timezone) : shiftDateTime(new Date(), timezone)
   );
+  // An open shift is only closed when the admin explicitly asks for it.
+  const [closeShift, setCloseShift] = useState(Boolean(shift.clock_out_at));
   const [reason, setReason] = useState("");
   const [breakHours, setBreakHours] = useState(String(Math.floor(shift.break_minutes / 60)));
   const [breakRemainder, setBreakRemainder] = useState(String(shift.break_minutes % 60));
@@ -2281,28 +2283,30 @@ function AdjustShiftModal({
       return;
     }
     const clockInAt = shiftDateTimeToIso(clockIn, timezone, shift.clock_in_at);
-    const clockOutAt = shiftDateTimeToIso(clockOut, timezone, shift.clock_out_at);
-    if (!clockInAt || !clockOutAt) {
+    const clockOutAt = closeShift ? shiftDateTimeToIso(clockOut, timezone, shift.clock_out_at) : undefined;
+    if (!clockInAt || clockOutAt === null) {
       setError(t("shiftTimeInvalid"));
       return;
     }
-    if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
-      setError(t("shiftTimeOrder"));
-      return;
-    }
     const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
-    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / 60000)) {
-      setError(t("breakDurationInvalid"));
-      return;
+    if (clockOutAt) {
+      if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
+        setError(t("shiftTimeOrder"));
+        return;
+      }
+      if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((Date.parse(clockOutAt) - Date.parse(clockInAt)) / 60000)) {
+        setError(t("breakDurationInvalid"));
+        return;
+      }
     }
     setError("");
     setBusy(true);
     try {
       await adjustShift({
-        breakMinutes,
+        // Break totals need a clock-out; an open shift keeps its recorded breaks.
+        ...(clockOutAt ? { breakMinutes, clockOutAt } : {}),
         shiftId: shift.id,
         clockInAt,
-        clockOutAt,
         reason: reason.trim(),
       });
       onSaved();
@@ -2339,9 +2343,16 @@ function AdjustShiftModal({
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <ShiftDateTimeFields label={t("clockInTime")} value={clockIn} onChange={setClockIn} />
-          <ShiftDateTimeFields label={t("clockOutTime")} value={clockOut} onChange={setClockOut} />
-
-          <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
+          {!shift.clock_out_at && (
+            <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+              <input type="checkbox" checked={closeShift} onChange={(e) => setCloseShift(e.target.checked)} className="h-5 w-5" />
+              {t("closeShiftToo")}
+            </label>
+          )}
+          {closeShift && <>
+            <ShiftDateTimeFields label={t("clockOutTime")} value={clockOut} onChange={setClockOut} />
+            <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
+          </>}
 
           <div>
             <label htmlFor="adjust-reason" className="block text-sm font-semibold">{t("adjustReason")}</label>
