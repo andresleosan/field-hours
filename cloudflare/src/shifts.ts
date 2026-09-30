@@ -987,7 +987,13 @@ export async function adminAdjustShift(
   const results = await env.DB.batch([
     env.DB.prepare(
       `UPDATE workforce_shifts
-       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3, work_date = ?4, break_minutes_override = ?7
+       SET clock_in_at = ?1, clock_out_at = ?2, state = ?3, work_date = ?4, break_minutes_override = ?7,
+         -- Break markers outside the adjusted window would violate the shift CHECKs; the
+         -- original break stays in workforce_shift_events for audit.
+         break_started_at = CASE WHEN break_started_at < ?1 OR COALESCE(break_ended_at, break_started_at) > ?2
+           THEN NULL ELSE break_started_at END,
+         break_ended_at = CASE WHEN break_started_at < ?1 OR COALESCE(break_ended_at, break_started_at) > ?2
+           THEN NULL ELSE break_ended_at END
        WHERE id = ?5 AND organization_id = ?6`,
     ).bind(
       finalClockIn,
