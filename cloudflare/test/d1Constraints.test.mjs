@@ -18,6 +18,7 @@ async function load(entry) {
 }
 const shifts = await load("src/shifts.ts");
 const metrics = await load("src/shiftMetrics.ts");
+const google = await load("src/googleAuth.ts");
 
 const persist = mkdtempSync(join(tmpdir(), "field-hours-d1-"));
 const proxy = await getPlatformProxy({ configPath: join(root, "wrangler.jsonc"), persist: { path: persist } });
@@ -31,6 +32,7 @@ await env.DB.batch([
   env.DB.prepare("INSERT INTO workforce_organizations (id, name, timezone) VALUES ('org', 'Test', 'Europe/Jersey')"),
   env.DB.prepare("INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations) VALUES ('worker-1', 'w@t.test', ?1, ?2, 100000)").bind("s".repeat(32), "h".repeat(64)),
   env.DB.prepare("INSERT INTO workforce_memberships (organization_id, user_id, role, display_name) VALUES ('org', 'worker-1', 'worker', 'Worker')"),
+  env.DB.prepare("INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations) VALUES ('admin-1', 'a@t.test', ?1, ?2, 100000)").bind("s".repeat(32), "h".repeat(64)),
 ]);
 
 const user = { organizationId: "org", organizationName: "Test", timezone: "Europe/Jersey", mustChangePassword: false };
@@ -102,4 +104,25 @@ test("E4: only the part of a break inside the adjusted times is deducted", () =>
   assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T08:00:00.000Z", "2026-09-25T16:00:00.000Z"), events), 420);
   assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T14:00:00.000Z", "2026-09-25T18:00:00.000Z"), events), 240);
   assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T08:00:00.000Z", "2026-09-25T12:30:00.000Z"), events), 240);
+});
+
+async function insertGoogleRequest(email, subject) {
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO workforce_auth_requests (id, organization_id, request_type, email, display_name, google_subject)
+     VALUES (?1, 'org', 'access', ?2, 'Someone', ?3)`,
+  ).bind(id, email, subject).run();
+  return id;
+}
+
+test("E5: the same email can be rejected more than once", async () => {
+  await google.reviewGoogleAuthRequest(env, admin, await insertGoogleRequest("again@t.test", "sub-a"), { decision: "reject" });
+  await google.reviewGoogleAuthRequest(env, admin, await insertGoogleRequest("again@t.test", "sub-a"), { decision: "reject" });
+  const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM workforce_auth_requests WHERE email = 'again@t.test' AND status = 'rejected'").first();
+  assert.equal(n, 2);
+});
+
+test("E6: approving a request for an email that already has an account returns a clear 409", async () => {
+  const id = await insertGoogleRequest("w@t.test", "sub-w");
+  await assert.rejects(google.reviewGoogleAuthRequest(env, admin, id, { decision: "approve" }), { status: 409, code: "ACCOUNT_EXISTS" });
 });

@@ -411,6 +411,11 @@ export async function reviewGoogleAuthRequest(
     return { ok: true };
   }
 
+  const linked = await env.DB.prepare(
+    "SELECT user_id FROM workforce_google_identities WHERE google_subject = ?1 LIMIT 1",
+  ).bind(pending.googleSubject).first<{ user_id: string }>();
+  if (linked) throw new ApiError(409, "GOOGLE_ALREADY_LINKED", "This Google account is already linked to a user. Reject this request.");
+
   if (pending.existingUserId) {
     const existing = await env.DB.prepare(
       "SELECT id, email FROM workforce_users WHERE id = ?1 AND disabled_at IS NULL LIMIT 1",
@@ -429,6 +434,9 @@ export async function reviewGoogleAuthRequest(
     ]);
     return { ok: true };
   }
+
+  const taken = await env.DB.prepare("SELECT id FROM workforce_users WHERE email = ?1 LIMIT 1").bind(pending.email).first<{ id: string }>();
+  if (taken) throw new ApiError(409, "ACCOUNT_EXISTS", "An account with this email already exists. Reject this request and ask the person to sign in with that account.");
 
   const userId = crypto.randomUUID();
   const passwordRecord = await createCurrentPasswordRecord(env, randomToken(32));
