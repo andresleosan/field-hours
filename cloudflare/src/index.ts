@@ -234,7 +234,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (payrollProfileMatch && request.method === "POST") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
-    const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
+    const userId = pathParam(payrollProfileMatch[1] ?? "");
     await enforcePayrollRateLimit(env, auth, "profile_reveal");
     return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
   }
@@ -243,7 +243,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (payrollCompensationMatch && request.method === "POST") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
-    const userId = decodeURIComponent(payrollCompensationMatch[1] ?? "");
+    const userId = pathParam(payrollCompensationMatch[1] ?? "");
     return json(request, env, await saveAdminPayrollProfileCompensation(
       env,
       auth,
@@ -264,7 +264,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await issuePasswordReset(
       env,
       auth,
-      decodeURIComponent(passwordResetRequestMatch[1] ?? ""),
+      pathParam(passwordResetRequestMatch[1] ?? ""),
     ));
   }
 
@@ -276,7 +276,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await rejectPasswordReset(
       env,
       auth,
-      decodeURIComponent(passwordResetRejectMatch[1] ?? ""),
+      pathParam(passwordResetRejectMatch[1] ?? ""),
       body.reason,
     ));
   }
@@ -288,7 +288,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await reviewGoogleAuthRequest(
       env,
       auth,
-      decodeURIComponent(authRequestMatch[1] ?? ""),
+      pathParam(authRequestMatch[1] ?? ""),
       { ...(await readJson<{ reason?: unknown }>(request)), decision: authRequestMatch[2] === "approve" ? "approve" : "reject" },
     ));
   }
@@ -404,6 +404,14 @@ async function route(request: Request, env: Env): Promise<Response> {
   }
 
   throw new ApiError(404, "NOT_FOUND", "The requested endpoint does not exist.");
+}
+
+function pathParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new ApiError(400, "INVALID_INPUT", "The request path is invalid.");
+  }
 }
 
 export default {
