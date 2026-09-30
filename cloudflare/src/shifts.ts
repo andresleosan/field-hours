@@ -182,7 +182,7 @@ function toHistoryRecord(
   const clockIn = new Date(row.clockInAt).getTime();
   const clockOut = row.clockOutAt ? new Date(row.clockOutAt).getTime() : Date.now();
   const durationMinutes = Math.max(0, Math.round((clockOut - clockIn) / 60000));
-  const breakMinutes = row.breakMinutesOverride ?? breakMinutesFromEvents(events, row.breakStartedAt, row.breakEndedAt, clockOut);
+  const breakMinutes = row.breakMinutesOverride ?? breakMinutesFromEvents(events, row.breakStartedAt, row.breakEndedAt, clockOut, clockIn);
 
   return {
     id: row.id,

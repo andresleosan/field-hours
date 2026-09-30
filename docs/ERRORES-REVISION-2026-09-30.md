@@ -11,7 +11,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E1 | ✅ | Consultas con un parámetro por turno (`IN (?1..?N)`); D1 admite máx. 100 | `shifts.ts` `adjustmentsForShifts` + eventos del historial; `shiftMetrics.ts` `aggregateCompletedShifts` | Error 500 o historial vacío con ≥100 turnos (historial admin/trabajador, resumen de horas, salary advice) |
 | E2 | ✅ | Filtros de periodo convierten la fecha local a UTC | `src/pages/ShiftClock.tsx` `calculateDateRange` | «Este mes» empieza el día 31 del mes anterior en horario de verano; «hoy»/semanas fallan de 00:00 a 01:00 |
 | E3 | ✅ | Ajustar un turno en curso lo cierra en «ahora» (salida obligatoria en el modal) | `ShiftClock.tsx` modal de ajuste + `shifts.ts` | El trabajador queda bloqueado: «The shift state changed» |
-| E4 | ⬜ | Pausas fuera del horario ajustado se siguen descontando (se calculan con los eventos sin recortar) | `cloudflare/src/shiftMetrics.ts` `breakMinutesFromEvents` | Horas netas de menos |
+| E4 | ✅ | Pausas fuera del horario ajustado se siguen descontando (se calculan con los eventos sin recortar) | `cloudflare/src/shiftMetrics.ts` `breakMinutesFromEvents` | Horas netas de menos |
 | E5 | ⬜ | Rechazar/aprobar por 2ª vez una solicitud Google del mismo email choca con `UNIQUE (email, request_type, status)` | `cloudflare/src/googleAuth.ts` + migración 0004 | Error 500; la solicitud queda pendiente para siempre |
 | E6 | ⬜ | Aprobar solicitud Google de alguien que ya tiene cuenta choca con el email único | `googleAuth.ts` aprobación | Error 500 |
 | E7 | ⬜ | Los errores 500 se registran sin mensaje | `cloudflare/src/index.ts` manejador global | Imposible diagnosticar desde los logs |
@@ -51,3 +51,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E2** — `periodDateRange()` en `src/lib/shiftDateTime.ts` calcula los rangos con el calendario de la organización (Europe/Jersey); `ShiftClock.tsx` lo usa. Test `src/lib/shiftDateTime.test.mjs` (00:30 BST, domingo).
 - **E3** — Modal de ajuste: en un turno en curso la salida y la pausa quedan ocultas tras la casilla «Marcar también la salida» (desmarcada por defecto); sin marcarla solo se corrige la entrada y el turno sigue abierto.
 - **E8** — `adminAdjustShift` rechaza (400) una entrada futura en un turno abierto o posterior al inicio de la pausa en curso. Test en `d1Constraints.test.mjs`.
+- **E4** — `breakMinutesFromEvents` recorta cada pausa a [entrada, salida] (historial y totales). Test en `d1Constraints.test.mjs`.

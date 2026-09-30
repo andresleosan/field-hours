@@ -40,7 +40,12 @@ export function breakMinutesFromEvents(
   fallbackStart: string | null = null,
   fallbackEnd: string | null = null,
   now = Date.now(),
+  windowStart = Number.NEGATIVE_INFINITY,
 ): number {
+  // Only the part of each break inside [windowStart, now] counts, so an admin
+  // adjustment that moves clock-in/out past a recorded break stops deducting it.
+  const from = Number.isFinite(windowStart) ? windowStart : Number.NEGATIVE_INFINITY;
+  const overlap = (start: number, end: number) => Math.max(0, Math.min(end, now) - Math.max(start, from));
   let activeBreakAt: number | null = null;
   let totalMilliseconds = 0;
   let hasBreakEvents = false;
@@ -53,18 +58,18 @@ export function breakMinutesFromEvents(
       activeBreakAt = at;
     } else if (event.type === "end_break" && activeBreakAt !== null) {
       hasBreakEvents = true;
-      totalMilliseconds += Math.max(0, at - activeBreakAt);
+      totalMilliseconds += overlap(activeBreakAt, at);
       activeBreakAt = null;
     }
   }
 
-  if (activeBreakAt !== null) totalMilliseconds += Math.max(0, now - activeBreakAt);
+  if (activeBreakAt !== null) totalMilliseconds += overlap(activeBreakAt, now);
 
   if (!hasBreakEvents && fallbackStart) {
     const start = new Date(fallbackStart).getTime();
     const end = fallbackEnd ? new Date(fallbackEnd).getTime() : now;
     if (Number.isFinite(start) && Number.isFinite(end)) {
-      totalMilliseconds = Math.max(0, end - start);
+      totalMilliseconds = overlap(start, end);
     }
   }
 
@@ -80,7 +85,7 @@ export function netMinutesFromShift(
   const durationMinutes = Number.isFinite(clockIn) && Number.isFinite(clockOut)
     ? Math.max(0, Math.round((clockOut - clockIn) / 60000))
     : 0;
-  return Math.max(0, durationMinutes - (shift.breakMinutesOverride ?? breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut)));
+  return Math.max(0, durationMinutes - (shift.breakMinutesOverride ?? breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut, clockIn)));
 }
 
 export async function aggregateCompletedShifts(

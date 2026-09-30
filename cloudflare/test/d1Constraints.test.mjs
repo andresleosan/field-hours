@@ -95,3 +95,11 @@ test("E3/E8: an open shift can be corrected without closing it, and cannot be le
   );
   await env.DB.prepare("UPDATE workforce_shifts SET state = 'complete', clock_out_at = ?2 WHERE id = ?1").bind(id, new Date().toISOString()).run();
 });
+
+test("E4: only the part of a break inside the adjusted times is deducted", () => {
+  const events = [{ type: "start_break", at: "2026-09-25T12:00:00.000Z" }, { type: "end_break", at: "2026-09-25T13:00:00.000Z" }];
+  const shift = (clockInAt, clockOutAt) => ({ id: "x", userId: "u", clockInAt, clockOutAt, breakStartedAt: null, breakEndedAt: null });
+  assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T08:00:00.000Z", "2026-09-25T16:00:00.000Z"), events), 420);
+  assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T14:00:00.000Z", "2026-09-25T18:00:00.000Z"), events), 240);
+  assert.equal(metrics.netMinutesFromShift(shift("2026-09-25T08:00:00.000Z", "2026-09-25T12:30:00.000Z"), events), 240);
+});
