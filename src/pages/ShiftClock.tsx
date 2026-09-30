@@ -956,7 +956,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     try {
       const res = await syncOfflineQueue((updated) => setShift(updated));
       setPendingQueueCount(getOfflineQueue().length);
-      if (res.syncedCount > 0) {
+      if (res.rejected.length > 0) {
+        setMessage(`An offline action was not accepted by the server: ${res.rejected.join(" ")}`);
+        void loadData();
+      } else if (res.syncedCount > 0) {
         setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
         void loadData();
       }
@@ -1056,7 +1059,9 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       const projectToSubmit = nextAction === "clock_in" ? selectedProjectId : undefined;
       fallback = { location, idempotencyKey, projectId: projectToSubmit };
 
-      if (!online) {
+      // Queued actions must reach the server first, or this one would overtake them.
+      if (online && getOfflineQueue().length > 0) await triggerSync();
+      if (!online || getOfflineQueue().length > 0) {
         queueForServerConfirmation(fallback);
         return;
       }

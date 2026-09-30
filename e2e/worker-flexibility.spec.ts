@@ -125,6 +125,20 @@ test("lost clock-out response is queued and retried with the same action", async
   expectNoExternalRequests(api);
 });
 
+test("a queued action the server refuses is dropped and reported instead of blocking the queue", async ({ context, page }) => {
+  const api = await installWorkerApi(context, { failFirstClockOutNetwork: true, rejectRetriedClockOut: true });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Clock in" }).click();
+  await expect(page.getByText("Working", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Finish shift" }).click();
+  await page.getByRole("button", { name: "Confirm finish" }).click();
+
+  await expect(page.getByText(/An offline action was not accepted by the server/)).toBeVisible();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("fh_offline_action_queue"))).toBeNull();
+  expectNoExternalRequests(api);
+});
+
 test("worker sees an administrator adjustment notice and the updated payroll labels", async ({ context, page }) => {
   const api = await installWorkerApi(context, { adjustedHistory: true });
 

@@ -546,6 +546,7 @@ export async function installWorkerApi(
     adjustedHistory?: boolean;
     denseData?: boolean;
     failFirstClockOutNetwork?: boolean;
+    rejectRetriedClockOut?: boolean;
     language?: MockLanguage;
     overnightOpenShift?: boolean;
   } = {},
@@ -729,6 +730,9 @@ export async function installWorkerApi(
         failedClockOutOnce = true;
         await route.abort("failed");
         return;
+      }
+      if (options.rejectRetriedClockOut && input.action === "clock_out" && failedClockOutOnce) {
+        return json(route, { error: "The shift state changed. Refresh and try again.", code: "INVALID_TRANSITION" }, 409);
       }
       if ("photo" in input) return json(route, { error: "Photo is outside the current contract", code: "INVALID_INPUT" }, 400);
       if (!input.location || typeof input.location.latitude !== "number" || typeof input.location.longitude !== "number" || typeof input.location.accuracy !== "number") {

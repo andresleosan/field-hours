@@ -1,3 +1,4 @@
+import { ApiClientError } from "./safeClient";
 import { runShiftAction, type LocationEvidence, type ShiftAction, type ShiftSnapshot } from "./timeClock";
 
 export interface QueuedAction {
@@ -46,28 +47,38 @@ export function clearOfflineQueue(): void {
 
 export async function syncOfflineQueue(
   onSynced?: (snapshot: ShiftSnapshot) => void,
-): Promise<{ syncedCount: number; lastSnapshot?: ShiftSnapshot }> {
+): Promise<{ syncedCount: number; rejected: string[]; lastSnapshot?: ShiftSnapshot }> {
   const queue = getOfflineQueue();
-  if (queue.length === 0) return { syncedCount: 0 };
+  if (queue.length === 0) return { syncedCount: 0, rejected: [] };
 
   let lastSnapshot: ShiftSnapshot | undefined;
   let syncedCount = 0;
+  let processed = 0;
+  const rejected: string[] = [];
 
   for (const item of queue) {
     try {
       lastSnapshot = await runShiftAction(item.action, item.location, item.idempotencyKey, item.projectId);
       syncedCount++;
+      processed++;
       if (onSynced && lastSnapshot) onSynced(lastSnapshot);
     } catch (error) {
+      // The server refused this action for good (e.g. the shift was adjusted meanwhile):
+      // drop it and report it instead of retrying it forever and blocking the rest.
+      if (error instanceof ApiClientError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) {
+        rejected.push(error.message);
+        processed++;
+        continue;
+      }
       // Do not expose queued GPS evidence in browser logs.
       console.warn("Failed to sync an offline shift action.", error);
       break;
     }
   }
 
-  // Remove synced items from queue
-  if (syncedCount > 0) {
-    const remaining = queue.slice(syncedCount);
+  // Remove synced and rejected items from queue
+  if (processed > 0) {
+    const remaining = queue.slice(processed);
     if (remaining.length === 0) {
       clearOfflineQueue();
     } else {
@@ -75,5 +86,5 @@ export async function syncOfflineQueue(
     }
   }
 
-  return { syncedCount, lastSnapshot };
+  return { syncedCount, rejected, lastSnapshot };
 }

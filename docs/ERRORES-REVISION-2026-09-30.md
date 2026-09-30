@@ -24,7 +24,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E9 | ✅ | Carrera: el ajuste puede reabrir un turno que el trabajador acaba de cerrar | `shifts.ts` `adminAdjustShift` | Turno reabierto e inconsistente |
 | E10 | ✅ | Fichar entrada no comprueba solape con turnos creados por el admin | `shifts.ts` `performShiftAction` | Horas pagadas dos veces |
 | E11 | ✅ | «Crear turno» usa la zona horaria del navegador, no la de la organización | `ShiftClock.tsx` modal de crear | Turnos desplazados si el portátil no está en hora de Jersey |
-| E12 | ⬜ | Una acción offline que falla con 4xx atasca la cola para siempre; una acción online puede adelantar a la cola | `src/lib/offlineQueue.ts`, `ShiftClock.tsx` `act()` | Acciones «pendientes» que nunca llegan |
+| E12 | ✅ | Una acción offline que falla con 4xx atasca la cola para siempre; una acción online puede adelantar a la cola | `src/lib/offlineQueue.ts`, `ShiftClock.tsx` `act()` | Acciones «pendientes» que nunca llegan |
 | E13 | ⏸️ | Acciones offline se registran con la hora de sincronización, no la real | `offlineQueue.ts` → `shifts.ts` | Salida a las 17:00 sin señal queda a las 19:30. **Decisión:** ¿aceptar la hora del móvil (con límite)? |
 | E14 | ⬜ | Límite de login solo por email: cualquiera puede bloquear la cuenta del admin | `cloudflare/src/auth.ts` | Admin bloqueado 15 min |
 | E15 | ⬜ | `must_change_password` solo se exige en la pantalla, no en el servidor | `auth.ts` `getAuth` | Cuenta con contraseña temporal usa toda la API |
@@ -58,3 +58,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E9** — `adminAdjustShift`: candado optimista (`state`, `clock_in_at`, `clock_out_at` leídos) → 409 `SHIFT_ADJUST_FAILED` si el turno cambió; la auditoría solo se escribe si el UPDATE cambió la fila (`WHERE changes() = 1`). Test en `d1Constraints.test.mjs`.
 - **E10** — `performShiftAction` (clock_in) llama a `assertNoShiftOverlap` → 409 `SHIFT_OVERLAP` si un turno registrado por el admin ya cubre ese momento. Test en `d1Constraints.test.mjs`.
 - **E11** — «Crear turno» interpreta y precarga las horas en la zona de la organización (`shiftDateTimeToIso`), no en la del navegador; una hora inexistente (cambio de hora) se rechaza. Verificado con TZ=America/New_York.
+- **E12** — `syncOfflineQueue` descarta y reporta las acciones que el servidor rechaza definitivamente (4xx salvo 408/429) en vez de bloquear la cola; `act()` sincroniza la cola antes de una acción nueva y, si sigue con pendientes, encola detrás para mantener el orden. Test e2e en `worker-flexibility.spec.ts`.
