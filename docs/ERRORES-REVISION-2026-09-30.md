@@ -38,7 +38,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 |---|---|---|---|
 | E19 | ✅ | Longitud de texto medida en UTF-16 (JS) vs caracteres (SQLite): nombre de un emoji → 500 | `cloudflare/src/http.ts` `requireString` |
 | E20 | ✅ | URL con `%` mal codificado → 500 | `cloudflare/src/index.ts` `decodeURIComponent` |
-| E21 | ⬜ | Motivo del ajuste: la pantalla no exige 3–300 caracteres como el servidor | `ShiftClock.tsx` modal de ajuste |
+| E21 | ✅ | Motivo del ajuste: la pantalla no exige 3–300 caracteres como el servidor | `ShiftClock.tsx` modal de ajuste |
 | E22 | ⬜ | Fechas con año fuera de 0000–9999 pasan la validación → 500 | `shifts.ts` `optionalTimestamp` |
 | E23 | ⬜ | Historial de reseteo de contraseña puede mostrar el motivo de rechazo de otra solicitud | `cloudflare/src/requestHistory.ts` |
 | E24 | ⬜ | Admin no puede fijar el salario hasta que el trabajador guarde su perfil (409 confuso) | `cloudflare/src/payrollProfiles.ts` |
@@ -62,3 +62,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E14** — Login: el límite de 5 fallos/15 min es por email **y** IP (`CF-Connecting-IP`), así un tercero no bloquea al dueño; nuevo tope de 30 fallos/15 min por IP contra el «password spraying». Test en `d1Constraints.test.mjs`. Límite conocido: un ataque distribuido desde muchas IP contra un email solo lo frena el coste de PBKDF2 y la contraseña.
 - **E19** — `requireString` mide en caracteres (code points) como `length()` de SQLite. Test en `d1Constraints.test.mjs`.
 - **E20** — `index.ts`: `pathParam()` convierte un `%` mal codificado en 400 `INVALID_INPUT` (5 rutas).
+- **E21** — Modal de ajuste: el motivo exige 3–300 caracteres (`minLength`/`maxLength` + comprobación tras recortar), igual que el servidor y que el modal de crear.

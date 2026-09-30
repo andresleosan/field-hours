@@ -2285,7 +2285,8 @@ function AdjustShiftModal({
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!reason.trim()) {
+    // The server requires 3–300 characters after trimming.
+    if (reason.trim().length < 3) {
       setError(t("adjustReason"));
       return;
     }
@@ -2369,6 +2370,8 @@ function AdjustShiftModal({
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("adjustReasonPlaceholder")}
+              minLength={3}
+              maxLength={300}
               rows={3}
               required
               className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
