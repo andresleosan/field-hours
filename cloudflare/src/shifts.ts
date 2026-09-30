@@ -430,6 +430,8 @@ export async function performShiftAction(
     const shiftId = crypto.randomUUID();
     const projectId = typeof body.projectId === "string" && body.projectId ? body.projectId : null;
     if (!projectId) throw new ApiError(400, "PROJECT_REQUIRED", "Select the project where you will work before clocking in.");
+    // An admin-entered shift may already cover this moment; clocking in would pay it twice.
+    await assertNoShiftOverlap(env, auth.user.organizationId, auth.user.id, occurredAt, null);
 
     let geofenceDistance: number | null = null;
     let outOfBounds = false;

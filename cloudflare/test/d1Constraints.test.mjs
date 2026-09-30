@@ -144,3 +144,26 @@ test("E9: an adjustment racing another change to the same shift is refused and l
   const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM workforce_audit_events WHERE subject_id = ?1").bind(id).first();
   assert.equal(n, 0);
 });
+
+test("E10: a worker cannot clock in inside a shift an admin already recorded", async () => {
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO workforce_users (id, email, password_salt, password_hash, password_iterations) VALUES ('worker-2', 'w2@t.test', ?1, ?2, 100000)").bind("s".repeat(32), "h".repeat(64)),
+    env.DB.prepare("INSERT INTO workforce_memberships (organization_id, user_id, role, display_name) VALUES ('org', 'worker-2', 'worker', 'Worker 2')"),
+  ]);
+  const now = Date.now();
+  await shifts.adminCreateShift(env, admin, {
+    userId: "worker-2",
+    clockInAt: new Date(now - 3_600_000).toISOString(),
+    clockOutAt: new Date(now + 3_600_000).toISOString(),
+    description: "entered by admin",
+  });
+  await assert.rejects(
+    shifts.performShiftAction(env, { ...worker, user: { ...worker.user, id: "worker-2" } }, {
+      action: "clock_in",
+      projectId: "any-project",
+      idempotencyKey: crypto.randomUUID(),
+      location: { latitude: 49.18, longitude: -2.1, accuracy: 10, capturedAt: new Date().toISOString() },
+    }),
+    { status: 409, code: "SHIFT_OVERLAP" },
+  );
+});
