@@ -20,6 +20,7 @@ const shifts = await load("src/shifts.ts");
 const metrics = await load("src/shiftMetrics.ts");
 const google = await load("src/googleAuth.ts");
 const auth = await load("src/auth.ts");
+const http = await load("src/http.ts");
 
 const persist = mkdtempSync(join(tmpdir(), "field-hours-d1-"));
 const proxy = await getPlatformProxy({ configPath: join(root, "wrangler.jsonc"), persist: { path: persist } });
@@ -184,4 +185,9 @@ test("E14: wrong passwords from one address do not lock the account for other ad
   for (let i = 0; i < 5; i += 1) await assert.rejects(attempt("203.0.113.9"), { status: 401 });
   await assert.rejects(attempt("203.0.113.9"), { status: 429 });
   await assert.rejects(attempt("198.51.100.7"), { status: 401 });
+});
+
+test("E19: text length is counted in characters, like the database CHECKs", () => {
+  assert.throws(() => http.requireString("😀", "Name", 2, 160), { status: 400 });
+  assert.equal(http.requireString("😀😀", "Name", 2, 2), "😀😀");
 });

@@ -27,7 +27,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 | E12 | ✅ | Una acción offline que falla con 4xx atasca la cola para siempre; una acción online puede adelantar a la cola | `src/lib/offlineQueue.ts`, `ShiftClock.tsx` `act()` | Acciones «pendientes» que nunca llegan |
 | E13 | ⏸️ | Acciones offline se registran con la hora de sincronización, no la real | `offlineQueue.ts` → `shifts.ts` | Salida a las 17:00 sin señal queda a las 19:30. **Decisión:** ¿aceptar la hora del móvil (con límite)? |
 | E14 | ✅ | Límite de login solo por email: cualquiera puede bloquear la cuenta del admin | `cloudflare/src/auth.ts` | Admin bloqueado 15 min |
-| E15 | ⬜ | `must_change_password` solo se exige en la pantalla, no en el servidor | `auth.ts` `getAuth` | Cuenta con contraseña temporal usa toda la API |
+| E15 | ⏸️ | `must_change_password` solo se exige en la pantalla, no en el servidor | `auth.ts` `getAuth` | Cuenta con contraseña temporal usa toda la API. **Decisión:** la pantalla deja «saltar» el cambio a propósito (solo afecta a cuentas creadas con `bootstrap-admin`/`seed`); ¿obligarlo? |
 | E16 | ⏸️ | Cambiar contraseña no pide la actual | `auth.ts` | Sesión robada = cuenta robada. **Decisión:** ¿pedir la actual? (cambia la pantalla) |
 | E17 | ⏸️ | Social Security 6 % sin tope de ingresos | `cloudflare/src/salaryAdvice.ts` | Posible sobre-deducción. **Decisión:** confirmar regla y tope de Jersey |
 | E18 | ⏸️ | Reglas de nómina fijas a 2026 | `salaryAdvice.ts` | Periodos que tocan 2027 se rechazan. **Decisión:** tasas 2027 |
@@ -36,7 +36,7 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 
 | # | Estado | Problema | Dónde |
 |---|---|---|---|
-| E19 | ⬜ | Longitud de texto medida en UTF-16 (JS) vs caracteres (SQLite): nombre de un emoji → 500 | `cloudflare/src/http.ts` `requireString` |
+| E19 | ✅ | Longitud de texto medida en UTF-16 (JS) vs caracteres (SQLite): nombre de un emoji → 500 | `cloudflare/src/http.ts` `requireString` |
 | E20 | ⬜ | URL con `%` mal codificado → 500 | `cloudflare/src/index.ts` `decodeURIComponent` |
 | E21 | ⬜ | Motivo del ajuste: la pantalla no exige 3–300 caracteres como el servidor | `ShiftClock.tsx` modal de ajuste |
 | E22 | ⬜ | Fechas con año fuera de 0000–9999 pasan la validación → 500 | `shifts.ts` `optionalTimestamp` |
@@ -60,3 +60,4 @@ Estado: ⬜ pendiente · 🔧 en curso · ✅ arreglado (commit) · ⏸️ neces
 - **E11** — «Crear turno» interpreta y precarga las horas en la zona de la organización (`shiftDateTimeToIso`), no en la del navegador; una hora inexistente (cambio de hora) se rechaza. Verificado con TZ=America/New_York.
 - **E12** — `syncOfflineQueue` descarta y reporta las acciones que el servidor rechaza definitivamente (4xx salvo 408/429) en vez de bloquear la cola; `act()` sincroniza la cola antes de una acción nueva y, si sigue con pendientes, encola detrás para mantener el orden. Test e2e en `worker-flexibility.spec.ts`.
 - **E14** — Login: el límite de 5 fallos/15 min es por email **y** IP (`CF-Connecting-IP`), así un tercero no bloquea al dueño; nuevo tope de 30 fallos/15 min por IP contra el «password spraying». Test en `d1Constraints.test.mjs`. Límite conocido: un ataque distribuido desde muchas IP contra un email solo lo frena el coste de PBKDF2 y la contraseña.
+- **E19** — `requireString` mide en caracteres (code points) como `length()` de SQLite. Test en `d1Constraints.test.mjs`.
