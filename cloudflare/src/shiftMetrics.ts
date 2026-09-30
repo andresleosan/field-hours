@@ -18,6 +18,23 @@ export interface ShiftMetricSummary {
   shifts: number;
 }
 
+// D1 allows at most 100 bound parameters per query, so id lists are queried in chunks.
+export async function allForIds<T>(
+  db: D1Database,
+  ids: string[],
+  sql: (placeholders: string) => string,
+  leading: unknown[] = [],
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let start = 0; start < ids.length; start += 90) {
+    const chunk = ids.slice(start, start + 90);
+    const placeholders = chunk.map((_, index) => `?${leading.length + index + 1}`).join(",");
+    const result = await db.prepare(sql(placeholders)).bind(...leading, ...chunk).all<T>();
+    rows.push(...result.results);
+  }
+  return rows;
+}
+
 export function breakMinutesFromEvents(
   events: ShiftMetricEvent[],
   fallbackStart: string | null = null,
@@ -102,15 +119,16 @@ export async function aggregateCompletedShifts(
   const shifts = await env.DB.prepare(query).bind(...bindings).all<CompletedShiftMetricRow>();
   if (shifts.results.length === 0) return { minutes: 0, shifts: 0 };
 
-  const placeholders = shifts.results.map((_, index) => `?${index + 1}`).join(",");
-  const eventRows = await env.DB.prepare(
-    `SELECT shift_id AS shiftId, event_type AS type, occurred_at AS at
+  const eventRows = await allForIds<ShiftMetricEvent & { shiftId: string }>(
+    env.DB,
+    shifts.results.map((shift) => shift.id),
+    (placeholders) => `SELECT shift_id AS shiftId, event_type AS type, occurred_at AS at
      FROM workforce_shift_events
      WHERE shift_id IN (${placeholders})
      ORDER BY rowid ASC`,
-  ).bind(...shifts.results.map((shift) => shift.id)).all<ShiftMetricEvent & { shiftId: string }>();
+  );
   const eventsByShift = new Map<string, ShiftMetricEvent[]>();
-  for (const event of eventRows.results) {
+  for (const event of eventRows) {
     const events = eventsByShift.get(event.shiftId) ?? [];
     events.push(event);
     eventsByShift.set(event.shiftId, events);

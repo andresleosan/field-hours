@@ -1,7 +1,7 @@
 import { ApiError, requireString } from "./http";
 import { requireRole } from "./auth";
 import { haversineDistanceMeters } from "./projects";
-import { breakMinutesFromEvents } from "./shiftMetrics";
+import { allForIds, breakMinutesFromEvents } from "./shiftMetrics";
 import { findOpenShiftForWorker, type OpenShiftRow } from "./openShift";
 import type {
   AuthContext,
@@ -138,9 +138,10 @@ async function adjustmentsForShifts(
 ): Promise<Map<string, ShiftAdjustmentNotice>> {
   if (shiftIds.length === 0) return new Map();
 
-  const placeholders = shiftIds.map((_, index) => `?${index + 2}`).join(",");
-  const result = await env.DB.prepare(
-    `SELECT
+  const rows = await allForIds<AdjustmentAuditRow>(
+    env.DB,
+    shiftIds,
+    (placeholders) => `SELECT
        subject_id AS shiftId,
        action,
        metadata_json AS metadataJson,
@@ -150,10 +151,11 @@ async function adjustmentsForShifts(
        AND action IN ('shift.admin_created', 'shift.admin_adjusted')
        AND subject_id IN (${placeholders})
      ORDER BY created_at DESC, id DESC`,
-  ).bind(organizationId, ...shiftIds).all<AdjustmentAuditRow>();
+    [organizationId],
+  );
 
   const adjustments = new Map<string, ShiftAdjustmentNotice>();
-  for (const row of result.results) {
+  for (const row of rows) {
     if (adjustments.has(row.shiftId)) continue;
     try {
       const metadata = JSON.parse(row.metadataJson) as { description?: unknown; reason?: unknown };
@@ -716,8 +718,7 @@ export async function adminShiftHistory(
   const eventsByShift = new Map<string, ShiftEvent[]>();
 
   if (shiftIds.length > 0) {
-    const placeholders = shiftIds.map((_, idx) => `?${idx + 1}`).join(",");
-    const eventsQuery = `
+    const eventRows = await allForIds<EventRow & { shiftId: string }>(env.DB, shiftIds, (placeholders) => `
       SELECT
         id,
         shift_id AS shiftId,
@@ -730,9 +731,8 @@ export async function adminShiftHistory(
       FROM workforce_shift_events
       WHERE shift_id IN (${placeholders})
       ORDER BY rowid ASC
-    `;
-    const eventRows = await env.DB.prepare(eventsQuery).bind(...shiftIds).all<EventRow & { shiftId: string }>();
-    for (const e of eventRows.results) {
+    `);
+    for (const e of eventRows) {
       const current = eventsByShift.get(e.shiftId) ?? [];
       current.push(toEvent(e));
       eventsByShift.set(e.shiftId, current);
@@ -800,8 +800,7 @@ export async function workerShiftHistory(
   const eventsByShift = new Map<string, ShiftEvent[]>();
 
   if (shiftIds.length > 0) {
-    const placeholders = shiftIds.map((_, idx) => `?${idx + 1}`).join(",");
-    const eventsQuery = `
+    const eventRows = await allForIds<EventRow & { shiftId: string }>(env.DB, shiftIds, (placeholders) => `
       SELECT
         id,
         shift_id AS shiftId,
@@ -814,9 +813,8 @@ export async function workerShiftHistory(
       FROM workforce_shift_events
       WHERE shift_id IN (${placeholders})
       ORDER BY rowid ASC
-    `;
-    const eventRows = await env.DB.prepare(eventsQuery).bind(...shiftIds).all<EventRow & { shiftId: string }>();
-    for (const e of eventRows.results) {
+    `);
+    for (const e of eventRows) {
       const current = eventsByShift.get(e.shiftId) ?? [];
       current.push(toEvent(e));
       eventsByShift.set(e.shiftId, current);
