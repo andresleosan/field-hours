@@ -126,3 +126,21 @@ test("E6: approving a request for an email that already has an account returns a
   const id = await insertGoogleRequest("w@t.test", "sub-w");
   await assert.rejects(google.reviewGoogleAuthRequest(env, admin, id, { decision: "approve" }), { status: 409, code: "ACCOUNT_EXISTS" });
 });
+
+test("E9: an adjustment racing another change to the same shift is refused and leaves no audit row", async () => {
+  const id = await insertShift({ day: "2020-01-02", clockIn: "08:00", clockOut: "16:00" });
+  // Someone else changes the shift after this admin's read but before the write.
+  const racingDb = Object.create(env.DB);
+  racingDb.batch = async (statements) => {
+    await env.DB.prepare("UPDATE workforce_shifts SET clock_in_at = '2020-01-02T09:00:00.000Z' WHERE id = ?1").bind(id).run();
+    return env.DB.batch(statements);
+  };
+  await assert.rejects(
+    shifts.adminAdjustShift({ ...env, DB: racingDb }, admin, { shiftId: id, clockInAt: "2020-01-02T07:00:00.000Z", reason: "carrera" }),
+    { status: 409, code: "SHIFT_ADJUST_FAILED" },
+  );
+  const row = await env.DB.prepare("SELECT clock_in_at FROM workforce_shifts WHERE id = ?1").bind(id).first();
+  assert.equal(row.clock_in_at, "2020-01-02T09:00:00.000Z");
+  const { n } = await env.DB.prepare("SELECT COUNT(*) AS n FROM workforce_audit_events WHERE subject_id = ?1").bind(id).first();
+  assert.equal(n, 0);
+});

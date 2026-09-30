@@ -181,10 +181,10 @@ test("break totals are validated, persisted and audited on creation and adjustme
     await assert.rejects(adminAdjustShift(env, adminAuth, { shiftId: "shift-1", reason: "Correct break", breakMinutes: value }), /Break must/);
   }
   await adminAdjustShift(env, adminAuth, { shiftId: "shift-1", reason: "Remove break", breakMinutes: 0 });
-  assert.equal(batches[1][0].bindings.at(-1), 0);
+  assert.equal(batches[1][0].bindings[6], 0);
   assert.deepEqual([JSON.parse(batches[1][1].bindings[3]).old_break_minutes_override, JSON.parse(batches[1][1].bindings[3]).new_break_minutes_override], [30, 0]);
   await adminAdjustShift(env, adminAuth, { shiftId: "shift-1", reason: "Preserve break" });
-  assert.equal(batches[2][0].bindings.at(-1), 30);
+  assert.equal(batches[2][0].bindings[6], 30);
 });
 
 test("break override migration preserves existing rows and net minutes honor zero and legacy events", async () => {

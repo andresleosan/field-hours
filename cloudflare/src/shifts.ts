@@ -1000,7 +1000,9 @@ export async function adminAdjustShift(
            THEN NULL ELSE break_started_at END,
          break_ended_at = CASE WHEN break_started_at < ?1 OR COALESCE(break_ended_at, break_started_at) > ?2
            THEN NULL ELSE break_ended_at END
-       WHERE id = ?5 AND organization_id = ?6`,
+       WHERE id = ?5 AND organization_id = ?6
+         -- Optimistic lock: a clock action between the read and this write turns into a 409.
+         AND state = ?8 AND clock_in_at = ?9 AND clock_out_at IS ?10`,
     ).bind(
       finalClockIn,
       finalClockOut,
@@ -1009,11 +1011,14 @@ export async function adminAdjustShift(
       shiftId,
       auth.user.organizationId,
       breakMinutes,
+      currentShift.state,
+      currentShift.clock_in_at,
+      currentShift.clock_out_at,
     ),
     env.DB.prepare(
       `INSERT INTO workforce_audit_events
        (organization_id, actor_user_id, action, subject_id, metadata_json)
-       VALUES (?1, ?2, 'shift.admin_adjusted', ?3, ?4)`,
+       SELECT ?1, ?2, 'shift.admin_adjusted', ?3, ?4 WHERE changes() = 1`,
     ).bind(auth.user.organizationId, auth.user.id, shiftId, metadata),
   ]);
   if (Number(results[0]?.meta.changes ?? 0) !== 1) {
