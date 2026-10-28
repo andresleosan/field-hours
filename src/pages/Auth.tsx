@@ -132,7 +132,7 @@ const Auth = () => {
     // Validate input with Zod
     const validationResult = signUpSchema.safeParse({ email, password, fullName, phone });
     if (!validationResult.success) {
-      const firstError = validationResult.error.errors[0];
+      const firstError = validationResult.error.issues[0];
       toast({
         title: "Validation Error",
         description: firstError.message,
@@ -202,7 +202,7 @@ const Auth = () => {
     // Validate input with Zod
     const validationResult = signInSchema.safeParse({ email, password });
     if (!validationResult.success) {
-      const firstError = validationResult.error.errors[0];
+      const firstError = validationResult.error.issues[0];
       toast({
         title: "Validation Error",
         description: firstError.message,
