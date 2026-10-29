@@ -57,6 +57,7 @@ import {
   workerShiftHistory,
   workerToday,
 } from "./shifts";
+import { closeExpiredShifts } from "./openShift";
 
 async function route(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -88,6 +89,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     const result = await login(
       env,
       await readJson<{ email?: unknown; password?: unknown }>(request),
+      request.headers.get("CF-Connecting-IP") ?? "unknown",
     );
     return json(request, env, { user: result.user }, 200, result.cookies);
   }
@@ -233,7 +235,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (payrollProfileMatch && request.method === "POST") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
-    const userId = decodeURIComponent(payrollProfileMatch[1] ?? "");
+    const userId = pathParam(payrollProfileMatch[1] ?? "");
     await enforcePayrollRateLimit(env, auth, "profile_reveal");
     return json(request, env, await revealAdminPayrollProfile(env, auth, userId));
   }
@@ -242,7 +244,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (payrollCompensationMatch && request.method === "POST") {
     const auth = await getAuth(request, env);
     await assertCsrf(request, auth);
-    const userId = decodeURIComponent(payrollCompensationMatch[1] ?? "");
+    const userId = pathParam(payrollCompensationMatch[1] ?? "");
     return json(request, env, await saveAdminPayrollProfileCompensation(
       env,
       auth,
@@ -263,7 +265,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await issuePasswordReset(
       env,
       auth,
-      decodeURIComponent(passwordResetRequestMatch[1] ?? ""),
+      pathParam(passwordResetRequestMatch[1] ?? ""),
     ));
   }
 
@@ -275,7 +277,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await rejectPasswordReset(
       env,
       auth,
-      decodeURIComponent(passwordResetRejectMatch[1] ?? ""),
+      pathParam(passwordResetRejectMatch[1] ?? ""),
       body.reason,
     ));
   }
@@ -287,7 +289,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     return json(request, env, await reviewGoogleAuthRequest(
       env,
       auth,
-      decodeURIComponent(authRequestMatch[1] ?? ""),
+      pathParam(authRequestMatch[1] ?? ""),
       { ...(await readJson<{ reason?: unknown }>(request)), decision: authRequestMatch[2] === "approve" ? "approve" : "reject" },
     ));
   }
@@ -397,6 +399,7 @@ async function route(request: Request, env: Env): Promise<Response> {
         location?: unknown;
         idempotencyKey?: unknown;
         projectId?: unknown;
+        occurredAt?: unknown;
       }>(request),
     );
     return json(request, env, snapshot);
@@ -405,12 +408,21 @@ async function route(request: Request, env: Env): Promise<Response> {
   throw new ApiError(404, "NOT_FOUND", "The requested endpoint does not exist.");
 }
 
+function pathParam(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    throw new ApiError(400, "INVALID_INPUT", "The request path is invalid.");
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       return await route(request, env);
     } catch (error) {
       if (error instanceof ApiError) {
+        if (error.status >= 500) console.error(JSON.stringify({ level: "error", event: "api_error", path: new URL(request.url).pathname, code: error.code }));
         const cookies = error.code === "UNAUTHENTICATED" ? clearAuthCookies() : [];
         return json(
           request,
@@ -427,6 +439,9 @@ export default {
         path: new URL(request.url).pathname,
         requestId: request.headers.get("cf-ray") ?? crypto.randomUUID(),
         errorName: error instanceof Error ? error.name : "UnknownError",
+        // D1 messages name the failed constraint, never the bound values. JSON syntax errors
+        // can quote the parsed text, so they are left out.
+        errorMessage: error instanceof Error && !(error instanceof SyntaxError) ? error.message.slice(0, 500) : undefined,
       }));
       return json(
         request,
@@ -435,5 +450,9 @@ export default {
         500,
       );
     }
+  },
+  // Closes shifts left open for 24 hours even when nobody opens the app.
+  async scheduled(_controller, env, ctx) {
+    ctx.waitUntil(closeExpiredShifts(env.DB));
   },
 } satisfies ExportedHandler<Env>;

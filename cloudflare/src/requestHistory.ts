@@ -44,8 +44,10 @@ export async function listRequestHistory(
                 WHERE a.organization_id = r.organization_id
                   AND a.subject_id = r.user_id
                   AND a.action = 'account.password.reset_rejected'
+                  AND r.status = 'rejected'
                   AND a.created_at >= r.requested_at
-                ORDER BY a.id DESC LIMIT 1
+                -- The rejection audit is written right after this request's review.
+                ORDER BY abs(julianday(a.created_at) - julianday(r.reviewed_at)) LIMIT 1
               ) AS reason,
               r.requested_at AS requestedAt, r.reviewed_at AS reviewedAt,
               reviewer.display_name AS reviewerName

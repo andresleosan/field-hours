@@ -94,8 +94,8 @@ function decodeJson<T>(value: string): T {
   }
 }
 
-async function fetchGoogleJwks(): Promise<GoogleJwks> {
-  if (cachedGoogleJwks && cachedGoogleJwks.expiresAt > Date.now()) return cachedGoogleJwks.value;
+async function fetchGoogleJwks(forceRefresh = false): Promise<GoogleJwks> {
+  if (!forceRefresh && cachedGoogleJwks && cachedGoogleJwks.expiresAt > Date.now()) return cachedGoogleJwks.value;
   const response = await fetch("https://www.googleapis.com/oauth2/v3/certs", {
     signal: AbortSignal.timeout(8_000),
   });
@@ -125,7 +125,9 @@ async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<G
   if (claims.email_verified !== true || typeof claims.sub !== "string" || !claims.sub || !Number.isFinite(claims.exp) || claims.exp <= Math.floor(Date.now() / 1000)) {
     throw new ApiError(401, "GOOGLE_EMAIL_UNVERIFIED", "The Google account email must be verified.");
   }
-  const key = (await fetchGoogleJwks()).keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === header.kid);
+  const findKey = (jwks: GoogleJwks) => jwks.keys.find((candidate) => (candidate as JsonWebKey & { kid?: string }).kid === header.kid);
+  // Google rotates keys; an unknown kid means the cache is stale, so refetch once.
+  const key = findKey(await fetchGoogleJwks()) ?? findKey(await fetchGoogleJwks(true));
   if (!key) throw new ApiError(401, "GOOGLE_KEY_UNKNOWN", "Google identity could not be verified.");
   const publicKey = await crypto.subtle.importKey(
     "jwk",
@@ -411,6 +413,11 @@ export async function reviewGoogleAuthRequest(
     return { ok: true };
   }
 
+  const linked = await env.DB.prepare(
+    "SELECT user_id FROM workforce_google_identities WHERE google_subject = ?1 LIMIT 1",
+  ).bind(pending.googleSubject).first<{ user_id: string }>();
+  if (linked) throw new ApiError(409, "GOOGLE_ALREADY_LINKED", "This Google account is already linked to a user. Reject this request.");
+
   if (pending.existingUserId) {
     const existing = await env.DB.prepare(
       "SELECT id, email FROM workforce_users WHERE id = ?1 AND disabled_at IS NULL LIMIT 1",
@@ -429,6 +436,9 @@ export async function reviewGoogleAuthRequest(
     ]);
     return { ok: true };
   }
+
+  const taken = await env.DB.prepare("SELECT id FROM workforce_users WHERE email = ?1 LIMIT 1").bind(pending.email).first<{ id: string }>();
+  if (taken) throw new ApiError(409, "ACCOUNT_EXISTS", "An account with this email already exists. Reject this request and ask the person to sign in with that account.");
 
   const userId = crypto.randomUUID();
   const passwordRecord = await createCurrentPasswordRecord(env, randomToken(32));

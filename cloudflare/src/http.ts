@@ -166,7 +166,9 @@ export function requireString(
     throw new ApiError(400, "INVALID_INPUT", `${field} is required.`);
   }
   const normalized = value.trim();
-  if (normalized.length < minimum || normalized.length > maximum) {
+  // Count code points like SQLite's length(), not UTF-16 units ("😀" is 1, not 2).
+  const length = Array.from(normalized).length;
+  if (length < minimum || length > maximum) {
     throw new ApiError(400, "INVALID_INPUT", `${field} has an invalid length.`);
   }
   if (Array.from(normalized).some((character) => {

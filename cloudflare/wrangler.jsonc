@@ -16,6 +16,9 @@
     "APP_ORIGIN": "https://field-hours.vercel.app",
     "GOOGLE_REDIRECT_URI": "https://field-hours.vercel.app/api/auth/google/callback"
   },
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

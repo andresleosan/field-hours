@@ -1,8 +1,6 @@
 # Vercel only needs the Vite application and its package manifests.
 .git
 .github
-.agents
-.cronos
 .cache
 .tmp
 .vercel
@@ -16,13 +14,9 @@ graphify-out
 scripts
 BRIEF.md
 STACK.md
-AGENTS.md
 README.md
 tasks.md
-AGENCY.md
-MASTER_PROMPT.md
 bun.lockb
-.agencia-version
 .dockerignore
 .env.example
 Dockerfile

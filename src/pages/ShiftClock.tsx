@@ -45,6 +45,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
+import { periodDateRange, shiftDateTime, shiftDateTimeToIso } from "@/lib/shiftDateTime";
 import { ApiClientError, type SessionUser } from "@/lib/safeClient";
 import { useI18n } from "@/lib/useI18n";
 import type { Translations } from "@/lib/i18n.constants";
@@ -955,7 +956,10 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
     try {
       const res = await syncOfflineQueue((updated) => setShift(updated));
       setPendingQueueCount(getOfflineQueue().length);
-      if (res.syncedCount > 0) {
+      if (res.rejected.length > 0) {
+        setMessage(`An offline action was not accepted by the server: ${res.rejected.join(" ")}`);
+        void loadData();
+      } else if (res.syncedCount > 0) {
         setMessage(`✅ Synced ${res.syncedCount} offline action(s) with the server.`);
         void loadData();
       }
@@ -1015,6 +1019,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       setMessage("That action is no longer available. Refresh your shift and try again.");
       return;
     }
+    const tappedAt = new Date().toISOString();
     setMessage("");
     setBusy(nextAction);
     let fallback: {
@@ -1025,7 +1030,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
 
     const queueForServerConfirmation = ({ location, idempotencyKey, projectId }: NonNullable<typeof fallback>) => {
       try {
-        queueOfflineAction(nextAction, location, idempotencyKey, projectId);
+        queueOfflineAction(nextAction, location, idempotencyKey, projectId, tappedAt);
       } catch {
         setMessage("The network request failed and this device could not preserve the action. Keep this screen open and try again.");
         return false;
@@ -1034,7 +1039,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       const newEvent: ShiftEvent = {
         id: idempotencyKey,
         type: nextAction,
-        at: new Date().toISOString(),
+        at: tappedAt,
         location,
       };
       setShift((previous) => ({
@@ -1055,7 +1060,9 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
       const projectToSubmit = nextAction === "clock_in" ? selectedProjectId : undefined;
       fallback = { location, idempotencyKey, projectId: projectToSubmit };
 
-      if (!online) {
+      // Queued actions must reach the server first, or this one would overtake them.
+      if (online && getOfflineQueue().length > 0) await triggerSync();
+      if (!online || getOfflineQueue().length > 0) {
         queueForServerConfirmation(fallback);
         return;
       }
@@ -2067,29 +2074,44 @@ function ProjectEditModal({
   );
 }
 
+function BreakDurationFields({ hours, minutes, onHours, onMinutes }: {
+  hours: string; minutes: string; onHours: (value: string) => void; onMinutes: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const style = "mt-1.5 block min-h-11 w-full min-w-0 rounded-xl border border-input bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  return <fieldset className="min-w-0">
+    <legend className="text-sm font-semibold">{t("breakTime")}</legend>
+    <p className="mt-1 text-sm text-muted-foreground">{t("breakDurationHelp")}</p>
+    <div className="mt-2 grid grid-cols-2 gap-3">
+      <label className="min-w-0 text-sm">{t("breakHours")}<input type="number" inputMode="numeric" min="0" step="1" required value={hours} onChange={e => onHours(e.target.value)} className={style} /></label>
+      <label className="min-w-0 text-sm">{t("breakMinutesLabel")}<input type="number" inputMode="numeric" min="0" max="59" step="1" required value={minutes} onChange={e => onMinutes(e.target.value)} className={style} /></label>
+    </div>
+  </fieldset>;
+}
+
 function CreateAdminShiftModal({
   workers,
   projects,
+  timezone,
   onClose,
   onSaved,
 }: {
   workers: Person[];
   projects: Project[];
+  timezone: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useI18n();
-  const localDateTime = (hour: number) => {
-    const value = new Date();
-    value.setHours(hour, 0, 0, 0);
-    const offset = value.getTimezoneOffset() * 60_000;
-    return new Date(value.getTime() - offset).toISOString().slice(0, 16);
-  };
+  // Wall times are in the organization timezone, whatever the admin's device is set to.
+  const localDateTime = (hour: number) => `${shiftDateTime(new Date(), timezone).slice(0, 10)}T${String(hour).padStart(2, "0")}:00`;
   const [workerId, setWorkerId] = useState(workers[0]?.id ?? "");
   const [projectId, setProjectId] = useState("");
   const [clockIn, setClockIn] = useState(() => localDateTime(8));
   const [clockOut, setClockOut] = useState(() => localDateTime(17));
   const [description, setDescription] = useState("");
+  const [breakHours, setBreakHours] = useState("0");
+  const [breakRemainder, setBreakRemainder] = useState("0");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useModalFocus(onClose);
@@ -2104,21 +2126,31 @@ function CreateAdminShiftModal({
       setError(t("workDescription"));
       return;
     }
-    const clockInAt = new Date(clockIn);
-    const clockOutAt = new Date(clockOut);
-    if (!clockIn || !clockOut || !Number.isFinite(clockInAt.getTime()) || !Number.isFinite(clockOutAt.getTime()) || clockOutAt <= clockInAt) {
-      setError("Clock-out time must be after clock-in time.");
+    const clockInAt = shiftDateTimeToIso(clockIn, timezone);
+    const clockOutAt = shiftDateTimeToIso(clockOut, timezone);
+    if (!clockInAt || !clockOutAt) {
+      setError(t("shiftTimeInvalid"));
+      return;
+    }
+    if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
+      setError(t("shiftTimeOrder"));
       return;
     }
 
+    const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
+    if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((Date.parse(clockOutAt) - Date.parse(clockInAt)) / 60000)) {
+      setError(t("breakDurationInvalid"));
+      return;
+    }
     setError("");
     setBusy(true);
     try {
       await createAdminShift({
+        breakMinutes,
         userId: workerId,
         projectId: projectId || undefined,
-        clockInAt: clockInAt.toISOString(),
-        clockOutAt: clockOutAt.toISOString(),
+        clockInAt,
+        clockOutAt,
         description: description.trim(),
       });
       onSaved();
@@ -2178,6 +2210,8 @@ function CreateAdminShiftModal({
             <input type="datetime-local" value={clockOut} onChange={(event) => setClockOut(event.target.value)} required className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 font-mono text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </label>
 
+          <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
+
           <label className="block text-xs font-semibold uppercase text-muted-foreground">
             {t("workDescription")}
             <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder={t("workDescriptionPlaceholder")} minLength={3} maxLength={300} rows={3} required className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm text-foreground placeholder:text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -2198,40 +2232,90 @@ function CreateAdminShiftModal({
   );
 }
 
+function ShiftDateTimeFields({ label, value, onChange }: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useI18n();
+  const [date = "", time = ""] = value.split("T");
+  const controlClass = "mt-1.5 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-input bg-background px-3 py-2 text-base text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  return (
+    <fieldset className="min-w-0">
+      <legend className="text-sm font-semibold">{label}</legend>
+      <div className="mt-2 grid min-w-0 gap-3 min-[360px]:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <label className="min-w-0 text-sm text-muted-foreground">
+          {t("shiftDateLabel")}
+          <input type="date" aria-label={`${label}: ${t("shiftDateLabel")}`} value={date} onChange={(event) => onChange(`${event.target.value}T${time}`)} required className={controlClass} />
+        </label>
+        <label className="min-w-0 text-sm text-muted-foreground">
+          {t("shiftTimeLabel")}
+          <input type="time" aria-label={`${label}: ${t("shiftTimeLabel")}`} value={time} onChange={(event) => onChange(`${date}T${event.target.value}`)} required className={controlClass} />
+        </label>
+      </div>
+    </fieldset>
+  );
+}
+
 function AdjustShiftModal({
   shift,
+  timezone,
   onClose,
   onSaved,
 }: {
   shift: ShiftHistoryRecord;
+  timezone: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const { t } = useI18n();
   const [clockIn, setClockIn] = useState(
-    shift.clock_in_at ? new Date(shift.clock_in_at).toISOString().slice(0, 16) : ""
+    shift.clock_in_at ? shiftDateTime(shift.clock_in_at, timezone) : ""
   );
   const [clockOut, setClockOut] = useState(
-    shift.clock_out_at ? new Date(shift.clock_out_at).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16)
+    shift.clock_out_at ? shiftDateTime(shift.clock_out_at, timezone) : shiftDateTime(new Date(), timezone)
   );
+  // An open shift is only closed when the admin explicitly asks for it.
+  const [closeShift, setCloseShift] = useState(Boolean(shift.clock_out_at));
   const [reason, setReason] = useState("");
+  const [breakHours, setBreakHours] = useState(String(Math.floor(shift.break_minutes / 60)));
+  const [breakRemainder, setBreakRemainder] = useState(String(shift.break_minutes % 60));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const dialogRef = useModalFocus(onClose);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!reason.trim()) {
+    // The server requires 3–300 characters after trimming.
+    if (reason.trim().length < 3) {
       setError(t("adjustReason"));
       return;
+    }
+    const clockInAt = shiftDateTimeToIso(clockIn, timezone, shift.clock_in_at);
+    const clockOutAt = closeShift ? shiftDateTimeToIso(clockOut, timezone, shift.clock_out_at) : undefined;
+    if (!clockInAt || clockOutAt === null) {
+      setError(t("shiftTimeInvalid"));
+      return;
+    }
+    const breakMinutes = Number(breakHours) * 60 + Number(breakRemainder);
+    if (clockOutAt) {
+      if (Date.parse(clockOutAt) <= Date.parse(clockInAt)) {
+        setError(t("shiftTimeOrder"));
+        return;
+      }
+      if (!Number.isSafeInteger(breakMinutes) || breakMinutes < 0 || breakMinutes > Math.floor((Date.parse(clockOutAt) - Date.parse(clockInAt)) / 60000)) {
+        setError(t("breakDurationInvalid"));
+        return;
+      }
     }
     setError("");
     setBusy(true);
     try {
       await adjustShift({
+        // Break totals need a clock-out; an open shift keeps its recorded breaks.
+        ...(clockOutAt ? { breakMinutes, clockOutAt } : {}),
         shiftId: shift.id,
-        clockInAt: clockIn ? new Date(clockIn).toISOString() : undefined,
-        clockOutAt: clockOut ? new Date(clockOut).toISOString() : undefined,
+        clockInAt,
         reason: reason.trim(),
       });
       onSaved();
@@ -2244,63 +2328,54 @@ function AdjustShiftModal({
   };
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-foreground/40 p-2 sm:items-center sm:p-4" onClick={onClose}>
       <section
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="adjust-shift-title"
         tabIndex={-1}
-        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-5 shadow-2xl outline-none sm:p-6"
+        className="max-h-[calc(100dvh-1rem)] w-full min-w-0 max-w-md overflow-y-auto overscroll-contain rounded-3xl border border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl outline-none sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border pb-4">
-          <div>
+          <div className="min-w-0">
             <p className="label-eyebrow text-muted-foreground font-semibold">{t("auditAdjustment")}</p>
             <h2 id="adjust-shift-title" className="mt-1 text-xl font-bold">{t("adjustShiftTimes")}</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">{shift.display_name} · {shift.work_date}</p>
+            <p className="break-words text-sm text-muted-foreground mt-1">{shift.display_name} · {shift.work_date}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{timezone}</p>
           </div>
-          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
+          <button type="button" onClick={onClose} className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted" aria-label={t("close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockInTime")}</label>
-            <input
-              aria-label={t("clockInTime")}
-              data-dialog-initial-focus
-              type="datetime-local"
-              value={clockIn}
-              onChange={(e) => setClockIn(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              required
-            />
-          </div>
+          <ShiftDateTimeFields label={t("clockInTime")} value={clockIn} onChange={setClockIn} />
+          {!shift.clock_out_at && (
+            <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+              <input type="checkbox" checked={closeShift} onChange={(e) => setCloseShift(e.target.checked)} className="h-5 w-5" />
+              {t("closeShiftToo")}
+            </label>
+          )}
+          {closeShift && <>
+            <ShiftDateTimeFields label={t("clockOutTime")} value={clockOut} onChange={setClockOut} />
+            <BreakDurationFields hours={breakHours} minutes={breakRemainder} onHours={setBreakHours} onMinutes={setBreakRemainder} />
+          </>}
 
           <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("clockOutTime")}</label>
-            <input
-              aria-label={t("clockOutTime")}
-              type="datetime-local"
-              value={clockOut}
-              onChange={(e) => setClockOut(e.target.value)}
-              className="mt-1.5 h-11 w-full rounded-xl border border-input bg-background px-3 text-sm font-mono outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-muted-foreground uppercase">{t("adjustReason")}</label>
+            <label htmlFor="adjust-reason" className="block text-sm font-semibold">{t("adjustReason")}</label>
             <textarea
+              id="adjust-reason"
               aria-label={t("adjustReason")}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t("adjustReasonPlaceholder")}
+              minLength={3}
+              maxLength={300}
               rows={3}
               required
-              className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="mt-1.5 w-full rounded-xl border border-input bg-background p-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
 
@@ -2343,7 +2418,11 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
   const [historyRecords, setHistoryRecords] = useState<ShiftHistoryRecord[]>([]);
   const [visibleHistoryRecords, setVisibleHistoryRecords] = useState(LIST_PAGE_SIZE);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyFilterPeriod, setHistoryFilterPeriod] = useState<"all" | "today" | "this_week" | "last_week" | "this_month">("this_month");
+  const historyRequestId = useRef(0);
+  const [historyFilterPeriod, setHistoryFilterPeriod] = useState<"all" | "today" | "this_week" | "last_week" | "this_month" | "custom">("this_month");
+  const [historyStartDate, setHistoryStartDate] = useState(() => `${shiftDateTime(new Date(), user.timezone).slice(0, 7)}-01`);
+  const [historyEndDate, setHistoryEndDate] = useState(() => shiftDateTime(new Date(), user.timezone).slice(0, 10));
+  const invalidHistoryPeriod = historyFilterPeriod === "custom" && (!historyStartDate || !historyEndDate || historyEndDate < historyStartDate);
   const [historyFilterWorker, setHistoryFilterWorker] = useState<string>("all");
   const [historyFilterProject, setHistoryFilterProject] = useState<string>("all");
   const [historyFiltersOpen, setHistoryFiltersOpen] = useState(false);
@@ -2382,7 +2461,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
 
   useEffect(() => {
     setVisibleHistoryRecords(LIST_PAGE_SIZE);
-  }, [historyFilterPeriod, historyFilterWorker, historyFilterProject]);
+  }, [historyFilterPeriod, historyFilterWorker, historyFilterProject, historyStartDate, historyEndDate]);
   const refreshToday = useCallback(async () => {
     setLoading(true);
     try {
@@ -2430,50 +2509,33 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
     }
   }, []);
 
-  const calculateDateRange = useCallback((period: string) => {
-    const today = new Date();
-    const toYMD = (d: Date) => d.toISOString().slice(0, 10);
-    
-    if (period === "today") {
-      return { start: toYMD(today), end: toYMD(today) };
-    }
-    if (period === "this_week") {
-      const day = today.getDay();
-      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-      const monday = new Date(today.setDate(diff));
-      return { start: toYMD(monday), end: toYMD(new Date()) };
-    }
-    if (period === "last_week") {
-      const prevMonday = new Date();
-      prevMonday.setDate(prevMonday.getDate() - 7 - (prevMonday.getDay() === 0 ? 6 : prevMonday.getDay() - 1));
-      const prevSunday = new Date(prevMonday);
-      prevSunday.setDate(prevSunday.getDate() + 6);
-      return { start: toYMD(prevMonday), end: toYMD(prevSunday) };
-    }
-    if (period === "this_month") {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { start: toYMD(firstDay), end: toYMD(new Date()) };
-    }
-    return { start: undefined, end: undefined };
-  }, []);
+  const calculateDateRange = useCallback((period: string) => periodDateRange(period, user.timezone), [user.timezone]);
 
   const refreshHistory = useCallback(async () => {
+    const requestId = ++historyRequestId.current;
+    if (invalidHistoryPeriod) {
+      setHistoryRecords([]);
+      setHistoryLoading(false);
+      return;
+    }
     setHistoryLoading(true);
     try {
-      const { start, end } = calculateDateRange(historyFilterPeriod);
+      const { start, end } = historyFilterPeriod === "custom"
+        ? { start: historyStartDate, end: historyEndDate }
+        : calculateDateRange(historyFilterPeriod);
       const records = await loadAdminHistory({
         userId: historyFilterWorker,
         projectId: historyFilterProject,
         startDate: start,
         endDate: end,
       });
-      setHistoryRecords(records);
+      if (requestId === historyRequestId.current) setHistoryRecords(records);
     } catch (caught) {
-      setMessage(messageFrom(caught, "Could not load shift history."));
+      if (requestId === historyRequestId.current) setMessage(messageFrom(caught, "Could not load shift history."));
     } finally {
-      setHistoryLoading(false);
+      if (requestId === historyRequestId.current) setHistoryLoading(false);
     }
-  }, [calculateDateRange, historyFilterPeriod, historyFilterWorker, historyFilterProject]);
+  }, [calculateDateRange, historyFilterPeriod, historyFilterWorker, historyFilterProject, historyStartDate, historyEndDate, invalidHistoryPeriod]);
 
   const refreshProjectsList = useCallback(async () => {
     setProjectsLoading(true);
@@ -3080,6 +3142,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     <option value="last_week">{t("periodLastWeek")}</option>
                     <option value="this_month">{t("periodThisMonth")}</option>
                     <option value="all">{t("periodAll")}</option>
+                    <option value="custom">{t("periodCustom")}</option>
                   </select>
                   <select
                     aria-label={t("workerFilter")}
@@ -3100,6 +3163,19 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
                     {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
                   </select>
                 </div>
+                {historyFilterPeriod === "custom" && (
+                  <div className="mt-3 grid min-w-0 gap-3 sm:grid-cols-2 md:max-w-lg">
+                    <label className="min-w-0 text-sm font-semibold">
+                      {t("periodStart")}
+                      <input type="date" value={historyStartDate} max={historyEndDate || undefined} onChange={(event) => setHistoryStartDate(event.target.value)} aria-invalid={invalidHistoryPeriod} aria-describedby={invalidHistoryPeriod ? "history-period-error" : undefined} className="mt-1.5 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-input bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    </label>
+                    <label className="min-w-0 text-sm font-semibold">
+                      {t("periodEnd")}
+                      <input type="date" value={historyEndDate} min={historyStartDate || undefined} onChange={(event) => setHistoryEndDate(event.target.value)} aria-invalid={invalidHistoryPeriod} aria-describedby={invalidHistoryPeriod ? "history-period-error" : undefined} className="mt-1.5 block min-h-11 w-full min-w-0 max-w-full rounded-xl border border-input bg-background px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                    </label>
+                    {invalidHistoryPeriod && <p id="history-period-error" role="alert" className="text-sm text-destructive sm:col-span-2">{t("periodInvalid")}</p>}
+                  </div>
+                )}
               </details>
 
               {/* Summary Stats Band */}
@@ -3589,6 +3665,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
           <CreateAdminShiftModal
             workers={people}
             projects={projects}
+            timezone={user.timezone}
             onClose={() => setCreateShiftOpen(false)}
             onSaved={() => {
               setMessage("Workday created successfully with audit description recorded.");
@@ -3601,6 +3678,7 @@ function AdminView({ user, onSignOut }: { user: SessionUser; onSignOut: () => vo
         {shiftToAdjust && (
           <AdjustShiftModal
             shift={shiftToAdjust}
+            timezone={user.timezone}
             onClose={() => setShiftToAdjust(null)}
             onSaved={() => {
               setMessage("Shift adjusted successfully with audit event recorded.");

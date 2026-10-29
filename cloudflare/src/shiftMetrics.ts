@@ -4,6 +4,7 @@ export interface ShiftMetricEvent {
 }
 
 export interface CompletedShiftMetricRow {
+  breakMinutesOverride?: number | null;
   id: string;
   userId: string;
   clockInAt: string;
@@ -17,12 +18,34 @@ export interface ShiftMetricSummary {
   shifts: number;
 }
 
+// D1 allows at most 100 bound parameters per query, so id lists are queried in chunks.
+export async function allForIds<T>(
+  db: D1Database,
+  ids: string[],
+  sql: (placeholders: string) => string,
+  leading: unknown[] = [],
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (let start = 0; start < ids.length; start += 90) {
+    const chunk = ids.slice(start, start + 90);
+    const placeholders = chunk.map((_, index) => `?${leading.length + index + 1}`).join(",");
+    const result = await db.prepare(sql(placeholders)).bind(...leading, ...chunk).all<T>();
+    rows.push(...result.results);
+  }
+  return rows;
+}
+
 export function breakMinutesFromEvents(
   events: ShiftMetricEvent[],
   fallbackStart: string | null = null,
   fallbackEnd: string | null = null,
   now = Date.now(),
+  windowStart = Number.NEGATIVE_INFINITY,
 ): number {
+  // Only the part of each break inside [windowStart, now] counts, so an admin
+  // adjustment that moves clock-in/out past a recorded break stops deducting it.
+  const from = Number.isFinite(windowStart) ? windowStart : Number.NEGATIVE_INFINITY;
+  const overlap = (start: number, end: number) => Math.max(0, Math.min(end, now) - Math.max(start, from));
   let activeBreakAt: number | null = null;
   let totalMilliseconds = 0;
   let hasBreakEvents = false;
@@ -35,18 +58,18 @@ export function breakMinutesFromEvents(
       activeBreakAt = at;
     } else if (event.type === "end_break" && activeBreakAt !== null) {
       hasBreakEvents = true;
-      totalMilliseconds += Math.max(0, at - activeBreakAt);
+      totalMilliseconds += overlap(activeBreakAt, at);
       activeBreakAt = null;
     }
   }
 
-  if (activeBreakAt !== null) totalMilliseconds += Math.max(0, now - activeBreakAt);
+  if (activeBreakAt !== null) totalMilliseconds += overlap(activeBreakAt, now);
 
   if (!hasBreakEvents && fallbackStart) {
     const start = new Date(fallbackStart).getTime();
     const end = fallbackEnd ? new Date(fallbackEnd).getTime() : now;
     if (Number.isFinite(start) && Number.isFinite(end)) {
-      totalMilliseconds = Math.max(0, end - start);
+      totalMilliseconds = overlap(start, end);
     }
   }
 
@@ -62,7 +85,7 @@ export function netMinutesFromShift(
   const durationMinutes = Number.isFinite(clockIn) && Number.isFinite(clockOut)
     ? Math.max(0, Math.round((clockOut - clockIn) / 60000))
     : 0;
-  return Math.max(0, durationMinutes - breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut));
+  return Math.max(0, durationMinutes - (shift.breakMinutesOverride ?? breakMinutesFromEvents(events, shift.breakStartedAt, shift.breakEndedAt, clockOut, clockIn)));
 }
 
 export async function aggregateCompletedShifts(
@@ -78,6 +101,7 @@ export async function aggregateCompletedShifts(
       s.user_id AS userId,
       s.clock_in_at AS clockInAt,
       s.clock_out_at AS clockOutAt,
+      s.break_minutes_override AS breakMinutesOverride,
       s.break_started_at AS breakStartedAt,
       s.break_ended_at AS breakEndedAt
     FROM workforce_shifts s
@@ -100,15 +124,16 @@ export async function aggregateCompletedShifts(
   const shifts = await env.DB.prepare(query).bind(...bindings).all<CompletedShiftMetricRow>();
   if (shifts.results.length === 0) return { minutes: 0, shifts: 0 };
 
-  const placeholders = shifts.results.map((_, index) => `?${index + 1}`).join(",");
-  const eventRows = await env.DB.prepare(
-    `SELECT shift_id AS shiftId, event_type AS type, occurred_at AS at
+  const eventRows = await allForIds<ShiftMetricEvent & { shiftId: string }>(
+    env.DB,
+    shifts.results.map((shift) => shift.id),
+    (placeholders) => `SELECT shift_id AS shiftId, event_type AS type, occurred_at AS at
      FROM workforce_shift_events
      WHERE shift_id IN (${placeholders})
      ORDER BY rowid ASC`,
-  ).bind(...shifts.results.map((shift) => shift.id)).all<ShiftMetricEvent & { shiftId: string }>();
+  );
   const eventsByShift = new Map<string, ShiftMetricEvent[]>();
-  for (const event of eventRows.results) {
+  for (const event of eventRows) {
     const events = eventsByShift.get(event.shiftId) ?? [];
     events.push(event);
     eventsByShift.set(event.shiftId, events);

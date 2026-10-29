@@ -249,6 +249,14 @@ export interface Translations {
   // History & Reports
   reportsTitle: string;
   periodFilter: string;
+  periodCustom: string;
+  periodStart: string;
+  periodEnd: string;
+  periodInvalid: string;
+  shiftDateLabel: string;
+  shiftTimeLabel: string;
+  shiftTimeInvalid: string;
+  shiftTimeOrder: string;
   workerFilter: string;
   projectFilter: string;
   filters: string;
@@ -261,6 +269,10 @@ export interface Translations {
   periodAll: string;
   totalWorked: string;
   breakTime: string;
+  breakHours: string;
+  breakMinutesLabel: string;
+  breakDurationHelp: string;
+  breakDurationInvalid: string;
   totalShifts: string;
   activeStaff: string;
   exportExcel: string;
@@ -289,6 +301,7 @@ export interface Translations {
   adjustReason: string;
   adjustReasonPlaceholder: string;
   saveAdjustment: string;
+  closeShiftToo: string;
   adminAdjustedNotice: string;
   adminCreatedNotice: string;
   adminAdjustedReason: string;
@@ -570,6 +583,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Historial de Turnos y Reportes",
     periodFilter: "Período",
+    periodCustom: "Seleccionar período",
+    periodStart: "Fecha inicial",
+    periodEnd: "Fecha final",
+    periodInvalid: "La fecha final debe ser igual o posterior a la inicial.",
+    shiftDateLabel: "Día",
+    shiftTimeLabel: "Hora",
+    shiftTimeInvalid: "Selecciona una fecha y hora válidas en la zona indicada. Esa hora puede no existir por el cambio horario.",
+    shiftTimeOrder: "La salida debe ser posterior a la entrada.",
     workerFilter: "Trabajador",
     projectFilter: "Proyecto / Obra",
     filters: "Filtros",
@@ -582,6 +603,11 @@ export const translations: Record<Language, Translations> = {
     periodAll: "Todos los registros",
     totalWorked: "Horas Trabajadas",
     breakTime: "Tiempo de Pausas",
+    breakHours: "Horas de descanso",
+    breakMinutesLabel: "Minutos de descanso",
+    breakDurationHelp: "Descanso total que se descontará de la jornada.",
+    breakDurationInvalid: "El descanso debe ser un número entero de minutos y no superar la jornada.",
+
     totalShifts: "Total Turnos",
     activeStaff: "Personal Activo",
     exportExcel: "Exportar a Excel",
@@ -610,6 +636,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo del Ajuste *",
     adjustReasonPlaceholder: "Ej. El trabajador olvidó fichar su salida al finalizar el turno",
     saveAdjustment: "Guardar Ajuste",
+    closeShiftToo: "Marcar también la salida (cierra el turno en curso)",
     adminAdjustedNotice: "Horas modificadas por un administrador",
     adminCreatedNotice: "Jornada agregada por un administrador",
     adminAdjustedReason: "Motivo",
@@ -888,6 +915,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Shift History & Reports",
     periodFilter: "Period",
+    periodCustom: "Select Period",
+    periodStart: "Start date",
+    periodEnd: "End date",
+    periodInvalid: "End date must be on or after start date.",
+    shiftDateLabel: "Date",
+    shiftTimeLabel: "Time",
+    shiftTimeInvalid: "Choose a valid date and time in the displayed timezone. This time may not exist due to a clock change.",
+    shiftTimeOrder: "Clock-out time must be after clock-in time.",
     workerFilter: "Worker",
     projectFilter: "Project / Site",
     filters: "Filters",
@@ -900,6 +935,11 @@ export const translations: Record<Language, Translations> = {
     periodAll: "All Records",
     totalWorked: "Total Worked",
     breakTime: "Break Time",
+    breakHours: "Break hours",
+    breakMinutesLabel: "Break minutes",
+    breakDurationHelp: "Total break time deducted from this workday.",
+    breakDurationInvalid: "Break must be whole minutes and cannot exceed the workday.",
+
     totalShifts: "Total Shifts",
     activeStaff: "Active Staff",
     exportExcel: "Export Excel",
@@ -928,6 +968,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Reason for Adjustment *",
     adjustReasonPlaceholder: "e.g. Worker forgot to clock out at the end of the shift",
     saveAdjustment: "Save Adjustment",
+    closeShiftToo: "Also set clock-out (closes the shift in progress)",
     adminAdjustedNotice: "Hours modified by an administrator",
     adminCreatedNotice: "Workday added by an administrator",
     adminAdjustedReason: "Reason",
@@ -1206,6 +1247,14 @@ export const translations: Record<Language, Translations> = {
 
     reportsTitle: "Histórico de Turnos e Relatórios",
     periodFilter: "Período",
+    periodCustom: "Selecionar período",
+    periodStart: "Data inicial",
+    periodEnd: "Data final",
+    periodInvalid: "A data final deve ser igual ou posterior à inicial.",
+    shiftDateLabel: "Dia",
+    shiftTimeLabel: "Hora",
+    shiftTimeInvalid: "Selecione uma data e hora válidas no fuso indicado. Essa hora pode não existir devido à mudança de horário.",
+    shiftTimeOrder: "A saída deve ser posterior à entrada.",
     workerFilter: "Funcionário",
     projectFilter: "Projeto / Obra",
     filters: "Filtros",
@@ -1218,6 +1267,10 @@ export const translations: Record<Language, Translations> = {
     periodAll: "Todos os registros",
     totalWorked: "Horas Trabalhadas",
     breakTime: "Tempo de Intervalo",
+    breakHours: "Horas de pausa",
+    breakMinutesLabel: "Minutos de pausa",
+    breakDurationHelp: "Pausa total descontada desta jornada.",
+    breakDurationInvalid: "A pausa deve ser um número inteiro de minutos e não pode exceder a jornada.",
     totalShifts: "Total de Turnos",
     activeStaff: "Funcionários Ativos",
     exportExcel: "Exportar para Excel",
@@ -1246,6 +1299,7 @@ export const translations: Record<Language, Translations> = {
     adjustReason: "Motivo do Ajuste *",
     adjustReasonPlaceholder: "Ex. O funcionário esqueceu de registrar a saída ao fim do expediente",
     saveAdjustment: "Salvar Ajuste",
+    closeShiftToo: "Marcar também a saída (fecha o turno em curso)",
     adminAdjustedNotice: "Horas modificadas por um administrador",
     adminCreatedNotice: "Jornada adicionada por um administrador",
     adminAdjustedReason: "Motivo",
