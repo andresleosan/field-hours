@@ -16,6 +16,8 @@ const playwrightArguments = argumentsFromUser.filter((argument) => argument !== 
 
 const testEnvironment = {
   ...process.env,
+  VITE_SUPABASE_URL: "http://127.0.0.1:54321",
+  VITE_SUPABASE_PUBLISHABLE_KEY: "test-only-public-key",
   PLAYWRIGHT_BROWSERS_PATH: browserCache,
   E2E_EXTERNAL_SERVER: "1",
   E2E_CROSS_BROWSER: crossBrowser ? "1" : "0",
@@ -70,7 +72,7 @@ if (installOnly) {
   try {
     server = spawn(process.execPath, [viteCli, "--host", "127.0.0.1", "--port", "4187", "--strictPort"], {
       cwd: projectRoot,
-      env: process.env,
+      env: testEnvironment,
       stdio: "ignore",
       windowsHide: true,
     });

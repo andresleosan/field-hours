@@ -46,3 +46,7 @@ service-account*.json
 
 # Local provider metadata not used by the active Vercel/Cloudflare/Supabase stack
 .firebaserc
+
+# Local configuration and generated build state
+*serviceAccount*.json
+*.tsbuildinfo

@@ -1190,7 +1190,7 @@ function WorkerView({ user, onSignOut }: { user: SessionUser; onSignOut: () => v
               </div>
             </div>
           </div>
-          <div className="px-5 py-7 sm:px-7 sm:py-10">
+          <div className={`px-5 ${pinClockIn ? "py-3" : "py-7"} sm:px-7 sm:py-10`}>
             <div className="flex items-end justify-between gap-5">
               <div>
                 <p className="label-eyebrow">{t("workedToday")}</p>

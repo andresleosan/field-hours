@@ -25,6 +25,10 @@ export default defineConfig({
   },
   webServer: process.env.E2E_EXTERNAL_SERVER ? undefined : {
     command: "node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4187",
+    env: {
+      VITE_SUPABASE_URL: "http://127.0.0.1:54321",
+      VITE_SUPABASE_PUBLISHABLE_KEY: "test-only-public-key",
+    },
     url: baseURL,
     reuseExistingServer: false,
     timeout: 120_000,
